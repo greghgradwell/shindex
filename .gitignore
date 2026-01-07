@@ -37,4 +37,5 @@ npm-debug.log
 
 # Environment variables with secrets
 .env
+.envrc
 

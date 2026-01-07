@@ -18,6 +18,12 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  def create_shelf!(attrs) do
+    %Shelf{}
+    |> Shelf.changeset(attrs)
+    |> Repo.insert!()
+  end
+
   def update_shelf(%Shelf{} = shelf, attrs) do
     shelf
     |> Shelf.changeset(attrs)
@@ -44,6 +50,12 @@ defmodule InventoryLocator.Inventory do
     %Bin{}
     |> Bin.changeset(attrs)
     |> Repo.insert()
+  end
+
+  def create_bin!(attrs) do
+    %Bin{}
+    |> Bin.changeset(attrs)
+    |> Repo.insert!()
   end
 
   def update_bin(%Bin{} = bin, attrs) do
@@ -74,6 +86,12 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  def create_cell!(attrs) do
+    %Cell{}
+    |> Cell.changeset(attrs)
+    |> Repo.insert!()
+  end
+
   def update_cell(%Cell{} = cell, attrs) do
     cell
     |> Cell.changeset(attrs)
@@ -102,6 +120,12 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  def create_location!(attrs) do
+    %Location{}
+    |> Location.changeset(attrs)
+    |> Repo.insert!()
+  end
+
   def update_location(%Location{} = location, attrs) do
     location
     |> Location.changeset(attrs)
@@ -128,6 +152,12 @@ defmodule InventoryLocator.Inventory do
     %ItemType{}
     |> ItemType.changeset(attrs)
     |> Repo.insert()
+  end
+
+  def create_item_type!(attrs) do
+    %ItemType{}
+    |> ItemType.changeset(attrs)
+    |> Repo.insert!()
   end
 
   def update_item_type(%ItemType{} = item_type, attrs) do

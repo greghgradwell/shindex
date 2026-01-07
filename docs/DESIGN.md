@@ -161,24 +161,57 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 ### 5. Location Code Format
 
-**Decision:** Short codes like "A3-0" (Shelf A, Bin 3, Cell 0).
+**Decision:** Fixed delimiter format: `shelf-bin-cell` (e.g., "A-3-1", "tall_workbench-12-5")
 
-- Human-readable but compact for labeling
+**Format Rules:**
+- **Delimiter:** Fixed single dash (`-`) between all components
+- **Shelf codes:**
+  - Letters (a-z, A-Z) and underscores only
+  - No leading or trailing underscores
+  - 1-50 characters
+  - Case-insensitive (normalized to uppercase)
+  - Examples: `A`, `TALL_WORKBENCH`, `shelf_a`
+- **Bin codes:**
+  - Integers only (0-999)
+  - No leading zeros
+  - Examples: `0`, `3`, `12`, `999`
+- **Cell codes:**
+  - Integers only (0-999)
+  - No leading zeros
+  - Examples: `0`, `1`, `88`
 
-**Why:** Easy to print on labels, quick to type, unambiguous.
+**Examples:**
+- `a-3-1` → Shelf: "A", Bin: "3", Cell: "1"
+- `tall_workbench-12-5` → Shelf: "TALL_WORKBENCH", Bin: "12", Cell: "5"
+- `B-0-999` → Shelf: "B", Bin: "0", Cell: "999"
+
+**Invalid Examples:**
+- `tall-workbench-3-1` ❌ (dash in shelf name)
+- `_shelf-3-1` ❌ (leading underscore)
+- `A-03-1` ❌ (leading zero in bin)
+- `A-1000-1` ❌ (bin out of range)
+
+**Why:** Fixed delimiter enables unambiguous parsing. Integer-only bin/cell codes ensure simple validation and prevent entry errors. Shelf name flexibility accommodates descriptive labels while maintaining parseability.
 
 ### 6. String-Based Location Entry
 
 **Decision:** User types location as free-form string, system parses and validates.
 
-- Parse "a3-0" → Shelf A, Bin 3, Cell 0
-- Normalize case ("a3-0" → "A3-0")
-- Validate against existing hierarchy
-- If location exists and empty: use it
-- If location exists and occupied: alert collision
-- If location doesn't exist: prompt to create missing shelf/bin/cell
+**Parsing Flow:**
+1. Split on `-` delimiter (must have exactly 3 parts)
+2. Validate each component against schema rules (Shelf, Bin, Cell modules)
+3. Normalize shelf code to uppercase
+4. Return parsed components or validation error
 
-**Why:** String entry is faster than dropdown navigation for high-volume data entry. At 1000+ items, this saves significant time. System handles validation so user can type quickly without worrying about case or format.
+**Validation Flow:**
+1. Walk database hierarchy (Shelf → Bin → Cell → Location)
+2. Determine which entities exist
+3. Return status:
+   - `:needs_creation` with list of missing entities
+   - `:exists_empty` if location exists with no item
+   - `:exists_occupied` if location has an item
+
+**Why:** String entry is faster than dropdown navigation for high-volume data entry. At 1000+ items, this saves significant time. Validation logic lives in schema modules (single source of truth), and parser delegates to them for flexibility.
 
 ## File Structure
 
