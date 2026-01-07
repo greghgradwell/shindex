@@ -21,7 +21,7 @@ A personal inventory system for tracking workshop and household items with preci
 **Key Design Decisions:**
 - One item type per location (enforced via unique constraint)
 - No orphaned items (every item must have a valid location)
-- String-based location entry (type "a3-0" → system validates and normalizes)
+- String-based location entry (type "A-3-0" → system validates and normalizes)
 - Phoenix PubSub for real-time photo sync between devices
 
 See `docs/SPEC.md`, `docs/DESIGN.md`, and `docs/PLAN.md` for complete specifications.
@@ -51,3 +51,4 @@ Follow the [Elixir Style Guide](https://github.com/christopheradams/elixir_style
 - Use pipe operator for function chains; avoid single-use pipes
 - Pattern matching and control flow should be visually consistent
 - Comments go above the code they describe, never inline explanations of *what*
+- **Every function must have a @spec** - Document argument types and return types for all public and private functions

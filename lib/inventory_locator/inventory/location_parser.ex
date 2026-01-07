@@ -86,8 +86,16 @@ defmodule InventoryLocator.Inventory.LocationParser do
     end
   end
 
+  @type hierarchy :: %{
+          shelf: Shelf.t() | nil,
+          bin: Bin.t() | nil,
+          cell: Cell.t() | nil,
+          location: Location.t() | nil
+        }
+
   # Sequential queries with early termination (stops at first nil)
   # Future optimization: Single join query if performance becomes critical
+  @spec fetch_hierarchy(String.t(), String.t(), String.t()) :: hierarchy()
   defp fetch_hierarchy(shelf_code, bin_code, cell_code) do
     shelf = Repo.get_by(Shelf, code: shelf_code)
     bin = fetch_bin(bin_code, shelf)
@@ -97,24 +105,28 @@ defmodule InventoryLocator.Inventory.LocationParser do
     %{shelf: shelf, bin: bin, cell: cell, location: location}
   end
 
+  @spec fetch_bin(String.t(), Shelf.t() | nil) :: Bin.t() | nil
   defp fetch_bin(_code, nil), do: nil
 
   defp fetch_bin(code, shelf) do
     Repo.get_by(Bin, code: code, shelf_id: shelf.id)
   end
 
+  @spec fetch_cell(String.t(), Bin.t() | nil) :: Cell.t() | nil
   defp fetch_cell(_code, nil), do: nil
 
   defp fetch_cell(code, bin) do
     Repo.get_by(Cell, code: code, bin_id: bin.id)
   end
 
+  @spec fetch_location(Cell.t() | nil) :: Location.t() | nil
   defp fetch_location(nil), do: nil
 
   defp fetch_location(cell) do
     Repo.get_by(Location, cell_id: cell.id)
   end
 
+  @spec find_missing_from_hierarchy(hierarchy()) :: [Missing.t()]
   defp find_missing_from_hierarchy(%{shelf: shelf, bin: bin, cell: cell, location: location}) do
     [
       {shelf, Missing.shelf()},
@@ -126,10 +138,12 @@ defmodule InventoryLocator.Inventory.LocationParser do
     |> Enum.map(fn {_entity, label} -> label end)
   end
 
+  @spec build_needs_creation_result([Missing.t()]) :: {:ok, validation_result()}
   defp build_needs_creation_result(missing) do
     {:ok, %{status: Status.needs_creation(), missing: missing, location: nil, item_type: nil}}
   end
 
+  @spec check_occupancy(Location.t()) :: {:ok, validation_result()}
   defp check_occupancy(location) do
     item_type = Repo.get_by(ItemType, location_id: location.id)
     status = if item_type, do: Status.exists_occupied(), else: Status.exists_empty()

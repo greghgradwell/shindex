@@ -41,40 +41,86 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Write tests for core operations
 
 ### 1.4 Location Code Parser
-- [ ] Implement location code parser ("a3-0" → {shelf: "A", bin: "3", cell: "0"})
-- [ ] Handle case normalization
-- [ ] Validate parsed result against existing hierarchy
-- [ ] Return status: :exists_empty, :exists_occupied, :needs_creation
-- [ ] Write tests for parsing edge cases
+- [x] Implement location code parser ("a-3-0" → {shelf: "A", bin: "3", cell: "0"})
+- [x] Handle case normalization
+- [x] Validate parsed result against existing hierarchy
+- [x] Return status: :exists_empty, :exists_occupied, :needs_creation
+- [x] Write tests for parsing edge cases
 
-**Go/No-Go:** Can create locations and items via IEx console. Location parser handles "a3-0" correctly.
+**Go/No-Go:** Can create locations and items via IEx console. Location parser handles "a-3-0" correctly.
 
 ## Phase 2: Basic UI
 
-### 2.1 Location Management
-- [ ] Create LocationLive.Index - list locations grouped by shelf/bin
-- [ ] Add shelf creation UI
-- [ ] Add bin creation UI (select shelf)
-- [ ] Add cell creation UI (select bin)
-- [ ] Display full location codes (e.g., "A3-0")
-- [ ] Add location editing/deletion with cascade warnings
+**UX Decisions:**
+- Search-first interface (no default list for 1000+ items)
+- Hybrid workflow: phone photo capture → desktop data entry
+- Inline location creation (type "A-3-0" → "Create?" → one click)
+- Archive pattern: archived items stay searchable, location is freed
+  - When archiving: location_id → NULL (frees location for reuse)
+  - When restoring: user must assign new location before saving
 
-### 2.2 Item List and Detail
-- [ ] Create ItemLive.Index - list all items with search box
-- [ ] Create ItemLive.Show - item detail view
-- [ ] Display photo, name, location, quantity
+**See `docs/PHASE_2_PLAN.md` for detailed strategy**
+
+### 2.0 Schema: Archive Support
+- [x] Add `archived` boolean field to item_types (indexed)
+- [x] Make `location_id` nullable with bidirectional constraint:
+  - Active items (archived=false) MUST have location_id
+  - Archived items (archived=true) MUST have location_id=NULL (frees location)
+- [x] Allow `quantity >= 0` (change from `> 0`)
+- [x] Update ItemType schema with bidirectional archive validation
+- [x] Add comprehensive tests for archive/restore lifecycle
+- [ ] Add archive/restore functions to Inventory context (helper methods)
+
+### 2.1 Location Management UI
+- [ ] Create LocationLive.Index - hierarchical view (shelf→bin→cell)
+- [ ] Display occupied vs empty status for each location
+- [ ] Add delete for empty locations (block if occupied)
+- [ ] Write tests for location deletion
+
+### 2.2 Search Interface (Search-First)
+- [ ] Create ItemLive.Index with search box (no default list)
+- [ ] Implement debounced search (simple ILIKE for now)
+- [ ] Add result ordering: in-stock first, then archived (ORDER BY archived ASC)
+- [ ] Add archived items toggle (default: hidden)
+- [ ] Style archived items with reduced opacity (visually distinct)
+- [ ] Add filter dropdowns: missing manufacturer/model/description/any
+- [ ] Display results in photo grid
+- [ ] Write tests for search flow and filtering
+
+### 2.3 Item Detail View
+- [ ] Create ItemLive.Show with full item display
 - [ ] Add quantity increment/decrement controls
+- [ ] Add archive confirmation when qty→0
+- [ ] Add restore form for archived items (assign new location)
+- [ ] Write tests for quantity changes and archive flow
 
-### 2.3 Add Item Flow
-- [ ] Create ItemLive.New - add item form
-- [ ] Implement photo upload (file input)
-- [ ] String-based location entry with real-time validation
-- [ ] Show location status (valid/occupied/needs creation)
-- [ ] Prompt to create location if it doesn't exist
-- [ ] Block save if location is occupied
-- [ ] Save item and redirect to list
+### 2.4 Add Item Flow (Hybrid Workflow)
+- [ ] Add image dependency for photo downsampling (~0.62)
+- [ ] Implement server-side photo downsampling (1920x1080, ~85% quality)
+- [ ] Create CameraLive.Index for mobile photo capture + quick entry
+  - [ ] Required fields: name, location (with inline creation)
+  - [ ] Optional fields: description, manufacturer, model, quantity
+  - [ ] Save immediately after photo + required fields
+- [ ] Implement photo upload + downsample + PubSub broadcast
+- [ ] Create ItemLive.New with photo subscription (full desktop entry)
+- [ ] Update ItemLive.Edit with batch completion mode
+  - [ ] Auto-advance to next incomplete item (Ctrl+Enter)
+  - [ ] Focus on missing field when opened from filter
+- [ ] Add location input with real-time validation
+- [ ] Add inline location creation button
+- [ ] Write tests for full workflow + photo downsampling
 
-**Go/No-Go:** Can add item with photo and find it in list. (Milestone A)
+### 2.5 Polish & UX
+- [ ] Responsive CSS for mobile/desktop
+- [ ] Mobile-optimize camera UI (clear required field indicators)
+- [ ] Desktop-optimize data entry forms (keyboard shortcuts, Ctrl+Enter)
+- [ ] Batch completion UX (progress indicator, "X items remaining")
+- [ ] Error messaging improvements
+- [ ] Loading states (photo upload/downsample progress)
+- [ ] "Incomplete metadata" badge styling
+- [ ] Archived item opacity/styling
+
+**Go/No-Go:** Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
 
 ## Phase 3: Search
 

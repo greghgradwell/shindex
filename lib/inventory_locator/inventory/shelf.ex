@@ -1,10 +1,10 @@
 defmodule InventoryLocator.Inventory.Shelf do
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
 
   alias InventoryLocator.Inventory.Bin
 
-  schema "shelves" do
+  typed_schema "shelves" do
     field :code, :string
     field :name, :string
     field :description, :string
@@ -14,6 +14,7 @@ defmodule InventoryLocator.Inventory.Shelf do
     timestamps()
   end
 
+  @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(shelf, attrs) do
     shelf
     |> cast(attrs, [:code, :name, :description])
@@ -24,8 +25,10 @@ defmodule InventoryLocator.Inventory.Shelf do
 
   @max_code_length 50
 
+  @spec max_code_length() :: integer()
   def max_code_length, do: @max_code_length
 
+  @spec valid_code?(any()) :: boolean()
   def valid_code?(code) when is_binary(code) do
     String.length(code) > 0 &&
       String.length(code) <= @max_code_length &&
@@ -34,6 +37,7 @@ defmodule InventoryLocator.Inventory.Shelf do
 
   def valid_code?(_), do: false
 
+  @spec validate_code(Ecto.Changeset.t()) :: Ecto.Changeset.t()
   defp validate_code(changeset) do
     validate_change(changeset, :code, fn :code, code ->
       if valid_code?(code) do

@@ -83,6 +83,7 @@ defmodule InventoryLocator.Inventory.LocationParser.ValidateTest do
         Inventory.create_item_type!(%{
           name: "Test Item",
           quantity: 10,
+          archived: false,
           location_id: location.id
         })
 
@@ -147,6 +148,7 @@ defmodule InventoryLocator.Inventory.LocationParser.ValidateTest do
         Inventory.create_item_type!(%{
           name: "Occupied Item",
           quantity: 5,
+          archived: false,
           location_id: location.id
         })
 

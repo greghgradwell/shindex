@@ -84,7 +84,7 @@
                            │      Location       │
                            ├─────────────────────┤
                            │ id                  │
-                           │ full_code           │ ← "A3-0" (computed)
+                           │ full_code           │ ← "A-3-0" (computed)
                            │ shelf_id            │
                            │ bin_id              │
                            │ cell_id             │
@@ -99,9 +99,10 @@
                            │ description         │
                            │ manufacturer        │ ← nullable
                            │ model               │ ← nullable
-                           │ quantity            │
-                           │ location_id         │ ← unique constraint
+                           │ quantity            │ ← >= 0
+                           │ location_id         │ ← unique, nullable
                            │ photo_path          │
+                           │ archived            │ ← indexed
                            │ inserted_at         │
                            │ updated_at          │
                            └─────────────────────┘
@@ -113,8 +114,11 @@
 2. **Location uniqueness:** Combination of (shelf_id, bin_id, cell_id) is unique
 3. **Full code generation:** Computed as "{shelf.code}{bin.code}-{cell.code}"
 4. **Referential integrity:** Bins require a shelf, cells require a bin
-5. **No orphaned items:** Items require a location; location_id is NOT NULL
-6. **Deletion protection:** Cannot delete a location that has an item; cannot delete shelf/bin with children
+5. **Active items require location:** `CHECK ((archived = false AND location_id IS NOT NULL) OR (archived = true AND location_id IS NULL))`
+   - Active items (archived=false) MUST have a location
+   - Archived items (archived=true) MUST NOT have a location (frees location for reuse)
+6. **Deletion protection:** Cannot delete a location with an active item; cannot delete shelf/bin with children
+7. **Quantity validation:** `CHECK (quantity >= 0)` - allows zero for archived items
 
 ### Why Full Hierarchy from Day One
 

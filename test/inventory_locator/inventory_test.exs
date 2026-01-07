@@ -228,7 +228,8 @@ defmodule InventoryLocator.InventoryTest do
       description: "Stainless steel hex bolts",
       manufacturer: "McMaster-Carr",
       model: "91290A115",
-      quantity: 50
+      quantity: 50,
+      archived: false
     }
     @update_attrs %{name: "M6 Hex Bolts", quantity: 25}
     @invalid_attrs %{name: nil}
@@ -269,9 +270,12 @@ defmodule InventoryLocator.InventoryTest do
       assert {:error, %Ecto.Changeset{}} = Inventory.create_item_type(attrs)
     end
 
-    test "create_item_type/1 with quantity <= 0 returns error changeset", %{location: location} do
-      attrs = Map.put(@valid_attrs, :location_id, location.id) |> Map.put(:quantity, 0)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_item_type(attrs)
+    test "create_item_type/1 with negative quantity returns error changeset", %{
+      location: location
+    } do
+      attrs = Map.put(@valid_attrs, :location_id, location.id) |> Map.put(:quantity, -1)
+      assert {:error, changeset} = Inventory.create_item_type(attrs)
+      assert "must be greater than or equal to 0" in errors_on(changeset).quantity
     end
 
     test "update_item_type/2 with valid data updates the item_type", %{location: location} do
@@ -289,6 +293,83 @@ defmodule InventoryLocator.InventoryTest do
 
       assert {:ok, _} = Inventory.delete_item_type(item_type)
       assert_raise Ecto.NoResultsError, fn -> Inventory.get_item_type!(item_type.id) end
+    end
+
+    test "create_item_type/1 with archived=true and no location succeeds" do
+      attrs = Map.merge(@valid_attrs, %{archived: true, location_id: nil})
+      assert {:ok, item_type} = Inventory.create_item_type(attrs)
+      assert item_type.archived == true
+      assert is_nil(item_type.location_id)
+    end
+
+    test "create_item_type/1 with archived=false and no location fails" do
+      attrs = Map.merge(@valid_attrs, %{archived: false, location_id: nil})
+      assert {:error, changeset} = Inventory.create_item_type(attrs)
+      assert "is required for active items" in errors_on(changeset).location_id
+    end
+
+    test "create_item_type/1 with archived=true and location fails" do
+      attrs = Map.merge(@valid_attrs, %{archived: true, location_id: 999})
+      assert {:error, changeset} = Inventory.create_item_type(attrs)
+
+      assert "must be removed when archiving (archived items cannot have a location)" in errors_on(
+               changeset
+             ).location_id
+    end
+
+    test "create_item_type/1 with quantity=0 succeeds", %{location: location} do
+      attrs = Map.merge(@valid_attrs, %{quantity: 0, location_id: location.id, archived: false})
+      assert {:ok, item_type} = Inventory.create_item_type(attrs)
+      assert item_type.quantity == 0
+    end
+
+    test "update_item_type/2 from active to archived clears location", %{location: location} do
+      {:ok, item_type} =
+        Inventory.create_item_type(
+          Map.merge(@valid_attrs, %{location_id: location.id, archived: false})
+        )
+
+      assert {:ok, updated} =
+               Inventory.update_item_type(item_type, %{archived: true, location_id: nil})
+
+      assert updated.archived == true
+      assert is_nil(updated.location_id)
+    end
+
+    test "update_item_type/2 from active to archived without clearing location fails", %{
+      location: location
+    } do
+      {:ok, item_type} =
+        Inventory.create_item_type(
+          Map.merge(@valid_attrs, %{location_id: location.id, archived: false})
+        )
+
+      assert {:error, changeset} = Inventory.update_item_type(item_type, %{archived: true})
+
+      assert "must be removed when archiving (archived items cannot have a location)" in errors_on(
+               changeset
+             ).location_id
+    end
+
+    test "update_item_type/2 from archived to active without location fails" do
+      {:ok, item_type} =
+        Inventory.create_item_type(Map.merge(@valid_attrs, %{archived: true, location_id: nil}))
+
+      assert {:error, changeset} = Inventory.update_item_type(item_type, %{archived: false})
+      assert "is required for active items" in errors_on(changeset).location_id
+    end
+
+    test "update_item_type/2 from archived to active with location succeeds", %{
+      location: location
+    } do
+      {:ok, item_type} =
+        Inventory.create_item_type(Map.merge(@valid_attrs, %{archived: true, location_id: nil}))
+
+      assert {:ok, updated} =
+               Inventory.update_item_type(item_type, %{archived: false, location_id: location.id})
+
+      assert updated.archived == false
+      assert updated.location_id == location.id
     end
   end
 end

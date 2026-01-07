@@ -1,11 +1,11 @@
 defmodule InventoryLocator.Inventory.Cell do
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
   alias InventoryLocator.Inventory.IntegerCodeValidator
 
   alias InventoryLocator.Inventory.Bin
 
-  schema "cells" do
+  typed_schema "cells" do
     field :code, :string
     field :name, :string
 
@@ -17,9 +17,13 @@ defmodule InventoryLocator.Inventory.Cell do
   @min_code 0
   @max_code 999
 
+  @spec min_code() :: integer()
   def min_code, do: @min_code
+
+  @spec max_code() :: integer()
   def max_code, do: @max_code
 
+  @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(cell, attrs) do
     cell
     |> cast(attrs, [:code, :name, :bin_id])
@@ -29,10 +33,12 @@ defmodule InventoryLocator.Inventory.Cell do
     |> unique_constraint([:bin_id, :code], name: :cells_bin_id_code_index)
   end
 
+  @spec valid_code?(any()) :: boolean()
   def valid_code?(code) do
     IntegerCodeValidator.valid_code?(code, @min_code, @max_code)
   end
 
+  @spec validate_code(Ecto.Changeset.t()) :: Ecto.Changeset.t()
   defp validate_code(changeset) do
     validate_change(changeset, :code, fn :code, code ->
       if valid_code?(code) do

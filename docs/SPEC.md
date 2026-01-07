@@ -33,27 +33,32 @@ Workshop and household items are difficult to locate, leading to:
 
 ### Location Management
 - **Hierarchy:** Shelf → Bin → Cell
-- **Naming:** Short codes preferred (e.g., "A3-0" for Shelf A, Bin 3, Cell 0)
+- **Naming:** Short codes preferred (e.g., "A-3-0" for Shelf A, Bin 3, Cell 0)
 - **Constraint:** Each location holds exactly ONE item type
 - **Flexibility:** Locations can be created on-the-fly during item entry
 
 ### Location Entry (String-Based)
-- User types location as string (e.g., "a3-0")
-- System normalizes and validates (e.g., "a3-0" → "A3-0")
+- User types location as string (e.g., "a-3-0")
+- System normalizes and validates (e.g., "a-3-0" → "A-3-0")
 - If location exists and is empty: confirm and use
 - If location exists and is occupied: alert user (collision)
 - If location does not exist: prompt to create (e.g., "Shelf A has 2 bins. Create bin 3?")
 - No dropdown menus required - string entry is faster for high-volume data entry
 
 ### Item Management
-- **Required fields:** Name, photo, location
-- **Optional fields:** Description, quantity, manufacturer, model
+- **Required fields:** Name, photo, location, quantity, archived status
+- **Optional fields:** Description, manufacturer, model
 - **Photos:** Captured from phone camera or desktop webcam
 - **Constraint:** One item type per location (enforced by system)
-- **Constraint:** Every item MUST have a valid location (no orphaned items)
+- **Constraint:** Active items MUST have a valid location
   - With chaotic storage, a lost location = lost item
-  - Database enforces NOT NULL on location_id
-  - Location deletion blocked if item exists at that location
+  - Database enforces: `(archived=false AND location_id IS NOT NULL)`
+  - Location deletion blocked if active item exists at that location
+- **Archive Pattern:** Items with quantity=0 or no longer needed
+  - Archiving frees the location: `location_id` → `NULL`
+  - Archived items remain searchable but don't occupy a location
+  - Restoring requires assigning a new valid location before saving
+  - Database enforces: `(archived=true AND location_id IS NULL)`
 
 ### Duplicate Detection
 - System suggests possible duplicates when adding new items

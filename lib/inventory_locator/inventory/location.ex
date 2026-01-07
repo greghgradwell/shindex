@@ -1,10 +1,10 @@
 defmodule InventoryLocator.Inventory.Location do
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
 
   alias InventoryLocator.Inventory.{Cell, ItemType}
 
-  schema "locations" do
+  typed_schema "locations" do
     field :full_code, :string
 
     belongs_to :cell, Cell
@@ -14,6 +14,7 @@ defmodule InventoryLocator.Inventory.Location do
     timestamps()
   end
 
+  @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(location, attrs) do
     location
     |> cast(attrs, [:full_code, :cell_id])
