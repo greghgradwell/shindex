@@ -348,14 +348,55 @@ Implement the core user interface for the inventory system based on UX decisions
 
 ---
 
-### Phase 2.1: Location Management UI
-**Deliverables**:
-- `LocationLive.Index` with hierarchical display
-- Occupied vs empty status indicators
-- Delete empty locations (block if occupied)
-- Tests for location deletion
+### Phase 2.1: Location Management UI ✅ COMPLETE
 
-**Go/No-Go**: Can view all locations, see which are occupied, delete empty ones.
+**Visual Design**: Gantt-chart style display (railway timetable layout)
+- Each shelf displayed as horizontal row spanning full width
+- Bins displayed as labeled segments/rectangles within shelf row
+- Cells displayed as subdivisions within bin segments
+- Proportional sizing: bin width proportional to cell count
+
+**Interactions**:
+- **Hover occupied location**: Show modal quickview (photo, name, description)
+- **Click occupied location**: Navigate to full ItemLive.Show page
+- **Empty locations**: Visual distinction (badge/color) with delete button
+- **Show only created locations**: Filter to locations that exist in database (not theoretical)
+
+**Key Design Decisions**:
+- **Gantt layout**: Visual hierarchy makes Shelf → Bin → Cell relationships immediately clear
+- **Proportional sizing**: Bin width reflects cell count (more cells = wider bin), compact display shows 50+ locations on screen
+- **Hover + click pattern**: Hover provides fast quickview without navigation, click opens full details for editing
+- **Preload full hierarchy**: Single query with nested preloads (`shelf → bins → cells → locations → item_type`) avoids N+1
+- **CSS Flexbox + Grid**: Flexbox for horizontal shelf layout, Grid for cell arrangement within bins
+- **Filter cells**: Only render cells with `location` record using `<%= if cell.location do %>` to avoid showing theoretical locations
+
+**Context Functions** (all with @spec):
+- `list_shelves_with_hierarchy/0`: Returns shelves with preloaded `bins → cells → locations → item_type`
+- `delete_empty_location/1`: Validates empty before deletion, returns `{:ok, location}` or `{:error, :occupied}`
+- `count_locations_by_occupancy/0`: Returns `%{occupied: integer, empty: integer}` for stats display
+
+**Deliverables**:
+- `LocationLive.Index` with hierarchical Gantt-chart display
+- `LocationLive.Components` with `shelf_row/1`, `bin_segment/1`, `cell_box/1`, `quickview_modal/1`
+- Occupied vs empty status indicators (color coding, icons)
+- Hover quickview modal with photo/name/description
+- Click navigation to ItemLive.Show
+- Delete empty locations (block if occupied, data-confirm dialog)
+- Route: `live "/locations", LocationLive.Index`
+- Unit tests for context functions
+- LiveView tests for hierarchy display and deletion
+- **All functions must have @spec annotations** (per CLAUDE.md coding guidelines)
+
+**Status**: ✅ Complete
+- Gantt-chart layout implemented with flexbox
+- Hover quickview modal shows photo/name/description
+- Click navigates to item details (route warning - ItemLive.Show not yet implemented)
+- Delete empty locations with data-confirm dialog (blocks if occupied)
+- Occupancy stats display (X occupied, Y empty)
+- All context functions have @spec annotations
+- Tests passing (81 tests)
+
+**Note**: Inventory context refactored - deleted 24 unused CRUD functions, final public API: 7 functions (77% reduction)
 
 ---
 

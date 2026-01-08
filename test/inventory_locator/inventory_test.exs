@@ -2,374 +2,141 @@ defmodule InventoryLocator.InventoryTest do
   use InventoryLocator.DataCase
 
   alias InventoryLocator.Inventory
+  alias InventoryLocator.Inventory.LocationCode
 
-  describe "shelves" do
-    @valid_attrs %{code: "A", name: "Shelf A", description: "Top shelf"}
-    @update_attrs %{code: "B", name: "Shelf B", description: "Second shelf"}
-    @invalid_attrs %{code: nil}
+  describe "create_item_with_location/4" do
+    test "creates location hierarchy automatically" do
+      location_code = "A-3-1"
 
-    test "list_shelves/0 returns all shelves" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert Inventory.list_shelves() == [shelf]
+      assert {:ok, item} =
+               Inventory.create_item_with_location(
+                 location_code,
+                 "Test Item",
+                 5,
+                 "Test description"
+               )
+
+      item = Repo.preload(item, location: [cell: [bin: :shelf]])
+      assert item.location.full_code == location_code
+      assert item.location.cell.code == LocationCode.cell_code!(location_code)
+      assert item.location.cell.bin.code == LocationCode.bin_code!(location_code)
+      assert item.location.cell.bin.shelf.code == LocationCode.shelf_code!(location_code)
     end
 
-    test "get_shelf!/1 returns the shelf with given id" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert Inventory.get_shelf!(shelf.id) == shelf
+    test "returns error for occupied location" do
+      location_code = "A-3-1"
+
+      assert {:ok, _item1} =
+               Inventory.create_item_with_location(location_code, "First Item", 5, "First")
+
+      assert {:error, :already_occupied} =
+               Inventory.create_item_with_location(location_code, "Second Item", 3, "Second")
     end
 
-    test "create_shelf/1 with valid data creates a shelf" do
-      assert {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert shelf.code == "A"
-      assert shelf.name == "Shelf A"
-      assert shelf.description == "Top shelf"
-    end
+    test "returns error for invalid location format" do
+      assert {:error, :invalid_format} =
+               Inventory.create_item_with_location("invalid", "Item", 1, "Desc")
 
-    test "create_shelf/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_shelf(@invalid_attrs)
-    end
+      assert {:error, :invalid_format} =
+               Inventory.create_item_with_location("A-1", "Item", 1, "Desc")
 
-    test "create_shelf/1 with duplicate code returns error changeset" do
-      {:ok, _shelf} = Inventory.create_shelf(@valid_attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_shelf(@valid_attrs)
-    end
-
-    test "update_shelf/2 with valid data updates the shelf" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert {:ok, updated_shelf} = Inventory.update_shelf(shelf, @update_attrs)
-      assert updated_shelf.code == "B"
-      assert updated_shelf.name == "Shelf B"
-    end
-
-    test "update_shelf/2 with invalid data returns error changeset" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.update_shelf(shelf, @invalid_attrs)
-      assert shelf == Inventory.get_shelf!(shelf.id)
-    end
-
-    test "delete_shelf/1 deletes the shelf" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert {:ok, _} = Inventory.delete_shelf(shelf)
-      assert_raise Ecto.NoResultsError, fn -> Inventory.get_shelf!(shelf.id) end
-    end
-
-    test "change_shelf/1 returns a shelf changeset" do
-      {:ok, shelf} = Inventory.create_shelf(@valid_attrs)
-      assert %Ecto.Changeset{} = Inventory.change_shelf(shelf)
+      assert {:error, :invalid_format} =
+               Inventory.create_item_with_location("A3-1", "Item", 1, "Desc")
     end
   end
 
-  describe "bins" do
-    setup do
-      {:ok, shelf} = Inventory.create_shelf(%{code: "A"})
-      %{shelf: shelf}
+  describe "list_shelves_with_hierarchy/0" do
+    test "preloads full hierarchy" do
+      location_code = "A-1-0"
+      {:ok, item} = Inventory.create_item_with_location(location_code, "Test", 1, "Desc")
+      item = Repo.preload(item, :location)
+
+      [result] = Inventory.list_shelves_with_hierarchy()
+
+      assert result.code == LocationCode.shelf_code!(location_code)
+      assert Ecto.assoc_loaded?(result.bins)
+      assert length(result.bins) == 1
+      assert Ecto.assoc_loaded?(hd(result.bins).cells)
+      assert length(hd(result.bins).cells) == 1
+
+      first_cell = hd(hd(result.bins).cells)
+      assert Ecto.assoc_loaded?(first_cell.location)
+      assert first_cell.location.id == item.location.id
     end
 
-    @valid_attrs %{code: "3", name: "Bin 3"}
-    @update_attrs %{code: "4", name: "Bin 4"}
-    @invalid_attrs %{code: nil}
-
-    test "list_bins/0 returns all bins", %{shelf: shelf} do
-      {:ok, bin} = Inventory.create_bin(Map.put(@valid_attrs, :shelf_id, shelf.id))
-      assert Inventory.list_bins() == [bin]
+    test "returns empty list when no shelves exist" do
+      assert Inventory.list_shelves_with_hierarchy() == []
     end
 
-    test "get_bin!/1 returns the bin with given id", %{shelf: shelf} do
-      {:ok, bin} = Inventory.create_bin(Map.put(@valid_attrs, :shelf_id, shelf.id))
-      assert Inventory.get_bin!(bin.id) == bin
-    end
+    test "preloads item_type association" do
+      location_code = "A-1-0"
+      {:ok, _item} = Inventory.create_item_with_location(location_code, "Test Item", 5, "Desc")
 
-    test "create_bin/1 with valid data creates a bin", %{shelf: shelf} do
-      attrs = Map.put(@valid_attrs, :shelf_id, shelf.id)
-      assert {:ok, bin} = Inventory.create_bin(attrs)
-      assert bin.code == "3"
-      assert bin.name == "Bin 3"
-      assert bin.shelf_id == shelf.id
-    end
+      [shelf_result] = Inventory.list_shelves_with_hierarchy()
+      bin_result = hd(shelf_result.bins)
+      cell_result = hd(bin_result.cells)
+      location_result = cell_result.location
 
-    test "create_bin/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_bin(@invalid_attrs)
-    end
-
-    test "create_bin/1 with duplicate shelf_id+code returns error changeset", %{shelf: shelf} do
-      attrs = Map.put(@valid_attrs, :shelf_id, shelf.id)
-      {:ok, _bin} = Inventory.create_bin(attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_bin(attrs)
-    end
-
-    test "update_bin/2 with valid data updates the bin", %{shelf: shelf} do
-      {:ok, bin} = Inventory.create_bin(Map.put(@valid_attrs, :shelf_id, shelf.id))
-      assert {:ok, updated_bin} = Inventory.update_bin(bin, @update_attrs)
-      assert updated_bin.code == "4"
-      assert updated_bin.name == "Bin 4"
-    end
-
-    test "delete_bin/1 deletes the bin", %{shelf: shelf} do
-      {:ok, bin} = Inventory.create_bin(Map.put(@valid_attrs, :shelf_id, shelf.id))
-      assert {:ok, _} = Inventory.delete_bin(bin)
-      assert_raise Ecto.NoResultsError, fn -> Inventory.get_bin!(bin.id) end
+      assert Ecto.assoc_loaded?(location_result.item_type)
+      assert location_result.item_type.name == "Test Item"
     end
   end
 
-  describe "cells" do
-    setup do
-      {:ok, shelf} = Inventory.create_shelf(%{code: "A"})
-      {:ok, bin} = Inventory.create_bin(%{code: "3", shelf_id: shelf.id})
-      %{shelf: shelf, bin: bin}
+  describe "delete_empty_location/1" do
+    test "deletes empty location" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Desc")
+      item = Repo.preload(item, :location)
+      Inventory.delete_item_type(item)
+
+      assert {:ok, _} = Inventory.delete_empty_location(item.location.id)
+      assert_raise Ecto.NoResultsError, fn -> Inventory.get_location!(item.location.id) end
     end
 
-    @valid_attrs %{code: "1", name: "Cell 1"}
-    @update_attrs %{code: "2", name: "Cell 2"}
-    @invalid_attrs %{code: nil}
+    test "refuses to delete occupied location" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Desc")
+      item = Repo.preload(item, :location)
 
-    test "list_cells/0 returns all cells", %{bin: bin} do
-      {:ok, cell} = Inventory.create_cell(Map.put(@valid_attrs, :bin_id, bin.id))
-      assert Inventory.list_cells() == [cell]
-    end
-
-    test "get_cell!/1 returns the cell with given id", %{bin: bin} do
-      {:ok, cell} = Inventory.create_cell(Map.put(@valid_attrs, :bin_id, bin.id))
-      assert Inventory.get_cell!(cell.id) == cell
-    end
-
-    test "create_cell/1 with valid data creates a cell", %{bin: bin} do
-      attrs = Map.put(@valid_attrs, :bin_id, bin.id)
-      assert {:ok, cell} = Inventory.create_cell(attrs)
-      assert cell.code == "1"
-      assert cell.name == "Cell 1"
-      assert cell.bin_id == bin.id
-    end
-
-    test "create_cell/1 with duplicate bin_id+code returns error changeset", %{bin: bin} do
-      attrs = Map.put(@valid_attrs, :bin_id, bin.id)
-      {:ok, _cell} = Inventory.create_cell(attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_cell(attrs)
-    end
-
-    test "delete_cell/1 deletes the cell", %{bin: bin} do
-      {:ok, cell} = Inventory.create_cell(Map.put(@valid_attrs, :bin_id, bin.id))
-      assert {:ok, _} = Inventory.delete_cell(cell)
-      assert_raise Ecto.NoResultsError, fn -> Inventory.get_cell!(cell.id) end
+      assert {:error, :occupied} = Inventory.delete_empty_location(item.location.id)
+      assert Inventory.get_location!(item.location.id)
     end
   end
 
-  describe "locations" do
-    setup do
-      {:ok, shelf} = Inventory.create_shelf(%{code: "A"})
-      {:ok, bin} = Inventory.create_bin(%{code: "3", shelf_id: shelf.id})
-      {:ok, cell} = Inventory.create_cell(%{code: "1", bin_id: bin.id})
-      %{shelf: shelf, bin: bin, cell: cell}
+  describe "count_locations_by_occupancy/0" do
+    test "returns zero counts when no locations exist" do
+      result = Inventory.count_locations_by_occupancy()
+      assert result.occupied == 0
+      assert result.empty == 0
     end
 
-    test "list_locations/0 returns all locations", %{cell: cell} do
-      attrs = %{
-        full_code: "A3-1",
-        cell_id: cell.id
-      }
+    test "counts empty locations" do
+      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 1, "Test")
 
-      {:ok, location} = Inventory.create_location(attrs)
-      assert Inventory.list_locations() == [location]
+      Inventory.delete_item_type(item1)
+      Inventory.delete_item_type(item2)
+
+      result = Inventory.count_locations_by_occupancy()
+      assert result.occupied == 0
+      assert result.empty == 2
     end
 
-    test "create_location/1 with valid data creates a location", %{cell: cell} do
-      attrs = %{
-        full_code: "A3-1",
-        cell_id: cell.id
-      }
+    test "counts occupied locations" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 1, "Test")
 
-      assert {:ok, location} = Inventory.create_location(attrs)
-      assert location.full_code == "A3-1"
-      assert location.cell_id == cell.id
+      result = Inventory.count_locations_by_occupancy()
+      assert result.occupied == 1
+      assert result.empty == 0
     end
 
-    test "create_location/1 with duplicate cell_id returns error changeset", %{cell: cell} do
-      attrs = %{
-        full_code: "A3-1",
-        cell_id: cell.id
-      }
+    test "counts mix of occupied and empty locations" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 2, "Test")
+      {:ok, item3} = Inventory.create_item_with_location("A-1-2", "Item 3", 3, "Test")
+      Inventory.delete_item_type(item3)
 
-      {:ok, _location} = Inventory.create_location(attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_location(attrs)
-    end
-
-    test "create_location/1 without required fields returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_location(%{})
-    end
-
-    test "delete_location/1 deletes the location", %{cell: cell} do
-      attrs = %{
-        full_code: "A3-1",
-        cell_id: cell.id
-      }
-
-      {:ok, location} = Inventory.create_location(attrs)
-      assert {:ok, _} = Inventory.delete_location(location)
-      assert_raise Ecto.NoResultsError, fn -> Inventory.get_location!(location.id) end
-    end
-  end
-
-  describe "item_types" do
-    setup do
-      {:ok, shelf} = Inventory.create_shelf(%{code: "A"})
-      {:ok, bin} = Inventory.create_bin(%{code: "3", shelf_id: shelf.id})
-      {:ok, cell} = Inventory.create_cell(%{code: "1", bin_id: bin.id})
-
-      {:ok, location} =
-        Inventory.create_location(%{
-          full_code: "A3-1",
-          cell_id: cell.id
-        })
-
-      %{location: location}
-    end
-
-    @valid_attrs %{
-      name: "M5 Hex Bolts",
-      description: "Stainless steel hex bolts",
-      manufacturer: "McMaster-Carr",
-      model: "91290A115",
-      quantity: 50,
-      archived: false
-    }
-    @update_attrs %{name: "M6 Hex Bolts", quantity: 25}
-    @invalid_attrs %{name: nil}
-
-    test "list_item_types/0 returns all item_types", %{location: location} do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.put(@valid_attrs, :location_id, location.id))
-
-      assert Inventory.list_item_types() == [item_type]
-    end
-
-    test "get_item_type!/1 returns the item_type with given id", %{location: location} do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.put(@valid_attrs, :location_id, location.id))
-
-      assert Inventory.get_item_type!(item_type.id) == item_type
-    end
-
-    test "create_item_type/1 with valid data creates an item_type", %{location: location} do
-      attrs = Map.put(@valid_attrs, :location_id, location.id)
-      assert {:ok, item_type} = Inventory.create_item_type(attrs)
-      assert item_type.name == "M5 Hex Bolts"
-      assert item_type.description == "Stainless steel hex bolts"
-      assert item_type.manufacturer == "McMaster-Carr"
-      assert item_type.model == "91290A115"
-      assert item_type.quantity == 50
-    end
-
-    test "create_item_type/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_item_type(@invalid_attrs)
-    end
-
-    test "create_item_type/1 with duplicate location_id returns error changeset", %{
-      location: location
-    } do
-      attrs = Map.put(@valid_attrs, :location_id, location.id)
-      {:ok, _item_type} = Inventory.create_item_type(attrs)
-      assert {:error, %Ecto.Changeset{}} = Inventory.create_item_type(attrs)
-    end
-
-    test "create_item_type/1 with negative quantity returns error changeset", %{
-      location: location
-    } do
-      attrs = Map.put(@valid_attrs, :location_id, location.id) |> Map.put(:quantity, -1)
-      assert {:error, changeset} = Inventory.create_item_type(attrs)
-      assert "must be greater than or equal to 0" in errors_on(changeset).quantity
-    end
-
-    test "update_item_type/2 with valid data updates the item_type", %{location: location} do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.put(@valid_attrs, :location_id, location.id))
-
-      assert {:ok, updated} = Inventory.update_item_type(item_type, @update_attrs)
-      assert updated.name == "M6 Hex Bolts"
-      assert updated.quantity == 25
-    end
-
-    test "delete_item_type/1 deletes the item_type", %{location: location} do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.put(@valid_attrs, :location_id, location.id))
-
-      assert {:ok, _} = Inventory.delete_item_type(item_type)
-      assert_raise Ecto.NoResultsError, fn -> Inventory.get_item_type!(item_type.id) end
-    end
-
-    test "create_item_type/1 with archived=true and no location succeeds" do
-      attrs = Map.merge(@valid_attrs, %{archived: true, location_id: nil})
-      assert {:ok, item_type} = Inventory.create_item_type(attrs)
-      assert item_type.archived == true
-      assert is_nil(item_type.location_id)
-    end
-
-    test "create_item_type/1 with archived=false and no location fails" do
-      attrs = Map.merge(@valid_attrs, %{archived: false, location_id: nil})
-      assert {:error, changeset} = Inventory.create_item_type(attrs)
-      assert "is required for active items" in errors_on(changeset).location_id
-    end
-
-    test "create_item_type/1 with archived=true and location fails" do
-      attrs = Map.merge(@valid_attrs, %{archived: true, location_id: 999})
-      assert {:error, changeset} = Inventory.create_item_type(attrs)
-
-      assert "must be removed when archiving (archived items cannot have a location)" in errors_on(
-               changeset
-             ).location_id
-    end
-
-    test "create_item_type/1 with quantity=0 succeeds", %{location: location} do
-      attrs = Map.merge(@valid_attrs, %{quantity: 0, location_id: location.id, archived: false})
-      assert {:ok, item_type} = Inventory.create_item_type(attrs)
-      assert item_type.quantity == 0
-    end
-
-    test "update_item_type/2 from active to archived clears location", %{location: location} do
-      {:ok, item_type} =
-        Inventory.create_item_type(
-          Map.merge(@valid_attrs, %{location_id: location.id, archived: false})
-        )
-
-      assert {:ok, updated} =
-               Inventory.update_item_type(item_type, %{archived: true, location_id: nil})
-
-      assert updated.archived == true
-      assert is_nil(updated.location_id)
-    end
-
-    test "update_item_type/2 from active to archived without clearing location fails", %{
-      location: location
-    } do
-      {:ok, item_type} =
-        Inventory.create_item_type(
-          Map.merge(@valid_attrs, %{location_id: location.id, archived: false})
-        )
-
-      assert {:error, changeset} = Inventory.update_item_type(item_type, %{archived: true})
-
-      assert "must be removed when archiving (archived items cannot have a location)" in errors_on(
-               changeset
-             ).location_id
-    end
-
-    test "update_item_type/2 from archived to active without location fails" do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.merge(@valid_attrs, %{archived: true, location_id: nil}))
-
-      assert {:error, changeset} = Inventory.update_item_type(item_type, %{archived: false})
-      assert "is required for active items" in errors_on(changeset).location_id
-    end
-
-    test "update_item_type/2 from archived to active with location succeeds", %{
-      location: location
-    } do
-      {:ok, item_type} =
-        Inventory.create_item_type(Map.merge(@valid_attrs, %{archived: true, location_id: nil}))
-
-      assert {:ok, updated} =
-               Inventory.update_item_type(item_type, %{archived: false, location_id: location.id})
-
-      assert updated.archived == false
-      assert updated.location_id == location.id
+      result = Inventory.count_locations_by_occupancy()
+      assert result.occupied == 2
+      assert result.empty == 1
     end
   end
 end

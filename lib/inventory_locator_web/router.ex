@@ -18,6 +18,7 @@ defmodule InventoryLocatorWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    live "/locations", LocationLive.Index
   end
 
   # Other scopes may use custom stacks.

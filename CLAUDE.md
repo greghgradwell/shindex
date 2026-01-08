@@ -52,3 +52,4 @@ Follow the [Elixir Style Guide](https://github.com/christopheradams/elixir_style
 - Pattern matching and control flow should be visually consistent
 - Comments go above the code they describe, never inline explanations of *what*
 - **Every function must have a @spec** - Document argument types and return types for all public and private functions
+- Aliases belong at the module level

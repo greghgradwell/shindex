@@ -1,6 +1,6 @@
 defmodule InventoryLocator.Inventory.LocationParser do
   alias InventoryLocator.Repo
-  alias InventoryLocator.Inventory.{Shelf, Bin, Cell, Location, ItemType}
+  alias InventoryLocator.Inventory.{Shelf, Bin, Cell, Location, ItemType, LocationCode}
 
   defmodule Status do
     @type t :: :needs_creation | :exists_empty | :exists_occupied
@@ -43,27 +43,9 @@ defmodule InventoryLocator.Inventory.LocationParser do
         }
 
   @spec parse(String.t()) :: {:ok, parsed()} | {:error, :invalid_format}
-  def parse(location_code) when is_binary(location_code) do
-    case String.split(location_code, "-") do
-      [shelf_code, bin_code, cell_code] ->
-        if Shelf.valid_code?(shelf_code) && Bin.valid_code?(bin_code) &&
-             Cell.valid_code?(cell_code) do
-          {:ok,
-           %{
-             shelf_code: String.upcase(shelf_code),
-             bin_code: bin_code,
-             cell_code: cell_code
-           }}
-        else
-          {:error, :invalid_format}
-        end
-
-      _ ->
-        {:error, :invalid_format}
-    end
+  def parse(location_code) do
+    LocationCode.parse(location_code)
   end
-
-  def parse(_), do: {:error, :invalid_format}
 
   @spec validate(parsed()) :: {:ok, validation_result()}
   def validate(%{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}) do

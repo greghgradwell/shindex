@@ -1,0 +1,18 @@
+<.header>
+  Location Management
+  <:subtitle>
+    {@stats.occupied} occupied, {@stats.empty} empty locations
+  </:subtitle>
+</.header>
+
+<div class="mt-8 space-y-6">
+  <%= for shelf <- @shelves do %>
+    <.shelf_row shelf={shelf} />
+  <% end %>
+</div>
+
+<.quickview_modal
+  :if={@quickview_location}
+  location={@quickview_location}
+  on_close={JS.push("close_quickview")}
+/>

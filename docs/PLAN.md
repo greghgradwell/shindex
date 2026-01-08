@@ -37,8 +37,8 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Implement Cell schema and changeset (belongs_to Bin)
 - [x] Implement Location schema and changeset
 - [x] Implement ItemType schema and changeset
-- [x] Implement Inventory context (CRUD operations)
-- [x] Write tests for core operations
+- [x] Implement Inventory context with minimal public API (7 functions, all CRUD private)
+- [x] Write tests for product functionality (deleted implementation detail tests)
 
 ### 1.4 Location Code Parser
 - [x] Implement location code parser ("a-3-0" → {shelf: "A", bin: "3", cell: "0"})
@@ -72,10 +72,12 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [ ] Add archive/restore functions to Inventory context (helper methods)
 
 ### 2.1 Location Management UI
-- [ ] Create LocationLive.Index - hierarchical view (shelf→bin→cell)
-- [ ] Display occupied vs empty status for each location
-- [ ] Add delete for empty locations (block if occupied)
-- [ ] Write tests for location deletion
+- [x] Create LocationLive.Index - Gantt-chart hierarchical view (shelf→bin→cell)
+- [x] Display occupied vs empty status for each location
+- [x] Add hover quickview modal (photo/name/description)
+- [x] Add delete for empty locations (block if occupied, data-confirm)
+- [x] Count locations by occupancy stats
+- [x] Write tests for location display and deletion
 
 ### 2.2 Search Interface (Search-First)
 - [ ] Create ItemLive.Index with search box (no default list)

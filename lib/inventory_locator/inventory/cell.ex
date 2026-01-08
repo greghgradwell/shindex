@@ -3,13 +3,14 @@ defmodule InventoryLocator.Inventory.Cell do
   import Ecto.Changeset
   alias InventoryLocator.Inventory.IntegerCodeValidator
 
-  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.{Bin, Location}
 
   typed_schema "cells" do
     field :code, :string
     field :name, :string
 
     belongs_to :bin, Bin
+    has_one :location, Location
 
     timestamps()
   end
