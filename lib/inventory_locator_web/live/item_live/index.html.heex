@@ -1,0 +1,82 @@
+<.header>
+  Search Items
+  <:subtitle>
+    {if @query == "" and @active_filters == [],
+      do: "Enter a search query or select filters",
+      else: "#{length(@results)} results"}
+  </:subtitle>
+</.header>
+
+<div class="mt-8">
+  <.form :let={f} for={%{}} phx-change="search">
+    <.input
+      field={f[:query]}
+      type="text"
+      label="Search"
+      placeholder="Search by name..."
+      value={@query}
+      phx-debounce="300"
+      autofocus
+    />
+  </.form>
+
+  <div class="mt-6 flex flex-col md:flex-row gap-6">
+    <div class="flex items-center gap-2">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          phx-click="toggle_archived"
+          checked={@show_archived}
+          class="rounded"
+        />
+        <span class="text-sm">Show archived items</span>
+      </label>
+    </div>
+
+    <div class="border rounded-lg p-4 flex-1">
+      <h3 class="font-semibold mb-3 text-sm">Filter by Missing Fields</h3>
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            phx-click="toggle_filter"
+            phx-value-filter="manufacturer"
+            checked={:manufacturer in @active_filters}
+            class="rounded"
+          />
+          <span class="text-sm">Missing manufacturer</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            phx-click="toggle_filter"
+            phx-value-filter="model"
+            checked={:model in @active_filters}
+            class="rounded"
+          />
+          <span class="text-sm">Missing model</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            phx-click="toggle_filter"
+            phx-value-filter="description"
+            checked={:description in @active_filters}
+            class="rounded"
+          />
+          <span class="text-sm">Missing description</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-8">
+  <%= if @query != "" or @active_filters != [] do %>
+    <.item_grid items={@results} />
+  <% else %>
+    <p class="text-gray-500 text-center py-12">
+      Start typing to search for items or select filters to find incomplete items
+    </p>
+  <% end %>
+</div>

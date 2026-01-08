@@ -192,4 +192,69 @@ defmodule InventoryLocator.Inventory do
       {:error, reason} -> raise "Could not create item with location: #{inspect(reason)}"
     end
   end
+
+  @spec search_items(String.t(), keyword()) :: [ItemType.t()]
+  def search_items(query, opts) do
+    show_archived = Keyword.get(opts, :show_archived, false)
+    filters = Keyword.get(opts, :filters, [])
+
+    if query == "" and filters == [] do
+      []
+    else
+      ItemType
+      |> filter_by_archived(show_archived)
+      |> filter_by_missing_fields(filters)
+      |> search_by_name(query)
+      |> apply_default_ordering(query)
+      |> Repo.all()
+      |> Repo.preload(location: [cell: [bin: :shelf]])
+    end
+  end
+
+  @spec filter_by_archived(Ecto.Queryable.t(), boolean()) :: Ecto.Queryable.t()
+  defp filter_by_archived(query, false), do: where(query, [i], i.archived == false)
+  defp filter_by_archived(query, true), do: query
+
+  @spec filter_by_missing_fields(Ecto.Queryable.t(), [atom()]) :: Ecto.Queryable.t()
+  defp filter_by_missing_fields(query, []), do: query
+
+  defp filter_by_missing_fields(query, filters) do
+    conditions =
+      Enum.map(filters, fn
+        :manufacturer -> dynamic([i], is_nil(i.manufacturer))
+        :model -> dynamic([i], is_nil(i.model))
+        :description -> dynamic([i], is_nil(i.description))
+      end)
+
+    combined =
+      Enum.reduce(conditions, fn condition, acc ->
+        dynamic([], ^acc or ^condition)
+      end)
+
+    query
+    |> where(^combined)
+    |> where([i], i.archived == false)
+  end
+
+  @spec search_by_name(Ecto.Queryable.t(), String.t()) :: Ecto.Queryable.t()
+  defp search_by_name(query, ""), do: query
+
+  defp search_by_name(query, search_query) do
+    query
+    |> where([i], fragment("similarity(?, ?) > 0.3", i.name, ^search_query))
+    |> order_by([i],
+      desc: fragment("similarity(?, ?)", i.name, ^search_query),
+      asc: i.archived,
+      asc: i.name
+    )
+  end
+
+  @spec apply_default_ordering(Ecto.Queryable.t(), String.t()) :: Ecto.Queryable.t()
+  defp apply_default_ordering(query, search_query) when search_query != "" do
+    query
+  end
+
+  defp apply_default_ordering(query, _empty_query) do
+    order_by(query, [i], asc: i.archived, asc: i.name)
+  end
 end

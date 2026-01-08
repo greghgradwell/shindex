@@ -139,4 +139,133 @@ defmodule InventoryLocator.InventoryTest do
       assert result.empty == 1
     end
   end
+
+  describe "search_items/2" do
+    test "returns empty list when query is empty string" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "M3")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Galvanized")
+
+      results = Inventory.search_items("", [])
+      assert results == []
+    end
+
+    test "finds items with exact match using fuzzy search" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "M3 Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Desc")
+
+      results = Inventory.search_items("screws", [])
+      assert length(results) == 1
+      assert hd(results).name == "M3 Screws"
+    end
+
+    test "handles typos with fuzzy matching" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "M3 Screws", 10, "Desc")
+
+      results = Inventory.search_items("scres", [])
+      assert length(results) == 1
+      assert hd(results).name == "M3 Screws"
+    end
+
+    test "orders by similarity score (most relevant first)" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "M3 Screws", 20, "Desc")
+
+      results = Inventory.search_items("screws", [])
+      assert length(results) == 2
+      assert hd(results).name == "Screws"
+    end
+
+    test "preloads location with full hierarchy" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 10, "Desc")
+
+      results = Inventory.search_items("test", [])
+      assert length(results) == 1
+
+      item = hd(results)
+      assert Ecto.assoc_loaded?(item.location)
+      assert Ecto.assoc_loaded?(item.location.cell)
+      assert Ecto.assoc_loaded?(item.location.cell.bin)
+      assert Ecto.assoc_loaded?(item.location.cell.bin.shelf)
+    end
+
+    test "filters by missing manufacturer" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+
+      results = Inventory.search_items("", filters: [:manufacturer])
+      assert length(results) == 1
+      assert hd(results).name == "Item 1"
+    end
+
+    test "filters by missing model" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+
+      results = Inventory.search_items("", filters: [:model])
+      assert length(results) == 1
+    end
+
+    test "filters by missing description" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      item = Repo.preload(item, :location)
+
+      Inventory.delete_item_type(item)
+
+      {:ok, _item2} =
+        Inventory.create_item_with_location(item.location.full_code, "Item 2", 5, nil)
+
+      results = Inventory.search_items("", filters: [:description])
+      assert length(results) == 1
+      assert hd(results).name == "Item 2"
+    end
+
+    test "filters with multiple criteria use OR logic" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Item 2", 20, "Desc")
+
+      results = Inventory.search_items("", filters: [:manufacturer, :model])
+      assert length(results) == 2
+    end
+
+    test "combines search query with filters" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Desc")
+
+      results = Inventory.search_items("screw", filters: [:manufacturer])
+      assert length(results) == 1
+      assert hd(results).name == "Screws"
+    end
+
+    test "hides archived items by default" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
+
+      results = Inventory.search_items("item", [])
+      assert length(results) == 1
+      assert hd(results).archived == false
+    end
+
+    test "shows archived items when show_archived is true" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
+
+      results = Inventory.search_items("item", show_archived: true)
+      assert length(results) == 1
+    end
+
+    test "filters exclude archived items even when missing fields" do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+
+      results = Inventory.search_items("", filters: [:manufacturer])
+      assert length(results) == 1
+      assert hd(results).archived == false
+    end
+
+    test "orders active items before archived items when using filters" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Zulu Item", 5, "Desc")
+
+      results = Inventory.search_items("", filters: [:manufacturer])
+      assert length(results) == 2
+      assert Enum.at(results, 0).name == "Active Item"
+      assert Enum.at(results, 1).name == "Zulu Item"
+      assert Enum.all?(results, &(&1.archived == false))
+    end
+  end
 end

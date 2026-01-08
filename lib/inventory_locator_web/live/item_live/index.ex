@@ -1,0 +1,90 @@
+defmodule InventoryLocatorWeb.ItemLive.Index do
+  use InventoryLocatorWeb, :live_view
+
+  alias InventoryLocator.Inventory
+  import InventoryLocatorWeb.ItemLive.Components
+
+  @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
+  def mount(_params, _session, socket) do
+    {:ok, assign_defaults(socket)}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
+  def handle_event("search", %{"query" => query}, socket) do
+    socket =
+      socket
+      |> assign(:query, query)
+      |> perform_search()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
+  def handle_event("toggle_archived", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_archived, !socket.assigns.show_archived)
+      |> perform_search()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
+  def handle_event("toggle_filter", %{"filter" => filter}, socket)
+      when filter in ["manufacturer", "model", "description"] do
+    filter_atom = String.to_existing_atom(filter)
+    active_filters = toggle_filter_list(socket.assigns.active_filters, filter_atom)
+
+    socket =
+      socket
+      |> assign(:active_filters, active_filters)
+      |> perform_search()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
+  def handle_event("toggle_filter", %{"filter" => _unknown}, socket) do
+    {:noreply, socket}
+  end
+
+  @spec assign_defaults(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  defp assign_defaults(socket) do
+    socket
+    |> assign(:query, "")
+    |> assign(:results, [])
+    |> assign(:show_archived, false)
+    |> assign(:active_filters, [])
+    |> assign(:page_title, "Search Items")
+  end
+
+  @spec perform_search(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  defp perform_search(socket) do
+    results =
+      Inventory.search_items(
+        socket.assigns.query,
+        show_archived: socket.assigns.show_archived,
+        filters: socket.assigns.active_filters
+      )
+
+    assign(socket, :results, results)
+  end
+
+  @spec toggle_filter_list([atom()], atom()) :: [atom()]
+  defp toggle_filter_list(filters, filter) do
+    if filter in filters do
+      List.delete(filters, filter)
+    else
+      [filter | filters]
+    end
+  end
+end

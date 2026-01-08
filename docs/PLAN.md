@@ -79,15 +79,15 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Count locations by occupancy stats
 - [x] Write tests for location display and deletion
 
-### 2.2 Search Interface (Search-First)
-- [ ] Create ItemLive.Index with search box (no default list)
-- [ ] Implement debounced search (simple ILIKE for now)
-- [ ] Add result ordering: in-stock first, then archived (ORDER BY archived ASC)
-- [ ] Add archived items toggle (default: hidden)
-- [ ] Style archived items with reduced opacity (visually distinct)
-- [ ] Add filter dropdowns: missing manufacturer/model/description/any
-- [ ] Display results in photo grid
-- [ ] Write tests for search flow and filtering
+### 2.2 Search Interface (Search-First) ✅ COMPLETE
+- [x] Create ItemLive.Index with search box (no default list)
+- [x] Implement debounced search with pg_trgm fuzzy matching (handles typos)
+- [x] Add result ordering: in-stock first, then archived (ORDER BY archived ASC)
+- [x] Add archived items toggle (default: hidden)
+- [x] Style archived items with reduced opacity (visually distinct)
+- [x] Add checkbox filters: missing manufacturer/model/description (OR logic)
+- [x] Display results in photo grid
+- [x] Write tests for search flow and filtering (26 new tests, 107 total passing)
 
 ### 2.3 Item Detail View
 - [ ] Create ItemLive.Show with full item display
@@ -126,11 +126,13 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 
 ## Phase 3: Search
 
-### 3.1 Text Search
-- [ ] Implement full-text search in Inventory context
-- [ ] Add trigram similarity fallback for typo tolerance
-- [ ] Wire search box to LiveView with debounce
-- [ ] Display results with relevance ordering
+### 3.1 Text Search ✅ COMPLETE (Implemented in Phase 2.2)
+- [x] Implement full-text search in Inventory context
+- [x] Add trigram similarity for typo tolerance (pg_trgm with similarity > 0.3)
+- [x] Wire search box to LiveView with debounce (300ms)
+- [x] Display results with relevance ordering (ORDER BY similarity DESC, archived ASC)
+
+**Note:** Originally planned as separate phase, but implemented directly in Phase 2.2 since trigram index already existed from Phase 1.2.
 
 ### 3.2 Duplicate Detection
 - [ ] On item add, query for similar items by name

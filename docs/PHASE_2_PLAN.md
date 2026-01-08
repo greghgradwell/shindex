@@ -152,15 +152,17 @@ Implement the core user interface for the inventory system based on UX decisions
 **Strategy**:
 - Mount with empty state (query="", results=[])
 - Debounce search input (300ms)
-- Query items with ILIKE pattern match on name (Phase 3 adds fuzzy search)
-- **Result ordering**: ORDER BY archived ASC (false first, true last), then by name
+- Query items with pg_trgm fuzzy search (trigram similarity > 0.3 for typo tolerance)
+- **Result ordering**: ORDER BY similarity DESC (most relevant first), archived ASC, then name
 - Toggle for showing/hiding archived items (default: hidden)
-- **Filter dropdowns**: "Missing manufacturer", "Missing model", "Missing description", "All incomplete"
-- **Visual styling**: Archived items rendered with `opacity: 0.5` or similar (less prominent)
+- **Checkbox filters**: "Missing manufacturer", "Missing model", "Missing description" (OR logic)
+- **Visual styling**: Archived items rendered with `opacity-50` (less prominent)
 - Display results in photo grid with metadata
 - Link to detail view or edit form on click
 
-**Why**: No overwhelming default list, instant feedback, batch completion workflow, scales to large datasets
+**Why**: No overwhelming default list, instant feedback, batch completion workflow, scales to large datasets, typo tolerance
+
+**Implementation Note**: Originally planned with ILIKE for Phase 2 and fuzzy search for Phase 3, but implemented fuzzy search directly in Phase 2.2 since pg_trgm index already existed from Phase 1.2.
 
 ### 2.4 Item Detail View
 
@@ -400,18 +402,25 @@ Implement the core user interface for the inventory system based on UX decisions
 
 ---
 
-### Phase 2.2: Search Interface with Filtering
+### Phase 2.2: Search Interface with Filtering ✅ COMPLETE
 **Deliverables**:
 - `ItemLive.Index` with search box
-- Debounced search with simple ILIKE query (fuzzy in Phase 3)
-- **Result ordering**: In-stock first (ORDER BY archived ASC), then by name
-- **Visual styling**: Archived items with reduced opacity (CSS: opacity 0.5 or similar)
+- Debounced search with pg_trgm fuzzy matching (handles typos: "scres" → "screws")
+- **Result ordering**: Similarity score first, then in-stock (ORDER BY similarity DESC, archived ASC)
+- **Visual styling**: Archived items with reduced opacity (CSS: opacity-50)
 - Archived items toggle (default hidden)
-- **Filter dropdowns**: Missing manufacturer, missing model, missing description, all incomplete
-- Grid result view with photos
-- Tests for search flow and filtering
+- **Checkbox filters**: Missing manufacturer, missing model, missing description (OR logic)
+- Grid result view with photos (placeholder icon for missing photos)
+- Tests for search flow and filtering (26 new tests, 107 total passing)
 
-**Go/No-Go**: Can search items by name, see in-stock first, filter by missing fields, archived items visually distinct.
+**Status**: ✅ Complete
+- Fuzzy search implemented directly (pg_trgm trigram similarity > 0.3)
+- Phase 3.1 obsolete - fuzzy search already done
+- All 107 tests passing
+- Search-first interface (empty by default, requires query or filter)
+- Multiple filters can be active (OR logic for batch completion workflow)
+
+**Go/No-Go**: ✅ Can search items by name with typo tolerance, see most relevant first, filter by missing fields, archived items visually distinct.
 
 ---
 
@@ -465,21 +474,21 @@ Implement the core user interface for the inventory system based on UX decisions
 ## Success Criteria
 
 **Milestone A Completion** (from PLAN.md):
-- ✅ Add item with photo via hybrid workflow (phone: photo + name/location → desktop: batch complete metadata)
-- ✅ Phone workflow achieves sub-30s per item (required fields only)
-- ✅ Desktop batch completion filters by missing fields, keyboard shortcuts work
-- ✅ Find item via search interface (in-stock first, archived visually distinct)
-- ✅ Location validation with inline creation (zero friction)
-- ✅ Archive pattern preserves purchase history (location freed for reuse)
-- ✅ Photos downsampled to ~300KB (50-60x reduction from Pixel 9a originals)
-- ✅ System handles 100+ items without performance issues
+- 🔲 Add item with photo via hybrid workflow (phone: photo + name/location → desktop: batch complete metadata) - Phase 2.4
+- 🔲 Phone workflow achieves sub-30s per item (required fields only) - Phase 2.4
+- ✅ Desktop batch completion filters by missing fields, keyboard shortcuts work (filters complete, keyboard shortcuts Phase 2.4)
+- ✅ Find item via search interface with fuzzy matching (typo tolerance, in-stock first, archived visually distinct)
+- 🔲 Location validation with inline creation (zero friction) - Phase 2.4
+- ✅ Archive pattern preserves purchase history (location freed for reuse) - Schema complete (Phase 2.0)
+- 🔲 Photos downsampled to ~300KB (50-60x reduction from Pixel 9a originals) - Phase 2.4
+- ✅ System handles 100+ items without performance issues (fuzzy search with pg_trgm index)
 
 ## Next Phases
 
-**Phase 3**: Text Search Enhancements
-- pg_trgm fuzzy matching for typo tolerance
-- Duplicate detection on item add
-- Search result ranking
+**Phase 3**: Search Enhancements
+- ~~pg_trgm fuzzy matching for typo tolerance~~ ✅ Complete (implemented in Phase 2.2)
+- ~~Search result ranking~~ ✅ Complete (similarity-based ordering in Phase 2.2)
+- Duplicate detection on item add (Phase 3.2)
 
 **Phase 4**: AI Search Integration
 - Python FastAPI service

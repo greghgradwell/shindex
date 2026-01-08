@@ -19,6 +19,7 @@ defmodule InventoryLocatorWeb.Router do
 
     get "/", PageController, :home
     live "/locations", LocationLive.Index
+    live "/items", ItemLive.Index
   end
 
   # Other scopes may use custom stacks.
