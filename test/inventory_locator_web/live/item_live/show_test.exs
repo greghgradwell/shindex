@@ -6,17 +6,17 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
 
   describe "Show" do
     test "displays item details", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test Item", 5, "Description")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test Item", 5, "Description")
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
 
       assert html =~ "Test Item"
-      assert html =~ "A-1-0"
+      assert html =~ "A-1-1"
       assert html =~ "Description"
     end
 
     test "shows quantity in display", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 7, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 7, "Desc")
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
 
@@ -24,7 +24,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "increment quantity updates display", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
 
@@ -37,7 +37,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "decrement quantity updates display", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
 
@@ -50,7 +50,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "decrement quantity does not go below 0", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 0, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 0, "Desc")
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
 
@@ -62,7 +62,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "archive button archives item and keeps location", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
 
@@ -80,7 +80,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "archived item shows restore button instead of archive", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
@@ -90,7 +90,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "archived item does not show quantity controls", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
@@ -100,7 +100,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "shows restore modal on restore button click", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
@@ -115,7 +115,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "restore modal closes on cancel", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
@@ -133,7 +133,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "restore item to empty location succeeds", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
@@ -156,8 +156,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "restore item to occupied location shows warning", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location("A-2-0", "Item 2", 3, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-2-1", "Item 2", 3, "Desc")
 
       {:ok, _archived} = Inventory.archive_item_type(item2)
 
@@ -169,7 +169,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
 
       html =
         show_live
-        |> form("form", %{location_code: "A-1-0"})
+        |> form("form", %{location_code: "A-1-1"})
         |> render_change()
 
       assert html =~ "has 1 active item"
@@ -177,8 +177,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "restore to occupied location allows proceeding", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location("A-2-0", "Item 2", 3, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-2-1", "Item 2", 3, "Desc")
 
       {:ok, _archived} = Inventory.archive_item_type(item2)
 
@@ -190,7 +190,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
 
       html =
         show_live
-        |> form("form", %{location_code: "A-1-0", quantity: "2"})
+        |> form("form", %{location_code: "A-1-1", quantity: "2"})
         |> render_submit()
 
       refute html =~ "Archived"
@@ -201,7 +201,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "shows manufacturer and model when present", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       item = Repo.preload(item, :location)
 
       {:ok, updated} =
@@ -214,7 +214,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "has back to search link", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
 
       {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
 
@@ -223,7 +223,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
     end
 
     test "validates location code format on restore", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")

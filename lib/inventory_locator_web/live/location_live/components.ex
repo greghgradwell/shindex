@@ -28,13 +28,13 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
 
   def bin_segment(assigns) do
     ~H"""
-    <div class="border border-base-300 rounded-lg p-2 flex-1">
+    <div class="border border-base-300 rounded-lg p-2 flex-1 max-w-sm">
       <!-- Bin header -->
       <div class="mb-2 pb-1 border-b border-base-300">
         <span class="font-medium text-sm">Bin {@bin.code}</span>
       </div>
       <!-- Cells row -->
-      <div class="flex gap-1">
+      <div class="flex gap-1 items-start">
         <%= for cell <- @bin.cells do %>
           <%= if cell.location do %>
             <.cell_box cell={cell} location={cell.location} />
@@ -52,21 +52,24 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
     active_items = Enum.reject(assigns.location.item_types || [], & &1.archived)
     occupied = length(active_items) > 0
     assigns = assign(assigns, :occupied, occupied)
+    assigns = assign(assigns, :active_items, active_items)
 
     ~H"""
-    <div
-      class={[
-        "aspect-square border rounded flex flex-col items-center justify-center gap-1 transition-all",
-        @occupied && "border-success bg-success/10 hover:bg-success/20 cursor-pointer",
-        !@occupied && "border-base-300 bg-base-100 hover:bg-base-200"
-      ]}
-      phx-click={@occupied && JS.push("show_quickview", value: %{location_id: @location.id})}
-    >
-      <!-- Cell label -->
-      <span class="text-xs">{@cell.code}</span>
-      <!-- Status indicator -->
+    <div class={[
+      "flex-1 max-w-32 flex flex-col gap-1",
+      @occupied && "",
+      !@occupied &&
+        "border border-base-300 bg-base-100 rounded min-h-16 items-center justify-center p-1"
+    ]}>
       <%= if @occupied do %>
-        <.icon name="hero-check-circle-solid" class="size-4 text-success" />
+        <%= for item <- @active_items do %>
+          <.link
+            navigate={~p"/items/#{item.id}"}
+            class="border border-success/50 bg-success/20 hover:bg-success/30 rounded px-2 py-1 text-xs font-medium text-center transition-colors truncate"
+          >
+            {item.name}
+          </.link>
+        <% end %>
       <% else %>
         <button
           phx-click={JS.push("delete_location", value: %{id: @location.id})}
@@ -76,55 +79,6 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
           <.icon name="hero-trash" class="size-3" />
         </button>
       <% end %>
-    </div>
-    """
-  end
-
-  attr :location, Location, required: true
-  attr :on_close, JS, required: true
-
-  def quickview_modal(assigns) do
-    ~H"""
-    <div class="modal modal-open" phx-click={@on_close} phx-key="escape">
-      <div class="modal-box" phx-click-away={@on_close}>
-        <h3 class="font-bold text-lg">Location {@location.full_code}</h3>
-
-        <%= if length(@location.item_types) > 0 do %>
-          <table class="table mt-4">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Quantity</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= for item <- @location.item_types do %>
-                <tr class={if item.archived, do: "opacity-50", else: ""}>
-                  <td>
-                    {item.name}
-                    <%= if item.archived do %>
-                      <span class="badge badge-sm">Archived</span>
-                    <% end %>
-                  </td>
-                  <td>{item.quantity}</td>
-                  <td>
-                    <.link navigate={~p"/items/#{item.id}"} class="link">
-                      View
-                    </.link>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        <% else %>
-          <p class="mt-4 text-gray-600">No items at this location</p>
-        <% end %>
-
-        <div class="modal-action">
-          <button class="btn" phx-click={@on_close}>Close</button>
-        </div>
-      </div>
     </div>
     """
   end

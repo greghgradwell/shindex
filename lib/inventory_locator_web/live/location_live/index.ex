@@ -1,7 +1,7 @@
 defmodule InventoryLocatorWeb.LocationLive.Index do
   use InventoryLocatorWeb, :live_view
 
-  alias InventoryLocator.{Inventory, Repo}
+  alias InventoryLocator.Inventory
   import InventoryLocatorWeb.LocationLive.Components
 
   @impl true
@@ -14,7 +14,6 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      socket
      |> assign(:shelves, shelves)
      |> assign(:stats, stats)
-     |> assign(:quickview_location, nil)
      |> assign(:page_title, "Location Management")}
   end
 
@@ -39,17 +38,5 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to delete location")}
     end
-  end
-
-  def handle_event("show_quickview", %{"location_id" => id}, socket) do
-    location =
-      Inventory.get_location!(id)
-      |> Repo.preload([:item_types, cell: [bin: :shelf]])
-
-    {:noreply, assign(socket, :quickview_location, location)}
-  end
-
-  def handle_event("close_quickview", _params, socket) do
-    {:noreply, assign(socket, :quickview_location, nil)}
   end
 end

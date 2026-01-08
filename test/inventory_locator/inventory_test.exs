@@ -2,7 +2,7 @@ defmodule InventoryLocator.InventoryTest do
   use InventoryLocator.DataCase
 
   alias InventoryLocator.Inventory
-  alias InventoryLocator.Inventory.LocationCode
+  alias InventoryLocator.Inventory.{LocationCode, Cell, Bin, Shelf}
 
   describe "create_item_with_location/4" do
     test "creates location hierarchy automatically" do
@@ -51,7 +51,7 @@ defmodule InventoryLocator.InventoryTest do
 
   describe "list_shelves_with_hierarchy/0" do
     test "preloads full hierarchy" do
-      location_code = "A-1-0"
+      location_code = "A-1-1"
       {:ok, item} = Inventory.create_item_with_location(location_code, "Test", 1, "Desc")
       item = Repo.preload(item, :location)
 
@@ -73,7 +73,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "preloads item_types association" do
-      location_code = "A-1-0"
+      location_code = "A-1-1"
       {:ok, _item} = Inventory.create_item_with_location(location_code, "Test Item", 5, "Desc")
 
       [shelf_result] = Inventory.list_shelves_with_hierarchy()
@@ -89,7 +89,7 @@ defmodule InventoryLocator.InventoryTest do
 
   describe "delete_empty_location/1" do
     test "deletes empty location" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
       item = Repo.preload(item, :location)
       Inventory.delete_item_type(item)
 
@@ -98,11 +98,63 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "refuses to delete occupied location" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
       item = Repo.preload(item, :location)
 
       assert {:error, :occupied} = Inventory.delete_empty_location(item.location.id)
       assert Inventory.get_location!(item.location.id)
+    end
+
+    test "cascade deletes cell, bin, and shelf when they become empty" do
+      {:ok, item} = Inventory.create_item_with_location("Q-3-1", "Test", 1, "Desc")
+      item = Repo.preload(item, location: [cell: [bin: :shelf]])
+
+      location_id = item.location.id
+      cell_id = item.location.cell.id
+      bin_id = item.location.cell.bin.id
+      shelf_id = item.location.cell.bin.shelf.id
+
+      # Delete item, making location empty
+      Inventory.delete_item_type(item)
+
+      # Delete empty location - should cascade to cell, bin, shelf
+      assert {:ok, _} = Inventory.delete_empty_location(location_id)
+
+      # Verify all were deleted
+      assert_raise Ecto.NoResultsError, fn -> Inventory.get_location!(location_id) end
+      assert_raise Ecto.NoResultsError, fn -> Repo.get!(Cell, cell_id) end
+      assert_raise Ecto.NoResultsError, fn -> Repo.get!(Bin, bin_id) end
+      assert_raise Ecto.NoResultsError, fn -> Repo.get!(Shelf, shelf_id) end
+    end
+
+    test "does not delete bin when other cells exist" do
+      {:ok, item1} = Inventory.create_item_with_location("Y-8-3", "Item 1", 1, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("Y-8-4", "Item 2", 1, "Desc")
+
+      item1 = Repo.preload(item1, location: [cell: [bin: :shelf]])
+      bin_id = item1.location.cell.bin.id
+
+      # Delete item1, making its location empty
+      Inventory.delete_item_type(item1)
+      assert {:ok, _} = Inventory.delete_empty_location(item1.location.id)
+
+      # Bin should still exist because cell 4 still has a location
+      assert Repo.get!(Bin, bin_id)
+    end
+
+    test "does not delete shelf when other bins exist" do
+      {:ok, item1} = Inventory.create_item_with_location("X-7-2", "Item 1", 1, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("X-8-2", "Item 2", 1, "Desc")
+
+      item1 = Repo.preload(item1, location: [cell: [bin: :shelf]])
+      shelf_id = item1.location.cell.bin.shelf.id
+
+      # Delete item1, making its location and bin empty
+      Inventory.delete_item_type(item1)
+      assert {:ok, _} = Inventory.delete_empty_location(item1.location.id)
+
+      # Shelf should still exist because bin 8 still has items
+      assert Repo.get!(Shelf, shelf_id)
     end
   end
 
@@ -114,8 +166,8 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "counts empty locations" do
-      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
-      {:ok, item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 1, "Test")
+      {:ok, item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 1, "Test")
+      {:ok, item2} = Inventory.create_item_with_location("A-2-1", "Item 2", 1, "Test")
 
       Inventory.delete_item_type(item1)
       Inventory.delete_item_type(item2)
@@ -126,7 +178,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "counts occupied locations" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 1, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 1, "Test")
 
       result = Inventory.count_locations_by_occupancy()
       assert result.occupied == 1
@@ -134,8 +186,8 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "counts mix of occupied and empty locations" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
-      {:ok, _item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 2, "Test")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 1, "Test")
+      {:ok, _item2} = Inventory.create_item_with_location("A-2-1", "Item 2", 2, "Test")
       {:ok, item3} = Inventory.create_item_with_location("A-1-2", "Item 3", 3, "Test")
       Inventory.delete_item_type(item3)
 
@@ -147,16 +199,16 @@ defmodule InventoryLocator.InventoryTest do
 
   describe "search_items/2" do
     test "returns empty list when query is empty string" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "M3")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Galvanized")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Screws", 10, "M3")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Nails", 20, "Galvanized")
 
       results = Inventory.search_items("", [])
       assert results == []
     end
 
     test "finds items with exact match using fuzzy search" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "M3 Screws", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "M3 Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Nails", 20, "Desc")
 
       results = Inventory.search_items("screws", [])
       assert length(results) == 1
@@ -164,7 +216,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "handles typos with fuzzy matching" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "M3 Screws", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "M3 Screws", 10, "Desc")
 
       results = Inventory.search_items("scres", [])
       assert length(results) == 1
@@ -172,8 +224,8 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "orders by similarity score (most relevant first)" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "M3 Screws", 20, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "M3 Screws", 20, "Desc")
 
       results = Inventory.search_items("screws", [])
       assert length(results) == 2
@@ -181,7 +233,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "preloads location with full hierarchy" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 10, "Desc")
 
       results = Inventory.search_items("test", [])
       assert length(results) == 1
@@ -194,7 +246,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "filters by missing manufacturer" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
 
       results = Inventory.search_items("", filters: [:manufacturer])
       assert length(results) == 1
@@ -202,14 +254,14 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "filters by missing model" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
 
       results = Inventory.search_items("", filters: [:model])
       assert length(results) == 1
     end
 
     test "filters by missing description" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
       item = Repo.preload(item, :location)
 
       Inventory.delete_item_type(item)
@@ -223,16 +275,16 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "filters with multiple criteria use OR logic" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Item 2", 20, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Item 2", 20, "Desc")
 
       results = Inventory.search_items("", filters: [:manufacturer, :model])
       assert length(results) == 2
     end
 
     test "combines search query with filters" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Screws", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Nails", 20, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Nails", 20, "Desc")
 
       results = Inventory.search_items("screw", filters: [:manufacturer])
       assert length(results) == 1
@@ -240,7 +292,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "hides archived items by default" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Active Item", 10, "Desc")
 
       results = Inventory.search_items("item", [])
       assert length(results) == 1
@@ -248,14 +300,14 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "shows archived items when show_archived is true" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Active Item", 10, "Desc")
 
       results = Inventory.search_items("item", show_archived: true)
       assert length(results) == 1
     end
 
     test "filters exclude archived items even when missing fields" do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Item 1", 10, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
 
       results = Inventory.search_items("", filters: [:manufacturer])
       assert length(results) == 1
@@ -263,8 +315,8 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "orders active items before archived items when using filters" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Active Item", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Zulu Item", 5, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Active Item", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Zulu Item", 5, "Desc")
 
       results = Inventory.search_items("", filters: [:manufacturer])
       assert length(results) == 2
@@ -276,7 +328,7 @@ defmodule InventoryLocator.InventoryTest do
 
   describe "multi-item locations" do
     test "archived items don't prevent location deletion" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       item = Repo.preload(item, :location)
 
       {:ok, _archived} = Inventory.archive_item_type(item)
@@ -285,8 +337,8 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "active items prevent location deletion even with archived items present" do
-      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Active", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Archived", 3, "Desc")
+      {:ok, item1} = Inventory.create_item_with_location("A-1-1", "Active", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-1", "Archived", 3, "Desc")
 
       item1 = Repo.preload(item1, :location)
       {:ok, _} = Inventory.archive_item_type(item2)
@@ -295,17 +347,17 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "ensure_location_with_code returns item count for occupied locations" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 3, "Desc")
 
-      assert {:ok, location, 2} = Inventory.ensure_location_with_code("A-1-0")
-      assert location.full_code == "A-1-0"
+      assert {:ok, location, 2} = Inventory.ensure_location_with_code("A-1-1")
+      assert location.full_code == "A-1-1"
     end
 
     test "count_locations_by_occupancy counts location once even with multiple items" do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
-      {:ok, _item3} = Inventory.create_item_with_location("A-1-1", "Item 3", 2, "Desc")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 3, "Desc")
+      {:ok, _item3} = Inventory.create_item_with_location("A-1-2", "Item 3", 2, "Desc")
 
       result = Inventory.count_locations_by_occupancy()
       assert result.occupied == 2
@@ -315,7 +367,7 @@ defmodule InventoryLocator.InventoryTest do
 
   describe "archive_item_type/1" do
     test "keeps location_id when archiving" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       item = Repo.preload(item, :location)
       original_location_id = item.location_id
 
@@ -327,7 +379,7 @@ defmodule InventoryLocator.InventoryTest do
     end
 
     test "archived items remain searchable with show_archived option" do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test Item", 5, "Desc")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test Item", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)
 
       results = Inventory.search_items("test", show_archived: true)

@@ -15,7 +15,7 @@ defmodule InventoryLocator.Inventory.Cell do
     timestamps()
   end
 
-  @min_code 0
+  @min_code 1
   @max_code 999
 
   @spec min_code() :: integer()

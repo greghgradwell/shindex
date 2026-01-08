@@ -111,7 +111,7 @@ defmodule InventoryLocator.Inventory do
     target_cell_num = String.to_integer(cell_code)
 
     if :cell in missing do
-      0..target_cell_num
+      1..target_cell_num
       |> Enum.each(fn i ->
         code = "#{i}"
 
@@ -160,8 +160,57 @@ defmodule InventoryLocator.Inventory do
         from(i in ItemType, where: i.location_id == ^location_id and i.archived == true)
         |> Repo.update_all(set: [location_id: nil])
 
-        location = Repo.get!(Location, location_id)
+        location = Repo.get!(Location, location_id) |> Repo.preload(cell: [bin: :shelf])
+        cell = location.cell
+        bin = cell.bin
+        shelf = bin.shelf
+
         Repo.delete!(location)
+
+        # Check if cell is now empty (each cell has only one location)
+        cell_location_count =
+          Repo.aggregate(from(l in Location, where: l.cell_id == ^cell.id), :count)
+
+        if cell_location_count == 0 do
+          Repo.delete!(cell)
+
+          # Check if bin has any cells with locations (not just empty orphaned cells)
+          bin_occupied_cell_count =
+            Repo.aggregate(
+              from(c in Cell,
+                join: l in assoc(c, :location),
+                where: c.bin_id == ^bin.id
+              ),
+              :count
+            )
+
+          if bin_occupied_cell_count == 0 do
+            # Delete all orphaned empty cells in the bin
+            from(c in Cell, where: c.bin_id == ^bin.id) |> Repo.delete_all()
+
+            Repo.delete!(bin)
+
+            # Check if shelf has any bins with locations
+            shelf_occupied_bin_count =
+              Repo.aggregate(
+                from(b in Bin,
+                  join: c in assoc(b, :cells),
+                  join: l in assoc(c, :location),
+                  where: b.shelf_id == ^shelf.id
+                ),
+                :count
+              )
+
+            if shelf_occupied_bin_count == 0 do
+              # Delete all orphaned empty bins in the shelf
+              from(b in Bin, where: b.shelf_id == ^shelf.id) |> Repo.delete_all()
+
+              Repo.delete!(shelf)
+            end
+          end
+        end
+
+        location
       end)
     end
   end

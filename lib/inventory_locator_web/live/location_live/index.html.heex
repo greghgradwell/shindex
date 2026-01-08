@@ -10,9 +10,3 @@
     <.shelf_row shelf={shelf} />
   <% end %>
 </div>
-
-<.quickview_modal
-  :if={@quickview_location}
-  location={@quickview_location}
-  on_close={JS.push("close_quickview")}
-/>

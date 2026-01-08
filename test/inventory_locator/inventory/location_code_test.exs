@@ -5,13 +5,13 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
 
   describe "parse/1" do
     test "parses valid location code with uppercase shelf" do
-      assert {:ok, %{shelf_code: "A", bin_code: "1", cell_code: "0"}} =
-               LocationCode.parse("A-1-0")
+      assert {:ok, %{shelf_code: "A", bin_code: "1", cell_code: "1"}} =
+               LocationCode.parse("A-1-1")
     end
 
     test "parses valid location code with lowercase shelf and uppercases it" do
-      assert {:ok, %{shelf_code: "A", bin_code: "1", cell_code: "0"}} =
-               LocationCode.parse("a-1-0")
+      assert {:ok, %{shelf_code: "A", bin_code: "1", cell_code: "1"}} =
+               LocationCode.parse("a-1-1")
     end
 
     test "parses valid location code with multi-digit bin and cell" do
@@ -28,7 +28,7 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
     end
 
     test "returns error for invalid format with too many components" do
-      assert {:error, :invalid_format} = LocationCode.parse("A-1-0-extra")
+      assert {:error, :invalid_format} = LocationCode.parse("A-1-1-extra")
     end
 
     test "returns error for invalid shelf code" do
@@ -60,8 +60,8 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
 
   describe "valid?/1" do
     test "returns true for valid location codes" do
-      assert LocationCode.valid?("A-1-0")
-      assert LocationCode.valid?("a-1-0")
+      assert LocationCode.valid?("A-1-1")
+      assert LocationCode.valid?("a-1-1")
       assert LocationCode.valid?("Z-99-99")
       assert LocationCode.valid?("AB-5-10")
     end
@@ -80,12 +80,12 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
 
   describe "shelf_code!/1" do
     test "extracts shelf code from valid location code" do
-      assert LocationCode.shelf_code!("A-1-0") == "A"
+      assert LocationCode.shelf_code!("A-1-1") == "A"
       assert LocationCode.shelf_code!("B-12-99") == "B"
     end
 
     test "uppercases lowercase shelf code" do
-      assert LocationCode.shelf_code!("a-1-0") == "A"
+      assert LocationCode.shelf_code!("a-1-1") == "A"
     end
 
     test "raises ArgumentError for invalid location code" do
@@ -97,7 +97,7 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
 
   describe "bin_code!/1" do
     test "extracts bin code from valid location code" do
-      assert LocationCode.bin_code!("A-1-0") == "1"
+      assert LocationCode.bin_code!("A-1-1") == "1"
       assert LocationCode.bin_code!("B-12-99") == "12"
     end
 
@@ -110,7 +110,7 @@ defmodule InventoryLocator.Inventory.LocationCodeTest do
 
   describe "cell_code!/1" do
     test "extracts cell code from valid location code" do
-      assert LocationCode.cell_code!("A-1-0") == "0"
+      assert LocationCode.cell_code!("A-1-1") == "1"
       assert LocationCode.cell_code!("B-12-99") == "99"
     end
 

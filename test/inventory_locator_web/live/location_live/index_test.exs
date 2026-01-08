@@ -6,7 +6,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
 
   describe "Index" do
     test "lists all shelves with hierarchy", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 1, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 1, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
@@ -14,7 +14,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "displays occupancy stats for occupied locations", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test Item", 1, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 1, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "1 occupied"
@@ -22,7 +22,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "displays occupancy stats for empty locations", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Test")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Test")
       Inventory.delete_item_type(item)
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
@@ -31,14 +31,14 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "shows shelf code", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
     end
 
     test "shows bin code in hierarchy", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-3-0", "Test", 1, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-3-1", "Test", 1, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "Bin 3"
@@ -52,7 +52,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "deletes empty location on click", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Test")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Test")
       item = Repo.preload(item, :location)
       Inventory.delete_item_type(item)
 
@@ -69,7 +69,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "prevents deletion of occupied location", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Test")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Test")
       item = Repo.preload(item, :location)
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
@@ -79,8 +79,8 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "updates stats after deleting location", %{conn: conn} do
-      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
-      {:ok, item2} = Inventory.create_item_with_location("A-2-0", "Item 2", 1, "Test")
+      {:ok, item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 1, "Test")
+      {:ok, item2} = Inventory.create_item_with_location("A-2-1", "Item 2", 1, "Test")
       item1 = Repo.preload(item1, :location)
       item2 = Repo.preload(item2, :location)
       Inventory.delete_item_type(item1)
@@ -98,14 +98,14 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "shows occupied indicator for locations with items", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Test")
+      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 5, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
-      assert html =~ "hero-check-circle-solid"
+      assert html =~ "Test Item"
     end
 
     test "shows delete button for empty locations", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 1, "Test")
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Test")
       Inventory.delete_item_type(item)
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
@@ -114,8 +114,8 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "multiple shelves displayed correctly", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 1, "Test")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-0", "Item 2", 1, "Test")
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 1, "Test")
+      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Item 2", 1, "Test")
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
@@ -128,74 +128,16 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
       assert html =~ "0 occupied"
     end
 
-    test "quickview shows all items at location in table", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+    test "shows multiple items as clickable links in same cell", %{conn: conn} do
+      {:ok, item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 3, "Desc")
 
-      {:ok, index_live, _html} = live(conn, ~p"/locations")
-
-      html =
-        index_live
-        |> element("div[phx-click*='show_quickview']")
-        |> render_click()
+      {:ok, _index_live, html} = live(conn, ~p"/locations")
 
       assert html =~ "Item 1"
       assert html =~ "Item 2"
-      assert html =~ "<table"
-      assert html =~ "Quantity"
-    end
-
-    test "quickview shows archived items with badge", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Active", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Archived", 3, "Desc")
-
-      Inventory.archive_item_type(item2)
-
-      {:ok, index_live, _html} = live(conn, ~p"/locations")
-
-      html =
-        index_live
-        |> element("div[phx-click*='show_quickview']")
-        |> render_click()
-
-      assert html =~ "Active"
-      assert html =~ "Archived"
-      assert html =~ "badge"
-    end
-
-    test "quickview has View links for each item", %{conn: conn} do
-      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
-
-      {:ok, index_live, _html} = live(conn, ~p"/locations")
-
-      html =
-        index_live
-        |> element("div[phx-click*='show_quickview']")
-        |> render_click()
-
       assert html =~ "/items/#{item1.id}"
       assert html =~ "/items/#{item2.id}"
-    end
-
-    test "quickview closes on close button click", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
-
-      {:ok, index_live, _html} = live(conn, ~p"/locations")
-
-      html =
-        index_live
-        |> element("div[phx-click*='show_quickview']")
-        |> render_click()
-
-      assert html =~ "modal-open"
-
-      html =
-        index_live
-        |> element("button.btn", "Close")
-        |> render_click()
-
-      refute html =~ "modal-open"
     end
   end
 end
