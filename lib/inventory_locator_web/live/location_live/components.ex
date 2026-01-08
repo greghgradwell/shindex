@@ -49,7 +49,8 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
   attr :location, Location, required: true
 
   def cell_box(assigns) do
-    occupied = not is_nil(assigns.location.item_type)
+    active_items = Enum.reject(assigns.location.item_types || [], & &1.archived)
+    occupied = length(active_items) > 0
     assigns = assign(assigns, :occupied, occupied)
 
     ~H"""
@@ -60,7 +61,6 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
         !@occupied && "border-base-300 bg-base-100 hover:bg-base-200"
       ]}
       phx-click={@occupied && JS.push("show_quickview", value: %{location_id: @location.id})}
-      phx-mouseover={@occupied && JS.push("show_quickview", value: %{location_id: @location.id})}
     >
       <!-- Cell label -->
       <span class="text-xs">{@cell.code}</span>
@@ -87,31 +87,43 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
     ~H"""
     <div class="modal modal-open" phx-click={@on_close} phx-key="escape">
       <div class="modal-box" phx-click-away={@on_close}>
-        <%= if @location.item_type do %>
-          <h3 class="font-bold text-lg">{@location.item_type.name}</h3>
-          <!-- Photo -->
-          <%= if @location.item_type.photo_path do %>
-            <img
-              src={~p"/uploads/#{@location.item_type.photo_path}"}
-              alt={@location.item_type.name}
-              class="w-full h-48 object-cover rounded-lg my-4"
-            />
-          <% end %>
-          <!-- Details -->
-          <.list>
-            <:item title="Location">{@location.full_code}</:item>
-            <:item title="Quantity">{@location.item_type.quantity}</:item>
-            <:item :if={@location.item_type.description} title="Description">
-              {@location.item_type.description}
-            </:item>
-          </.list>
-          <!-- Actions -->
-          <div class="modal-action">
-            <.button navigate={~p"/items/#{@location.item_type.id}"}>
-              View Full Details
-            </.button>
-          </div>
+        <h3 class="font-bold text-lg">Location {@location.full_code}</h3>
+
+        <%= if length(@location.item_types) > 0 do %>
+          <table class="table mt-4">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for item <- @location.item_types do %>
+                <tr class={if item.archived, do: "opacity-50", else: ""}>
+                  <td>
+                    {item.name}
+                    <%= if item.archived do %>
+                      <span class="badge badge-sm">Archived</span>
+                    <% end %>
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>
+                    <.link navigate={~p"/items/#{item.id}"} class="link">
+                      View
+                    </.link>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% else %>
+          <p class="mt-4 text-gray-600">No items at this location</p>
         <% end %>
+
+        <div class="modal-action">
+          <button class="btn" phx-click={@on_close}>Close</button>
+        </div>
       </div>
     </div>
     """

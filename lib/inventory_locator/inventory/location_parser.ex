@@ -127,9 +127,16 @@ defmodule InventoryLocator.Inventory.LocationParser do
 
   @spec check_occupancy(Location.t()) :: {:ok, validation_result()}
   defp check_occupancy(location) do
-    item_type = Repo.get_by(ItemType, location_id: location.id)
-    status = if item_type, do: Status.exists_occupied(), else: Status.exists_empty()
+    import Ecto.Query
 
-    {:ok, %{status: status, missing: [], location: location, item_type: item_type}}
+    has_active_items =
+      Repo.exists?(
+        from i in ItemType,
+          where: i.location_id == ^location.id and i.archived == false
+      )
+
+    status = if has_active_items, do: Status.exists_occupied(), else: Status.exists_empty()
+
+    {:ok, %{status: status, missing: [], location: location, item_type: nil}}
   end
 end

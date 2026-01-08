@@ -127,5 +127,75 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
       assert html =~ "0 empty"
       assert html =~ "0 occupied"
     end
+
+    test "quickview shows all items at location in table", %{conn: conn} do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+
+      {:ok, index_live, _html} = live(conn, ~p"/locations")
+
+      html =
+        index_live
+        |> element("div[phx-click*='show_quickview']")
+        |> render_click()
+
+      assert html =~ "Item 1"
+      assert html =~ "Item 2"
+      assert html =~ "<table"
+      assert html =~ "Quantity"
+    end
+
+    test "quickview shows archived items with badge", %{conn: conn} do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Active", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Archived", 3, "Desc")
+
+      Inventory.archive_item_type(item2)
+
+      {:ok, index_live, _html} = live(conn, ~p"/locations")
+
+      html =
+        index_live
+        |> element("div[phx-click*='show_quickview']")
+        |> render_click()
+
+      assert html =~ "Active"
+      assert html =~ "Archived"
+      assert html =~ "badge"
+    end
+
+    test "quickview has View links for each item", %{conn: conn} do
+      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+
+      {:ok, index_live, _html} = live(conn, ~p"/locations")
+
+      html =
+        index_live
+        |> element("div[phx-click*='show_quickview']")
+        |> render_click()
+
+      assert html =~ "/items/#{item1.id}"
+      assert html =~ "/items/#{item2.id}"
+    end
+
+    test "quickview closes on close button click", %{conn: conn} do
+      {:ok, _item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+
+      {:ok, index_live, _html} = live(conn, ~p"/locations")
+
+      html =
+        index_live
+        |> element("div[phx-click*='show_quickview']")
+        |> render_click()
+
+      assert html =~ "modal-open"
+
+      html =
+        index_live
+        |> element("button.btn", "Close")
+        |> render_click()
+
+      refute html =~ "modal-open"
+    end
   end
 end

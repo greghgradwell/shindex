@@ -30,7 +30,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
     >
       <%= if @item.photo_path do %>
         <img
-          src={~p"/uploads/#{@item.photo_path}"}
+          src={"/uploads/#{@item.photo_path}"}
           alt={@item.name}
           class="w-full h-48 object-cover rounded"
         />

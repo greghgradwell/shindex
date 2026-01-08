@@ -35,27 +35,25 @@ defmodule InventoryLocator.Inventory.ItemType do
     |> validate_number(:quantity, greater_than_or_equal_to: 0)
     |> validate_location_when_active()
     |> foreign_key_constraint(:location_id)
-    |> unique_constraint(:location_id)
   end
 
   @spec validate_location_when_active(Ecto.Changeset.t()) :: Ecto.Changeset.t()
   defp validate_location_when_active(changeset) do
-    archived = Ecto.Changeset.get_field(changeset, :archived) || false
+    archived = Ecto.Changeset.get_field(changeset, :archived)
+
+    archived =
+      if is_nil(archived) do
+        false
+      else
+        archived
+      end
+
     location_id = Ecto.Changeset.get_field(changeset, :location_id)
 
-    cond do
-      not archived and is_nil(location_id) ->
-        Ecto.Changeset.add_error(changeset, :location_id, "is required for active items")
-
-      archived and not is_nil(location_id) ->
-        Ecto.Changeset.add_error(
-          changeset,
-          :location_id,
-          "must be removed when archiving (archived items cannot have a location)"
-        )
-
-      true ->
-        changeset
+    if not archived and is_nil(location_id) do
+      Ecto.Changeset.add_error(changeset, :location_id, "is required for active items")
+    else
+      changeset
     end
   end
 end

@@ -19,8 +19,8 @@ A personal inventory system for tracking workshop and household items with preci
 - Python FastAPI service (future) for AI-powered search via LangChain + VertexAI
 
 **Key Design Decisions:**
-- One item type per location (enforced via unique constraint)
-- No orphaned items (every item must have a valid location)
+- Multiple items per location allowed (co-location with user warnings)
+- Active items must have locations; archived items keep location as "ghosts"
 - String-based location entry (type "A-3-0" → system validates and normalizes)
 - Phoenix PubSub for real-time photo sync between devices
 

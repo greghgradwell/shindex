@@ -1,0 +1,146 @@
+<div class="max-w-4xl mx-auto">
+  <.header>
+    {@item.name}
+    <:subtitle>
+      <%= if @item.archived do %>
+        <span class="inline-block px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
+          Archived
+        </span>
+      <% else %>
+        {if @item.location, do: @item.location.full_code, else: "No location"}
+      <% end %>
+    </:subtitle>
+    <:actions>
+      <.link navigate={~p"/items"} class="text-sm text-blue-600 hover:text-blue-800">
+        ← Back to Search
+      </.link>
+    </:actions>
+  </.header>
+
+  <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Photo Section -->
+    <div>
+      <%= if @item.photo_path do %>
+        <img
+          src={"/uploads/#{@item.photo_path}"}
+          alt={@item.name}
+          class="w-full h-96 object-cover rounded-lg shadow-lg"
+        />
+      <% else %>
+        <div class="w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
+          <.icon name="hero-photo" class="w-24 h-24 text-gray-400" />
+        </div>
+      <% end %>
+    </div>
+    
+<!-- Details Section -->
+    <div class="space-y-6">
+      <!-- Metadata -->
+      <.list>
+        <:item title="Location">
+          {if @item.location, do: @item.location.full_code, else: "No location (archived)"}
+        </:item>
+        <:item :if={@item.manufacturer} title="Manufacturer">{@item.manufacturer}</:item>
+        <:item :if={@item.model} title="Model">{@item.model}</:item>
+        <:item :if={@item.description} title="Description">{@item.description}</:item>
+      </.list>
+      
+<!-- Quantity Controls -->
+      <%= if not @item.archived do %>
+        <div class="border rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4">Quantity</h3>
+          <div class="flex items-center justify-center gap-6">
+            <button
+              phx-click="decrement_quantity"
+              class="btn btn-circle btn-lg"
+              disabled={@item.quantity == 0}
+            >
+              <.icon name="hero-minus-circle" class="w-8 h-8" />
+            </button>
+            <span class="text-4xl font-bold">{@item.quantity}</span>
+            <button phx-click="increment_quantity" class="btn btn-circle btn-lg">
+              <.icon name="hero-plus-circle" class="w-8 h-8" />
+            </button>
+          </div>
+        </div>
+      <% end %>
+      
+<!-- Archive Section -->
+      <%= if not @item.archived do %>
+        <div class="border-t pt-6">
+          <.button
+            phx-click="archive"
+            data-confirm="Archive this item? Its location will be freed for reuse and the item quantity will be set to 0."
+            class="w-full btn-error"
+          >
+            Archive Item
+          </.button>
+          <p class="mt-2 text-sm text-gray-600">
+            Archive when item is depleted or no longer needed. The item remains searchable but frees the location.
+          </p>
+        </div>
+      <% else %>
+        <div class="border-t pt-6">
+          <.button phx-click="show_restore_modal" class="w-full">
+            Restore Item
+          </.button>
+          <p class="mt-2 text-sm text-gray-600">
+            Restore this item by assigning a new location and quantity.
+          </p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+<!-- Restore Modal -->
+<div
+  :if={@show_restore_modal}
+  class="modal modal-open"
+  phx-click="close_restore_modal"
+  phx-key="escape"
+>
+  <div class="modal-box" phx-click-away="close_restore_modal">
+    <h3 class="font-bold text-lg">Restore Item</h3>
+    <p class="py-4 text-sm text-gray-600">
+      Assign a new location and quantity to restore this item.
+    </p>
+
+    <.form :let={f} for={%{}} phx-submit="restore" phx-change="validate_location">
+      <.input
+        field={f[:location_code]}
+        type="text"
+        label="Location Code"
+        placeholder="e.g., A-1-0"
+        required
+      />
+
+      <%= if assigns[:location_warning] do %>
+        <div class="alert alert-warning mt-2">
+          <.icon name="hero-exclamation-triangle" />
+          <span>
+            Location {@location_warning.code} has {@location_warning.count} active item(s).
+            Item will be co-located.
+          </span>
+        </div>
+      <% end %>
+
+      <.input
+        field={f[:quantity]}
+        type="number"
+        label="Quantity"
+        value="1"
+        min="1"
+        required
+      />
+
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" phx-click="close_restore_modal">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          Restore
+        </button>
+      </div>
+    </.form>
+  </div>
+</div>

@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   import InventoryLocatorWeb.LocationLive.Components
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     shelves = Inventory.list_shelves_with_hierarchy()
     stats = Inventory.count_locations_by_occupancy()
@@ -18,6 +19,8 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("delete_location", %{"id" => id}, socket) when is_integer(id) do
     case Inventory.delete_empty_location(id) do
       {:ok, _location} ->
@@ -38,16 +41,14 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
     end
   end
 
-  @impl true
   def handle_event("show_quickview", %{"location_id" => id}, socket) do
     location =
-      Inventory.get_location!(String.to_integer(id))
-      |> Repo.preload(cell: [bin: :shelf], item_type: [])
+      Inventory.get_location!(id)
+      |> Repo.preload([:item_types, cell: [bin: :shelf]])
 
     {:noreply, assign(socket, :quickview_location, location)}
   end
 
-  @impl true
   def handle_event("close_quickview", _params, socket) do
     {:noreply, assign(socket, :quickview_location, nil)}
   end

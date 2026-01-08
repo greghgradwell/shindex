@@ -9,7 +9,7 @@ defmodule InventoryLocator.Inventory.Location do
 
     belongs_to :cell, Cell
 
-    has_one :item_type, ItemType
+    has_many :item_types, ItemType
 
     timestamps()
   end

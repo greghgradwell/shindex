@@ -23,14 +23,18 @@ defmodule InventoryLocator.InventoryTest do
       assert item.location.cell.bin.shelf.code == LocationCode.shelf_code!(location_code)
     end
 
-    test "returns error for occupied location" do
+    test "allows multiple items at same location (co-location)" do
       location_code = "A-3-1"
 
-      assert {:ok, _item1} =
+      assert {:ok, item1} =
                Inventory.create_item_with_location(location_code, "First Item", 5, "First")
 
-      assert {:error, :already_occupied} =
+      assert {:ok, item2} =
                Inventory.create_item_with_location(location_code, "Second Item", 3, "Second")
+
+      item1 = Repo.preload(item1, :location)
+      item2 = Repo.preload(item2, :location)
+      assert item1.location.id == item2.location.id
     end
 
     test "returns error for invalid location format" do
@@ -68,7 +72,7 @@ defmodule InventoryLocator.InventoryTest do
       assert Inventory.list_shelves_with_hierarchy() == []
     end
 
-    test "preloads item_type association" do
+    test "preloads item_types association" do
       location_code = "A-1-0"
       {:ok, _item} = Inventory.create_item_with_location(location_code, "Test Item", 5, "Desc")
 
@@ -77,8 +81,9 @@ defmodule InventoryLocator.InventoryTest do
       cell_result = hd(bin_result.cells)
       location_result = cell_result.location
 
-      assert Ecto.assoc_loaded?(location_result.item_type)
-      assert location_result.item_type.name == "Test Item"
+      assert Ecto.assoc_loaded?(location_result.item_types)
+      assert length(location_result.item_types) == 1
+      assert hd(location_result.item_types).name == "Test Item"
     end
   end
 
@@ -266,6 +271,68 @@ defmodule InventoryLocator.InventoryTest do
       assert Enum.at(results, 0).name == "Active Item"
       assert Enum.at(results, 1).name == "Zulu Item"
       assert Enum.all?(results, &(&1.archived == false))
+    end
+  end
+
+  describe "multi-item locations" do
+    test "archived items don't prevent location deletion" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      item = Repo.preload(item, :location)
+
+      {:ok, _archived} = Inventory.archive_item_type(item)
+
+      assert {:ok, _} = Inventory.delete_empty_location(item.location.id)
+    end
+
+    test "active items prevent location deletion even with archived items present" do
+      {:ok, item1} = Inventory.create_item_with_location("A-1-0", "Active", 5, "Desc")
+      {:ok, item2} = Inventory.create_item_with_location("A-1-0", "Archived", 3, "Desc")
+
+      item1 = Repo.preload(item1, :location)
+      {:ok, _} = Inventory.archive_item_type(item2)
+
+      assert {:error, :occupied} = Inventory.delete_empty_location(item1.location.id)
+    end
+
+    test "ensure_location_with_code returns item count for occupied locations" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+
+      assert {:ok, location, 2} = Inventory.ensure_location_with_code("A-1-0")
+      assert location.full_code == "A-1-0"
+    end
+
+    test "count_locations_by_occupancy counts location once even with multiple items" do
+      {:ok, _item1} = Inventory.create_item_with_location("A-1-0", "Item 1", 5, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location("A-1-0", "Item 2", 3, "Desc")
+      {:ok, _item3} = Inventory.create_item_with_location("A-1-1", "Item 3", 2, "Desc")
+
+      result = Inventory.count_locations_by_occupancy()
+      assert result.occupied == 2
+      assert result.empty == 0
+    end
+  end
+
+  describe "archive_item_type/1" do
+    test "keeps location_id when archiving" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test", 5, "Desc")
+      item = Repo.preload(item, :location)
+      original_location_id = item.location_id
+
+      {:ok, archived} = Inventory.archive_item_type(item)
+
+      assert archived.archived == true
+      assert archived.quantity == 0
+      assert archived.location_id == original_location_id
+    end
+
+    test "archived items remain searchable with show_archived option" do
+      {:ok, item} = Inventory.create_item_with_location("A-1-0", "Test Item", 5, "Desc")
+      {:ok, _archived} = Inventory.archive_item_type(item)
+
+      results = Inventory.search_items("test", show_archived: true)
+      assert length(results) == 1
+      assert hd(results).archived == true
     end
   end
 end

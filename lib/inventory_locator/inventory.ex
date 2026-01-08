@@ -44,8 +44,10 @@ defmodule InventoryLocator.Inventory do
   end
 
   @spec ensure_location_with_code(String.t()) ::
-          {:ok, Location.t()} | {:error, :invalid_format | Ecto.Changeset.t()}
-  defp ensure_location_with_code(location_code) do
+          {:ok, Location.t()}
+          | {:ok, Location.t(), integer()}
+          | {:error, :invalid_format | Ecto.Changeset.t()}
+  def ensure_location_with_code(location_code) do
     with {:ok, parsed} <- LocationParser.parse(location_code),
          {:ok, validation} <- LocationParser.validate(parsed) do
       case validation.status do
@@ -56,9 +58,18 @@ defmodule InventoryLocator.Inventory do
           {:ok, validation.location}
 
         :exists_occupied ->
-          {:error, :already_occupied}
+          active_item_count = count_active_items_at_location(validation.location.id)
+          {:ok, validation.location, active_item_count}
       end
     end
+  end
+
+  @spec count_active_items_at_location(integer()) :: integer()
+  defp count_active_items_at_location(location_id) do
+    Repo.aggregate(
+      from(i in ItemType, where: i.location_id == ^location_id and i.archived == false),
+      :count
+    )
   end
 
   @spec create_hierarchy(LocationParser.parsed(), [LocationParser.Missing.t()]) ::
@@ -130,34 +141,61 @@ defmodule InventoryLocator.Inventory do
   def list_shelves_with_hierarchy do
     Shelf
     |> Repo.all()
-    |> Repo.preload(bins: [cells: [location: :item_type]])
+    |> Repo.preload(bins: [cells: [location: :item_types]])
   end
 
   @spec delete_empty_location(integer()) ::
           {:ok, Location.t()} | {:error, :occupied} | {:error, Ecto.Changeset.t()}
   def delete_empty_location(location_id) do
-    location = Repo.get!(Location, location_id) |> Repo.preload(:item_type)
+    active_item_count =
+      Repo.aggregate(
+        from(i in ItemType, where: i.location_id == ^location_id and i.archived == false),
+        :count
+      )
 
-    if location.item_type do
+    if active_item_count > 0 do
       {:error, :occupied}
     else
-      Repo.delete(location)
+      Repo.transaction(fn ->
+        from(i in ItemType, where: i.location_id == ^location_id and i.archived == true)
+        |> Repo.update_all(set: [location_id: nil])
+
+        location = Repo.get!(Location, location_id)
+        Repo.delete!(location)
+      end)
     end
   end
 
   @spec count_locations_by_occupancy() :: %{occupied: integer(), empty: integer()}
   def count_locations_by_occupancy do
     from(l in Location,
-      left_join: i in assoc(l, :item_type),
+      left_join: i in assoc(l, :item_types),
+      where: is_nil(i.archived) or i.archived == false,
       select: %{
-        occupied: fragment("COUNT(CASE WHEN ? IS NOT NULL THEN 1 END)", i.id),
-        empty: fragment("COUNT(CASE WHEN ? IS NULL THEN 1 END)", i.id)
+        occupied: fragment("COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", i.id, l.id),
+        empty:
+          fragment(
+            "COUNT(DISTINCT ?) - COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)",
+            l.id,
+            i.id,
+            l.id
+          )
       }
     )
     |> Repo.one()
   end
 
   # ItemTypes
+
+  @spec get_item_type!(integer()) :: ItemType.t()
+  def get_item_type!(id), do: Repo.get!(ItemType, id)
+
+  @spec get_item_type_with_location!(integer()) :: ItemType.t()
+  def get_item_type_with_location!(id) do
+    ItemType
+    |> Repo.get!(id)
+    |> Repo.preload(location: [cell: [bin: :shelf]])
+  end
 
   @spec create_item_type(map()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
   defp create_item_type(attrs) do
@@ -166,22 +204,61 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  @spec update_item_type(ItemType.t(), map()) ::
+          {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
+  def update_item_type(%ItemType{} = item, attrs) do
+    item
+    |> ItemType.changeset(attrs)
+    |> Repo.update()
+  end
+
   @spec delete_item_type(ItemType.t()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
   def delete_item_type(%ItemType{} = item_type) do
     Repo.delete(item_type)
   end
 
+  @spec archive_item_type(ItemType.t()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
+  def archive_item_type(%ItemType{} = item) do
+    item
+    |> ItemType.changeset(%{
+      quantity: 0,
+      archived: true
+    })
+    |> Repo.update()
+  end
+
+  @spec restore_item_type(ItemType.t(), map()) ::
+          {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
+  def restore_item_type(%ItemType{} = item, attrs) do
+    item
+    |> ItemType.changeset(Map.put(attrs, :archived, false))
+    |> Repo.update()
+  end
+
   @spec create_item_with_location(String.t(), String.t(), integer(), String.t()) ::
-          {:ok, ItemType.t()} | {:error, :invalid_format | :already_occupied | Ecto.Changeset.t()}
+          {:ok, ItemType.t()} | {:error, :invalid_format | Ecto.Changeset.t()}
   def create_item_with_location(location_code, name, quantity, description) do
-    with {:ok, location} <- ensure_location_with_code(location_code) do
-      create_item_type(%{
-        name: name,
-        quantity: quantity,
-        description: description,
-        archived: false,
-        location_id: location.id
-      })
+    case ensure_location_with_code(location_code) do
+      {:ok, location} ->
+        create_item_type(%{
+          name: name,
+          quantity: quantity,
+          description: description,
+          archived: false,
+          location_id: location.id
+        })
+
+      {:ok, location, _item_count} ->
+        create_item_type(%{
+          name: name,
+          quantity: quantity,
+          description: description,
+          archived: false,
+          location_id: location.id
+        })
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -195,8 +272,19 @@ defmodule InventoryLocator.Inventory do
 
   @spec search_items(String.t(), keyword()) :: [ItemType.t()]
   def search_items(query, opts) do
-    show_archived = Keyword.get(opts, :show_archived, false)
-    filters = Keyword.get(opts, :filters, [])
+    show_archived =
+      if Keyword.has_key?(opts, :show_archived) do
+        Keyword.fetch!(opts, :show_archived)
+      else
+        false
+      end
+
+    filters =
+      if Keyword.has_key?(opts, :filters) do
+        Keyword.fetch!(opts, :filters)
+      else
+        []
+      end
 
     if query == "" and filters == [] do
       []

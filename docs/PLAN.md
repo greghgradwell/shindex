@@ -74,7 +74,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 ### 2.1 Location Management UI
 - [x] Create LocationLive.Index - Gantt-chart hierarchical view (shelf→bin→cell)
 - [x] Display occupied vs empty status for each location
-- [x] Add hover quickview modal (photo/name/description)
+- [x] Add click-to-show quickview modal (photo/name/description/quantity)
 - [x] Add delete for empty locations (block if occupied, data-confirm)
 - [x] Count locations by occupancy stats
 - [x] Write tests for location display and deletion

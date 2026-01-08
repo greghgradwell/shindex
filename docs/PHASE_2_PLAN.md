@@ -359,15 +359,15 @@ Implement the core user interface for the inventory system based on UX decisions
 - Proportional sizing: bin width proportional to cell count
 
 **Interactions**:
-- **Hover occupied location**: Show modal quickview (photo, name, description)
-- **Click occupied location**: Navigate to full ItemLive.Show page
+- **Click occupied location**: Show modal quickview (photo, name, description, quantity)
+- **Click "View Full Details" in modal**: Navigate to full ItemLive.Show page
 - **Empty locations**: Visual distinction (badge/color) with delete button
 - **Show only created locations**: Filter to locations that exist in database (not theoretical)
 
 **Key Design Decisions**:
 - **Gantt layout**: Visual hierarchy makes Shelf → Bin → Cell relationships immediately clear
 - **Proportional sizing**: Bin width reflects cell count (more cells = wider bin), compact display shows 50+ locations on screen
-- **Hover + click pattern**: Hover provides fast quickview without navigation, click opens full details for editing
+- **Click for quickview pattern**: Click cell shows modal quickview (mobile-friendly, no hover needed), modal button navigates to full details
 - **Preload full hierarchy**: Single query with nested preloads (`shelf → bins → cells → locations → item_type`) avoids N+1
 - **CSS Flexbox + Grid**: Flexbox for horizontal shelf layout, Grid for cell arrangement within bins
 - **Filter cells**: Only render cells with `location` record using `<%= if cell.location do %>` to avoid showing theoretical locations
@@ -381,8 +381,8 @@ Implement the core user interface for the inventory system based on UX decisions
 - `LocationLive.Index` with hierarchical Gantt-chart display
 - `LocationLive.Components` with `shelf_row/1`, `bin_segment/1`, `cell_box/1`, `quickview_modal/1`
 - Occupied vs empty status indicators (color coding, icons)
-- Hover quickview modal with photo/name/description
-- Click navigation to ItemLive.Show
+- Click-to-show quickview modal with photo/name/description/quantity
+- "View Full Details" button navigates to ItemLive.Show
 - Delete empty locations (block if occupied, data-confirm dialog)
 - Route: `live "/locations", LocationLive.Index`
 - Unit tests for context functions
@@ -391,12 +391,13 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Status**: ✅ Complete
 - Gantt-chart layout implemented with flexbox
-- Hover quickview modal shows photo/name/description
-- Click navigates to item details (route warning - ItemLive.Show not yet implemented)
+- Click-to-show quickview modal displays photo/name/description/quantity
+- "View Full Details" button navigates to item details (route warning - ItemLive.Show not yet implemented)
 - Delete empty locations with data-confirm dialog (blocks if occupied)
 - Occupancy stats display (X occupied, Y empty)
 - All context functions have @spec annotations
 - Tests passing (81 tests)
+- Note: Originally planned with hover, switched to click (mobile-friendly, no LiveView hover support)
 
 **Note**: Inventory context refactored - deleted 24 unused CRUD functions, final public API: 7 functions (77% reduction)
 
