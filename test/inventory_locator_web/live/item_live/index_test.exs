@@ -2,7 +2,9 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
   use InventoryLocatorWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  alias InventoryLocator.{Inventory, Repo}
+
+  alias InventoryLocator.Inventory
+  alias InventoryLocator.Repo
 
   describe "Index" do
     test "renders search box on mount", %{conn: conn} do

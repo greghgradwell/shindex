@@ -1,5 +1,7 @@
 defmodule InventoryLocator.Inventory.Shelf do
+  @moduledoc false
   use TypedEctoSchema
+
   import Ecto.Changeset
 
   alias InventoryLocator.Inventory.Bin

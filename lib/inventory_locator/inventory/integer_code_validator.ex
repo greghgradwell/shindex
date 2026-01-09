@@ -1,4 +1,5 @@
 defmodule InventoryLocator.Inventory.IntegerCodeValidator do
+  @moduledoc false
   @spec valid_code?(any(), integer(), integer()) :: boolean()
   def valid_code?(code, min, max) when is_binary(code) do
     case Integer.parse(code) do

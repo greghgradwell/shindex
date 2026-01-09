@@ -1,18 +1,21 @@
 defmodule InventoryLocatorWeb.ItemLive.Index do
+  @moduledoc false
   use InventoryLocatorWeb, :live_view
 
-  alias InventoryLocator.Inventory
   import InventoryLocatorWeb.ItemLive.Components
 
+  alias InventoryLocator.Inventory
+  alias Phoenix.LiveView.Socket
+
   @impl true
-  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
+  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
     {:ok, assign_defaults(socket)}
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("search", %{"query" => query}, socket) do
     socket =
       socket
@@ -23,8 +26,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("toggle_archived", _params, socket) do
     socket =
       socket
@@ -35,8 +38,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("toggle_filter", %{"filter" => filter}, socket)
       when filter in ["manufacturer", "model", "description"] do
     filter_atom = String.to_existing_atom(filter)
@@ -51,13 +54,13 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("toggle_filter", %{"filter" => _unknown}, socket) do
     {:noreply, socket}
   end
 
-  @spec assign_defaults(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  @spec assign_defaults(Socket.t()) :: Socket.t()
   defp assign_defaults(socket) do
     socket
     |> assign(:query, "")
@@ -67,7 +70,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:page_title, "Search Items")
   end
 
-  @spec perform_search(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  @spec perform_search(Socket.t()) :: Socket.t()
   defp perform_search(socket) do
     results =
       Inventory.search_items(

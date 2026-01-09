@@ -1,11 +1,15 @@
 defmodule InventoryLocatorWeb.ItemLive.Components do
+  @moduledoc false
   use Phoenix.Component
   use InventoryLocatorWeb, :html
+
   import InventoryLocatorWeb.CoreComponents
+
+  alias Phoenix.LiveView.Rendered
 
   attr :items, :list, required: true
 
-  @spec item_grid(map()) :: Phoenix.LiveView.Rendered.t()
+  @spec item_grid(map()) :: Rendered.t()
   def item_grid(assigns) do
     ~H"""
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -18,7 +22,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
 
   attr :item, :map, required: true
 
-  @spec item_card(map()) :: Phoenix.LiveView.Rendered.t()
+  @spec item_card(map()) :: Rendered.t()
   def item_card(assigns) do
     ~H"""
     <div

@@ -1,5 +1,8 @@
 defmodule InventoryLocator.Inventory.LocationCode do
-  alias InventoryLocator.Inventory.{Shelf, Bin, Cell}
+  @moduledoc false
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.Shelf
 
   @type parsed :: %{
           shelf_code: String.t(),

@@ -46,3 +46,8 @@ npm-debug.log
 .env
 .envrc
 
+# Dialyzer PLT files
+/priv/plts/
+*.plt
+*.plt.hash
+

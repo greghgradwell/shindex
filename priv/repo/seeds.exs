@@ -1,4 +1,6 @@
-alias InventoryLocator.{Repo, Inventory}
+alias InventoryLocator.Inventory
+alias InventoryLocator.Repo
+
 require Logger
 
 Logger.info("🌱 Seeding database...")

@@ -1,7 +1,10 @@
 defmodule InventoryLocator.Inventory.LocationParser.ParseTest do
   use InventoryLocator.DataCase
 
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
   alias InventoryLocator.Inventory.LocationParser
+  alias InventoryLocator.Inventory.Shelf
 
   describe "parse/1" do
     test "parses valid location code with uppercase shelf" do
@@ -25,16 +28,14 @@ defmodule InventoryLocator.Inventory.LocationParser.ParseTest do
     end
 
     test "parses location code with maximum valid values" do
-      max_shelf_len = InventoryLocator.Inventory.Shelf.max_code_length()
-      max_bin = InventoryLocator.Inventory.Bin.max_code()
-      max_cell = InventoryLocator.Inventory.Cell.max_code()
+      max_shelf_len = Shelf.max_code_length()
+      max_bin = Bin.max_code()
+      max_cell = Cell.max_code()
 
       expected_shelf = String.duplicate("A", max_shelf_len)
 
       assert {:ok, result} =
-               LocationParser.parse(
-                 "#{String.duplicate("a", max_shelf_len)}-#{max_bin}-#{max_cell}"
-               )
+               LocationParser.parse("#{String.duplicate("a", max_shelf_len)}-#{max_bin}-#{max_cell}")
 
       assert result.shelf_code == expected_shelf
       assert result.bin_code == "#{max_bin}"
@@ -68,7 +69,7 @@ defmodule InventoryLocator.Inventory.LocationParser.ParseTest do
     end
 
     test "returns error for shelf name over max length" do
-      max_shelf_len = InventoryLocator.Inventory.Shelf.max_code_length()
+      max_shelf_len = Shelf.max_code_length()
 
       assert {:error, :invalid_format} =
                LocationParser.parse("#{String.duplicate("a", max_shelf_len + 1)}-3-1")
@@ -85,13 +86,13 @@ defmodule InventoryLocator.Inventory.LocationParser.ParseTest do
     end
 
     test "returns error for bin code out of range" do
-      max_bin = InventoryLocator.Inventory.Bin.max_code()
+      max_bin = Bin.max_code()
       assert {:error, :invalid_format} = LocationParser.parse("A-#{max_bin + 1}-1")
       assert {:error, :invalid_format} = LocationParser.parse("A--1-1")
     end
 
     test "returns error for cell code out of range" do
-      max_cell = InventoryLocator.Inventory.Cell.max_code()
+      max_cell = Cell.max_code()
       assert {:error, :invalid_format} = LocationParser.parse("A-3-#{max_cell + 1}")
       assert {:error, :invalid_format} = LocationParser.parse("A-3--1")
     end

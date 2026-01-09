@@ -2,7 +2,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
   use InventoryLocatorWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  alias InventoryLocator.{Inventory, Repo}
+
+  alias InventoryLocator.Inventory
+  alias InventoryLocator.Repo
 
   describe "Show" do
     test "displays item details", %{conn: conn} do

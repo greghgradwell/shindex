@@ -1,8 +1,15 @@
 defmodule InventoryLocator.Inventory.LocationParser do
+  @moduledoc false
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.ItemType
+  alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Inventory.LocationCode
+  alias InventoryLocator.Inventory.Shelf
   alias InventoryLocator.Repo
-  alias InventoryLocator.Inventory.{Shelf, Bin, Cell, Location, ItemType, LocationCode}
 
   defmodule Status do
+    @moduledoc false
     @type t :: :needs_creation | :exists_empty | :exists_occupied
 
     def needs_creation, do: :needs_creation
@@ -11,6 +18,7 @@ defmodule InventoryLocator.Inventory.LocationParser do
   end
 
   defmodule Missing do
+    @moduledoc false
     @type t :: :shelf | :bin | :cell | :location
 
     def shelf, do: :shelf

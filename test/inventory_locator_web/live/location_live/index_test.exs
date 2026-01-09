@@ -2,7 +2,9 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
   use InventoryLocatorWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  alias InventoryLocator.{Inventory, Repo}
+
+  alias InventoryLocator.Inventory
+  alias InventoryLocator.Repo
 
   describe "Index" do
     test "lists all shelves with hierarchy", %{conn: conn} do

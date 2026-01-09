@@ -1,11 +1,14 @@
 defmodule InventoryLocatorWeb.ItemLive.Show do
+  @moduledoc false
   use InventoryLocatorWeb, :live_view
 
   alias InventoryLocator.Inventory
-  alias InventoryLocator.Inventory.{ItemType, Location}
+  alias InventoryLocator.Inventory.ItemType
+  alias InventoryLocator.Inventory.Location
+  alias Phoenix.LiveView.Socket
 
   @impl true
-  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
+  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(%{"id" => id}, _session, socket) do
     item = Inventory.get_item_type_with_location!(String.to_integer(id))
 
@@ -21,8 +24,8 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("increment_quantity", _params, socket) do
     item = socket.assigns.item
     new_quantity = item.quantity + 1
@@ -251,8 +254,8 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
     end
   end
 
-  @spec do_move(Phoenix.LiveView.Socket.t(), ItemType.t(), Location.t(), String.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec do_move(Socket.t(), ItemType.t(), Location.t(), String.t()) ::
+          {:noreply, Socket.t()}
   defp do_move(socket, item, location, location_code) do
     case Inventory.update_item_type(item, %{location_id: location.id}) do
       {:ok, updated_item} ->
@@ -270,8 +273,8 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
     end
   end
 
-  @spec do_restore(Phoenix.LiveView.Socket.t(), ItemType.t(), Location.t(), integer(), String.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec do_restore(Socket.t(), ItemType.t(), Location.t(), integer(), String.t()) ::
+          {:noreply, Socket.t()}
   defp do_restore(socket, item, location, quantity, location_code) do
     case Inventory.restore_item_type(item, %{location_id: location.id, quantity: quantity}) do
       {:ok, updated_item} ->

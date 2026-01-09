@@ -1,9 +1,12 @@
 defmodule InventoryLocator.Inventory.Bin do
+  @moduledoc false
   use TypedEctoSchema
-  import Ecto.Changeset
-  alias InventoryLocator.Inventory.IntegerCodeValidator
 
-  alias InventoryLocator.Inventory.{Shelf, Cell}
+  import Ecto.Changeset
+
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.IntegerCodeValidator
+  alias InventoryLocator.Inventory.Shelf
 
   typed_schema "bins" do
     field :code, :string

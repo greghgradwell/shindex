@@ -1,8 +1,12 @@
 defmodule InventoryLocator.Inventory.Location do
+  @moduledoc false
   use TypedEctoSchema
+
   import Ecto.Changeset
 
-  alias InventoryLocator.Inventory.{Cell, ItemType, LocationCode}
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.ItemType
+  alias InventoryLocator.Inventory.LocationCode
 
   typed_schema "locations" do
     field :full_code, :string

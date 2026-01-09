@@ -1,11 +1,14 @@
 defmodule InventoryLocatorWeb.LocationLive.Index do
+  @moduledoc false
   use InventoryLocatorWeb, :live_view
 
-  alias InventoryLocator.Inventory
   import InventoryLocatorWeb.LocationLive.Components
 
+  alias InventoryLocator.Inventory
+  alias Phoenix.LiveView.Socket
+
   @impl true
-  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
+  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
     shelves = Inventory.list_shelves_with_hierarchy()
     stats = Inventory.count_locations_by_occupancy()
@@ -18,8 +21,8 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("delete_location", %{"id" => id}, socket) when is_integer(id) do
     case Inventory.delete_empty_location(id) do
       {:ok, _location} ->

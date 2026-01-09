@@ -1,8 +1,14 @@
 defmodule InventoryLocator.Inventory do
+  @moduledoc false
   import Ecto.Query, warn: false
-  alias InventoryLocator.Repo
 
-  alias InventoryLocator.Inventory.{Shelf, Bin, Cell, Location, ItemType, LocationParser}
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.ItemType
+  alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Inventory.LocationParser
+  alias InventoryLocator.Inventory.Shelf
+  alias InventoryLocator.Repo
 
   # Shelves
 
@@ -74,10 +80,7 @@ defmodule InventoryLocator.Inventory do
 
   @spec create_hierarchy(LocationParser.parsed(), [LocationParser.Missing.t()]) ::
           {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
-  defp create_hierarchy(
-         %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code},
-         missing
-       ) do
+  defp create_hierarchy(%{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}, missing) do
     Repo.transaction(fn ->
       shelf = ensure_shelf(shelf_code, missing)
       bin = ensure_bin(bin_code, shelf, missing)
@@ -111,11 +114,10 @@ defmodule InventoryLocator.Inventory do
     target_cell_num = String.to_integer(cell_code)
 
     if :cell in missing do
-      1..target_cell_num
-      |> Enum.each(fn i ->
+      Enum.each(1..target_cell_num, fn i ->
         code = "#{i}"
 
-        unless Repo.get_by(Cell, code: code, bin_id: bin.id) do
+        if !Repo.get_by(Cell, code: code, bin_id: bin.id) do
           create_cell(%{code: code, bin_id: bin.id})
         end
       end)
@@ -157,10 +159,11 @@ defmodule InventoryLocator.Inventory do
       {:error, :occupied}
     else
       Repo.transaction(fn ->
-        from(i in ItemType, where: i.location_id == ^location_id and i.archived == true)
-        |> Repo.update_all(set: [location_id: nil])
+        Repo.update_all(from(i in ItemType, where: i.location_id == ^location_id and i.archived == true),
+          set: [location_id: nil]
+        )
 
-        location = Repo.get!(Location, location_id) |> Repo.preload(cell: [bin: :shelf])
+        location = Location |> Repo.get!(location_id) |> Repo.preload(cell: [bin: :shelf])
         cell = location.cell
         bin = cell.bin
         shelf = bin.shelf
@@ -186,8 +189,7 @@ defmodule InventoryLocator.Inventory do
 
           if bin_occupied_cell_count == 0 do
             # Delete all orphaned empty cells in the bin
-            from(c in Cell, where: c.bin_id == ^bin.id) |> Repo.delete_all()
-
+            Repo.delete_all(from(c in Cell, where: c.bin_id == ^bin.id))
             Repo.delete!(bin)
 
             # Check if shelf has any bins with locations
@@ -203,8 +205,7 @@ defmodule InventoryLocator.Inventory do
 
             if shelf_occupied_bin_count == 0 do
               # Delete all orphaned empty bins in the shelf
-              from(b in Bin, where: b.shelf_id == ^shelf.id) |> Repo.delete_all()
-
+              Repo.delete_all(from(b in Bin, where: b.shelf_id == ^shelf.id))
               Repo.delete!(shelf)
             end
           end
@@ -217,21 +218,16 @@ defmodule InventoryLocator.Inventory do
 
   @spec count_locations_by_occupancy() :: %{occupied: integer(), empty: integer()}
   def count_locations_by_occupancy do
-    from(l in Location,
-      left_join: i in assoc(l, :item_types),
-      where: is_nil(i.archived) or i.archived == false,
-      select: %{
-        occupied: fragment("COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", i.id, l.id),
-        empty:
-          fragment(
-            "COUNT(DISTINCT ?) - COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)",
-            l.id,
-            i.id,
-            l.id
-          )
-      }
+    Repo.one(
+      from(l in Location,
+        left_join: i in assoc(l, :item_types),
+        where: is_nil(i.archived) or i.archived == false,
+        select: %{
+          occupied: fragment("COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", i.id, l.id),
+          empty: fragment("COUNT(DISTINCT ?) - COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", l.id, i.id, l.id)
+        }
+      )
     )
-    |> Repo.one()
   end
 
   # ItemTypes

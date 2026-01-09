@@ -19,15 +19,15 @@ defmodule InventoryLocatorWeb.ConnCase do
 
   using do
     quote do
+      use InventoryLocatorWeb, :verified_routes
+
+      import InventoryLocatorWeb.ConnCase
+      import Phoenix.ConnTest
+      import Plug.Conn
       # The default endpoint for testing
       @endpoint InventoryLocatorWeb.Endpoint
 
-      use InventoryLocatorWeb, :verified_routes
-
       # Import conveniences for testing with connections
-      import Plug.Conn
-      import Phoenix.ConnTest
-      import InventoryLocatorWeb.ConnCase
     end
   end
 

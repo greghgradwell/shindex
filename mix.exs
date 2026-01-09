@@ -11,7 +11,21 @@ defmodule InventoryLocator.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+
+      # Dialyzer configuration
+      dialyzer: [
+        plt_core_path: "priv/plts",
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:mix, :ex_unit],
+        flags: [
+          :unmatched_returns,
+          :error_handling,
+          :unknown
+        ],
+        ignore_warnings: ".dialyzer_ignore.exs",
+        list_unused_filters: true
+      ]
     ]
   end
 
@@ -53,12 +67,7 @@ defmodule InventoryLocator.MixProject do
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:heroicons,
-       github: "tailwindlabs/heroicons",
-       tag: "v2.2.0",
-       sparse: "optimized",
-       app: false,
-       compile: false,
-       depth: 1},
+       github: "tailwindlabs/heroicons", tag: "v2.2.0", sparse: "optimized", app: false, compile: false, depth: 1},
       {:swoosh, "~> 1.16"},
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
@@ -66,7 +75,12 @@ defmodule InventoryLocator.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+
+      # Development tools
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -89,7 +103,21 @@ defmodule InventoryLocator.MixProject do
         "esbuild inventory_locator --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+
+      # Quick precommit (no Dialyzer - too slow for rapid iteration)
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format --check-formatted",
+        "credo",
+        "test"
+      ],
+
+      # Full quality check (run before PRs/milestones)
+      quality: ["dialyzer", "credo --strict"],
+
+      # Format and auto-fix
+      fix: ["format", "credo --strict --fix"]
     ]
   end
 end

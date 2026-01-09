@@ -2,7 +2,10 @@ defmodule InventoryLocator.InventoryTest do
   use InventoryLocator.DataCase
 
   alias InventoryLocator.Inventory
-  alias InventoryLocator.Inventory.{LocationCode, Cell, Bin, Shelf}
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.LocationCode
+  alias InventoryLocator.Inventory.Shelf
 
   describe "create_item_with_location/4" do
     test "creates location hierarchy automatically" do

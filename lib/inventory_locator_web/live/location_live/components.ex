@@ -1,7 +1,11 @@
 defmodule InventoryLocatorWeb.LocationLive.Components do
+  @moduledoc false
   use InventoryLocatorWeb, :html
 
-  alias InventoryLocator.Inventory.{Shelf, Bin, Cell, Location}
+  alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Inventory.Shelf
   alias Phoenix.LiveView.JS
 
   attr :shelf, Shelf, required: true
@@ -50,7 +54,7 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
 
   def cell_box(assigns) do
     active_items = Enum.reject(assigns.location.item_types || [], & &1.archived)
-    occupied = length(active_items) > 0
+    occupied = active_items != []
     assigns = assign(assigns, :occupied, occupied)
     assigns = assign(assigns, :active_items, active_items)
 

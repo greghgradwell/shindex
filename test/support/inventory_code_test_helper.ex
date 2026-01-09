@@ -1,4 +1,5 @@
 defmodule InventoryLocator.InventoryCodeTestHelper do
+  @moduledoc false
   import ExUnit.Assertions
 
   def test_integer_code_validation(module) do
