@@ -4,6 +4,7 @@ defmodule InventoryLocator.Inventory.ItemType do
 
   import Ecto.Changeset
 
+  alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
 
   typed_schema "item_types" do
@@ -16,6 +17,7 @@ defmodule InventoryLocator.Inventory.ItemType do
     field :archived, :boolean
 
     belongs_to :location, Location
+    has_many :installations, ItemInstallation
 
     timestamps()
   end

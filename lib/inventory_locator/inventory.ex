@@ -4,6 +4,7 @@ defmodule InventoryLocator.Inventory do
 
   alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
   alias InventoryLocator.Inventory.LocationParser
@@ -41,6 +42,11 @@ defmodule InventoryLocator.Inventory do
 
   @spec get_location!(integer()) :: Location.t()
   def get_location!(id), do: Repo.get!(Location, id)
+
+  @spec list_location_codes() :: [String.t()]
+  def list_location_codes do
+    Repo.all(from(l in Location, select: l.full_code, order_by: l.full_code))
+  end
 
   @spec create_location(map()) :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
   defp create_location(attrs) do
@@ -141,9 +147,13 @@ defmodule InventoryLocator.Inventory do
 
   @spec list_shelves_with_hierarchy() :: [Shelf.t()]
   def list_shelves_with_hierarchy do
+    bins_query = from(b in Bin, order_by: b.code)
+    cells_query = from(c in Cell, order_by: [desc: c.code])
+
     Shelf
+    |> order_by(:code)
     |> Repo.all()
-    |> Repo.preload(bins: [cells: [location: :item_types]])
+    |> Repo.preload(bins: {bins_query, cells: {cells_query, location: :item_types}})
   end
 
   @spec delete_empty_location(integer()) ::
@@ -389,5 +399,195 @@ defmodule InventoryLocator.Inventory do
 
   defp apply_default_ordering(query, _empty_query) do
     order_by(query, [i], asc: i.archived, asc: i.name)
+  end
+
+  # Installations
+
+  @spec list_installations_for_item(ItemType.t()) :: [ItemInstallation.t()]
+  def list_installations_for_item(%ItemType{} = item) do
+    Repo.all(
+      from(i in ItemInstallation,
+        where: i.item_type_id == ^item.id,
+        order_by: i.project_name
+      )
+    )
+  end
+
+  @spec list_project_names() :: [String.t()]
+  def list_project_names do
+    Repo.all(
+      from(i in ItemInstallation,
+        distinct: i.project_name,
+        select: i.project_name,
+        order_by: i.project_name
+      )
+    )
+  end
+
+  @spec list_items_in_project(String.t()) :: [{ItemInstallation.t(), ItemType.t()}]
+  def list_items_in_project(project_name) do
+    Repo.all(
+      from(i in ItemInstallation,
+        join: item in assoc(i, :item_type),
+        where: i.project_name == ^String.upcase(project_name),
+        preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+        order_by: item.name
+      )
+    )
+    |> Enum.map(fn installation -> {installation, installation.item_type} end)
+  end
+
+  @spec install_item(ItemType.t(), String.t(), pos_integer()) ::
+          {:ok, ItemInstallation.t(), ItemType.t()}
+          | {:error, :insufficient_quantity | :archived | Ecto.Changeset.t()}
+  def install_item(%ItemType{} = item, project_name, quantity)
+      when is_binary(project_name) and project_name != "" and is_integer(quantity) and quantity > 0 do
+    project_name = String.upcase(project_name)
+
+    Repo.transaction(fn ->
+      fresh_item = Repo.get!(ItemType, item.id)
+
+      cond do
+        fresh_item.archived ->
+          Repo.rollback(:archived)
+
+        quantity > fresh_item.quantity ->
+          Repo.rollback(:insufficient_quantity)
+
+        true ->
+          new_item_quantity = fresh_item.quantity - quantity
+
+          updated_item =
+            if new_item_quantity == 0 do
+              {:ok, archived} = archive_item_type(fresh_item)
+              archived
+            else
+              {:ok, updated} = update_item_type(fresh_item, %{quantity: new_item_quantity})
+              updated
+            end
+
+          installation = upsert_installation(fresh_item.id, project_name, quantity)
+          {installation, updated_item}
+      end
+    end)
+    |> case do
+      {:ok, {installation, updated_item}} -> {:ok, installation, updated_item}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @spec upsert_installation(integer(), String.t(), pos_integer()) :: ItemInstallation.t()
+  defp upsert_installation(item_type_id, project_name, quantity) do
+    {:ok, installation} =
+      %ItemInstallation{}
+      |> ItemInstallation.changeset(%{
+        item_type_id: item_type_id,
+        project_name: project_name,
+        quantity: quantity
+      })
+      |> Repo.insert(
+        on_conflict: [inc: [quantity: quantity]],
+        conflict_target: [:item_type_id, :project_name],
+        returning: true
+      )
+
+    installation
+  end
+
+  @spec uninstall_item(ItemInstallation.t(), pos_integer()) ::
+          {:ok, :returned_to_stock, ItemType.t()}
+          | {:ok, :needs_restore, pos_integer()}
+          | {:error, Ecto.Changeset.t()}
+  def uninstall_item(%ItemInstallation{} = installation, quantity)
+      when is_integer(quantity) and quantity > 0 do
+    Repo.transaction(fn ->
+      fresh_installation = Repo.get!(ItemInstallation, installation.id) |> Repo.preload(:item_type)
+      item = fresh_installation.item_type
+      uninstall_quantity = min(quantity, fresh_installation.quantity)
+      remaining = fresh_installation.quantity - uninstall_quantity
+
+      if remaining <= 0 do
+        Repo.delete!(fresh_installation)
+      else
+        {:ok, _} =
+          fresh_installation
+          |> ItemInstallation.changeset(%{quantity: remaining})
+          |> Repo.update()
+      end
+
+      if item.archived do
+        {:needs_restore, uninstall_quantity}
+      else
+        {:ok, updated_item} = update_item_type(item, %{quantity: item.quantity + uninstall_quantity})
+        {:returned_to_stock, updated_item}
+      end
+    end)
+    |> case do
+      {:ok, {:returned_to_stock, updated_item}} -> {:ok, :returned_to_stock, updated_item}
+      {:ok, {:needs_restore, qty}} -> {:ok, :needs_restore, qty}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @spec project_has_archived_items?(String.t()) :: boolean()
+  def project_has_archived_items?(project_name) do
+    Repo.exists?(
+      from(i in ItemInstallation,
+        join: item in assoc(i, :item_type),
+        where: i.project_name == ^String.upcase(project_name),
+        where: item.archived == true
+      )
+    )
+  end
+
+  @spec list_archived_items_in_project(String.t()) :: [ItemInstallation.t()]
+  def list_archived_items_in_project(project_name) do
+    Repo.all(
+      from(i in ItemInstallation,
+        join: item in assoc(i, :item_type),
+        where: i.project_name == ^String.upcase(project_name),
+        where: item.archived == true,
+        preload: [item_type: item],
+        order_by: item.name
+      )
+    )
+  end
+
+  @spec uninstall_all_from_project(String.t()) ::
+          {:ok, non_neg_integer()} | {:error, :has_archived_items | term()}
+  def uninstall_all_from_project(project_name) do
+    if project_has_archived_items?(project_name) do
+      {:error, :has_archived_items}
+    else
+      installations =
+        Repo.all(
+          from(i in ItemInstallation,
+            where: i.project_name == ^String.upcase(project_name),
+            preload: :item_type
+          )
+        )
+
+      Repo.transaction(fn ->
+        Enum.reduce(installations, 0, fn installation, count ->
+          item = installation.item_type
+          {:ok, _} = update_item_type(item, %{quantity: item.quantity + installation.quantity})
+          Repo.delete!(installation)
+          count + installation.quantity
+        end)
+      end)
+    end
+  end
+
+  @spec list_all_projects_with_items() :: [{String.t(), [ItemInstallation.t()]}]
+  def list_all_projects_with_items do
+    Repo.all(
+      from(i in ItemInstallation,
+        join: item in assoc(i, :item_type),
+        preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+        order_by: [i.project_name, item.name]
+      )
+    )
+    |> Enum.group_by(& &1.project_name)
+    |> Enum.sort_by(fn {project_name, _} -> project_name end)
   end
 end

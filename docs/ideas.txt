@@ -1,3 +1,3 @@
 Ideas:
 
-What would it take to have one item in multiple locations?
+Should items be always viewed as a model instead of a separate page?

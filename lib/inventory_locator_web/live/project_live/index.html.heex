@@ -1,0 +1,102 @@
+<.header>
+  Projects
+  <:subtitle>
+    {length(@projects)} active projects
+  </:subtitle>
+</.header>
+
+<div class="mt-8">
+  <%= if @projects == [] do %>
+    <div class="text-center py-12 text-gray-500">
+      <.icon name="hero-cube" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+      <p>No active projects</p>
+      <p class="text-sm mt-2">Install items into projects from item detail pages</p>
+    </div>
+  <% else %>
+    <div class="space-y-6">
+      <%= for {project_name, installations} <- @projects do %>
+        <div class="border rounded-lg p-4">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h2 class="text-xl font-bold font-mono">{project_name}</h2>
+              <p class="text-sm text-base-content/60">
+                {length(installations)} item types installed
+              </p>
+            </div>
+            <button
+              phx-click="dismantle_project"
+              phx-value-project={project_name}
+              data-confirm={"Dismantle #{project_name}? All items will be returned to storage."}
+              class="btn btn-sm btn-outline btn-error"
+            >
+              <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Dismantle
+            </button>
+          </div>
+
+          <ul class="divide-y">
+            <%= for installation <- installations do %>
+              <li class="py-2 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <.link
+                    navigate={~p"/items/#{installation.item_type.id}"}
+                    class="font-semibold link link-hover"
+                  >
+                    {installation.item_type.name}
+                  </.link>
+                  <span class="text-base-content/60">×{installation.quantity}</span>
+                </div>
+                <span class="text-sm text-base-content/60 font-mono">
+                  {if installation.item_type.location,
+                    do: installation.item_type.location.full_code,
+                    else: "archived"}
+                </span>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<div
+  :if={@show_archived_modal}
+  class="modal modal-open"
+  phx-window-keydown="close_archived_modal"
+  phx-key="escape"
+>
+  <div class="modal-box" phx-click-away="close_archived_modal">
+    <h3 class="font-bold text-lg">Cannot Dismantle Project</h3>
+    <p class="py-4 text-sm text-gray-600">
+      <span class="font-mono font-bold">{@blocked_project}</span>
+      contains items from archived item types. These must be uninstalled individually so you can specify a restore location.
+    </p>
+
+    <div class="bg-base-200 rounded-lg p-3 mb-4">
+      <p class="text-sm font-semibold mb-2">Archived items in this project:</p>
+      <ul class="space-y-1">
+        <%= for installation <- @archived_items do %>
+          <li class="flex items-center justify-between text-sm">
+            <.link
+              navigate={~p"/items/#{installation.item_type.id}"}
+              class="link link-hover"
+            >
+              {installation.item_type.name}
+            </.link>
+            <span class="text-base-content/60">×{installation.quantity}</span>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+    <p class="text-xs text-base-content/60">
+      Click an item above to go to its detail page where you can uninstall it and choose a restore location.
+    </p>
+
+    <div class="modal-action">
+      <button type="button" class="btn" phx-click="close_archived_modal">
+        Close
+      </button>
+    </div>
+  </div>
+</div>

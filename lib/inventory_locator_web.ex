@@ -82,6 +82,7 @@ defmodule InventoryLocatorWeb do
       # Translation
       use Gettext, backend: InventoryLocatorWeb.Gettext
 
+      import InventoryLocatorWeb.Components.GhostAutocomplete
       import InventoryLocatorWeb.CoreComponents
 
       # HTML escaping functionality

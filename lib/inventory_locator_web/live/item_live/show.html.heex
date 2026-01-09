@@ -107,13 +107,15 @@
                   phx-change="validate_move_location"
                   autocomplete="off"
                 >
-                  <.input
-                    field={f[:location_code]}
-                    type="text"
+                  <.ghost_autocomplete
+                    id="move-location-input"
+                    name={f[:location_code].name}
                     label="New Location Code"
                     placeholder="e.g., A-1-1"
-                    value={@item.location && @item.location.full_code}
+                    value=""
+                    suggestions={@location_codes}
                     required
+                    autofocus
                   />
 
                   <%= if assigns[:move_location_warning] do %>
@@ -142,7 +144,14 @@
 <!-- Quantity Controls -->
       <%= if not @item.archived do %>
         <div class="border rounded-lg p-6">
-          <h3 class="text-lg font-semibold mb-4">Quantity</h3>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">In Stock</h3>
+            <%= if @installed_quantity > 0 do %>
+              <span class="text-sm text-base-content/60">
+                {@installed_quantity} installed in projects
+              </span>
+            <% end %>
+          </div>
           <div class="flex items-center justify-center gap-4">
             <button
               phx-click="decrement_quantity"
@@ -170,6 +179,105 @@
           </div>
         </div>
       <% end %>
+      <!-- Installations -->
+      <div class="border rounded-lg p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">Installed In</h3>
+          <%= if not @item.archived and @item.quantity > 0 and not @installing do %>
+            <button phx-click="toggle_install" class="btn btn-sm btn-ghost">
+              <.icon name="hero-plus" class="w-4 h-4" /> Install
+            </button>
+          <% end %>
+        </div>
+
+        <%= if @installing do %>
+          <div class="p-4 border border-info rounded-lg bg-info/5 mb-4">
+            <h4 class="font-semibold text-sm mb-3">Install in Project</h4>
+            <.form
+              :let={f}
+              for={%{}}
+              id="install-item-form"
+              phx-submit="install_item"
+              autocomplete="off"
+            >
+              <.ghost_autocomplete
+                id="install-project-input"
+                name={f[:project_name].name}
+                label="Project Name"
+                placeholder="e.g., ROBOT_ARM"
+                value=""
+                suggestions={@project_names}
+                required
+                autofocus
+              />
+
+              <.input
+                field={f[:quantity]}
+                type="number"
+                label="Quantity"
+                value="1"
+                min="1"
+                max={@item.quantity}
+                required
+              />
+
+              <p class="text-xs text-base-content/60 mt-1">
+                {@item.quantity} in stock
+              </p>
+
+              <div class="flex gap-2 mt-3">
+                <button type="submit" class="btn btn-sm btn-primary">Install</button>
+                <button type="button" phx-click="cancel_install" class="btn btn-sm btn-ghost">
+                  Cancel
+                </button>
+              </div>
+            </.form>
+          </div>
+        <% end %>
+
+        <%= if @installations == [] do %>
+          <p class="text-sm text-base-content/60">Not installed in any projects</p>
+        <% else %>
+          <ul class="space-y-2">
+            <%= for installation <- @installations do %>
+              <li class="flex items-center justify-between p-2 bg-base-200 rounded">
+                <span class="font-mono text-sm">
+                  {installation.project_name}
+                  <span class="text-base-content/60">({installation.quantity})</span>
+                </span>
+                <div class="flex items-center gap-1">
+                  <button
+                    phx-click="decrement_installation"
+                    phx-value-installation_id={installation.id}
+                    class="btn btn-xs btn-ghost font-bold"
+                    title="Remove one"
+                  >
+                    −
+                  </button>
+                  <%= if not @item.archived and @item.quantity > 0 do %>
+                    <button
+                      phx-click="increment_installation"
+                      phx-value-installation_id={installation.id}
+                      class="btn btn-xs btn-ghost text-success font-bold"
+                      title="Add one more"
+                    >
+                      +
+                    </button>
+                  <% end %>
+                  <button
+                    phx-click="uninstall_item"
+                    phx-value-installation_id={installation.id}
+                    class="btn btn-xs btn-ghost text-error"
+                    title="Remove all"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </div>
       
 <!-- Archive Section -->
       <%= if not @item.archived do %>
@@ -205,7 +313,11 @@
   <div class="modal-box" phx-click-away="close_restore_modal">
     <h3 class="font-bold text-lg">Restore Item</h3>
     <p class="py-4 text-sm text-gray-600">
-      Assign a new location and quantity to restore this item.
+      <%= if @pending_restore_quantity do %>
+        Choose a location for the {@pending_restore_quantity} item(s) returned from the project.
+      <% else %>
+        Assign a new location and quantity to restore this item.
+      <% end %>
     </p>
 
     <.form
@@ -216,12 +328,14 @@
       phx-change="validate_location"
       autocomplete="off"
     >
-      <.input
-        field={f[:location_code]}
-        type="text"
+      <.ghost_autocomplete
+        id="restore-location-input"
+        name={f[:location_code].name}
         label="Location Code"
         placeholder="e.g., A-1-1"
+        suggestions={@location_codes}
         required
+        autofocus
       />
 
       <%= if assigns[:location_warning] do %>
@@ -238,7 +352,7 @@
         field={f[:quantity]}
         type="number"
         label="Quantity"
-        value="1"
+        value={@pending_restore_quantity || 1}
         min="1"
         required
       />
