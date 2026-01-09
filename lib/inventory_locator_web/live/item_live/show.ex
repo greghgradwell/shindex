@@ -14,6 +14,7 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
      |> assign(:item, item)
      |> assign(:page_title, item.name)
      |> assign(:show_restore_modal, false)
+     |> assign(:show_archive_quantity_modal, false)
      |> assign(:editing, false)
      |> assign(:moving, false)
      |> assign(:edit_changeset, nil)}
@@ -43,7 +44,7 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
   def handle_event("decrement_quantity", _params, socket) do
     item = socket.assigns.item
 
-    if item.quantity > 0 do
+    if item.quantity > 1 do
       new_quantity = item.quantity - 1
 
       case Inventory.update_item_type(item, %{quantity: new_quantity}) do
@@ -59,7 +60,7 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
           {:noreply, put_flash(socket, :error, "Failed to update quantity")}
       end
     else
-      {:noreply, socket}
+      {:noreply, assign(socket, :show_archive_quantity_modal, item.quantity == 1)}
     end
   end
 
@@ -86,6 +87,31 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
 
   def handle_event("close_restore_modal", _params, socket) do
     {:noreply, assign(socket, :show_restore_modal, false)}
+  end
+
+  def handle_event("confirm_archive_from_quantity", _params, socket) do
+    item = socket.assigns.item
+
+    case Inventory.archive_item_type(item) do
+      {:ok, updated_item} ->
+        updated_item = Inventory.get_item_type_with_location!(updated_item.id)
+
+        {:noreply,
+         socket
+         |> assign(:item, updated_item)
+         |> assign(:show_archive_quantity_modal, false)
+         |> put_flash(:info, "Item archived. Location is now available for reuse.")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> assign(:show_archive_quantity_modal, false)
+         |> put_flash(:error, "Failed to archive item")}
+    end
+  end
+
+  def handle_event("cancel_archive_from_quantity", _params, socket) do
+    {:noreply, assign(socket, :show_archive_quantity_modal, false)}
   end
 
   def handle_event("restore", %{"location_code" => location_code, "quantity" => qty_str}, socket) do
@@ -121,7 +147,10 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
     item = socket.assigns.item
 
     case Integer.parse(qty_str) do
-      {quantity, _} when quantity >= 0 ->
+      {0, _} ->
+        {:noreply, assign(socket, :show_archive_quantity_modal, true)}
+
+      {quantity, _} when quantity > 0 ->
         case Inventory.update_item_type(item, %{quantity: quantity}) do
           {:ok, updated_item} ->
             updated_item = Inventory.get_item_type_with_location!(updated_item.id)

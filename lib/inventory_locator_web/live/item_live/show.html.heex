@@ -150,7 +150,6 @@
             <button
               phx-click="decrement_quantity"
               class="btn btn-circle btn-lg"
-              disabled={@item.quantity == 0}
             >
               <.icon name="hero-minus-circle" class="w-8 h-8" />
             </button>
@@ -250,5 +249,28 @@
         </button>
       </div>
     </.form>
+  </div>
+</div>
+<!-- Archive from Quantity Modal -->
+<div
+  :if={@show_archive_quantity_modal}
+  class="modal modal-open"
+  phx-click="cancel_archive_from_quantity"
+  phx-key="escape"
+>
+  <div class="modal-box" phx-click-away="cancel_archive_from_quantity">
+    <h3 class="font-bold text-lg">Archive Item?</h3>
+    <p class="py-4 text-sm text-gray-600">
+      Setting quantity to 0 will archive this item. Its location will be freed for reuse.
+    </p>
+
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" phx-click="cancel_archive_from_quantity">
+        Cancel
+      </button>
+      <button type="button" class="btn btn-error" phx-click="confirm_archive_from_quantity">
+        Archive Item
+      </button>
+    </div>
   </div>
 </div>

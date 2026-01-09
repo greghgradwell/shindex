@@ -49,18 +49,6 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
       assert html =~ "4"
     end
 
-    test "decrement quantity does not go below 0", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 0, "Desc")
-
-      {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
-
-      assert html =~ "0"
-      assert html =~ "disabled"
-
-      updated_item = Inventory.get_item_type!(item.id)
-      assert updated_item.quantity == 0
-    end
-
     test "archive button archives item and keeps location", %{conn: conn} do
       {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
 
@@ -241,6 +229,79 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
 
       updated = Inventory.get_item_type!(item.id)
       assert updated.archived == true
+    end
+
+    test "decrement from quantity 1 shows archive modal", %{conn: conn} do
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
+
+      {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
+
+      html =
+        show_live
+        |> element("button[phx-click='decrement_quantity']")
+        |> render_click()
+
+      assert html =~ "modal-open"
+      assert html =~ "Archive Item?"
+      assert html =~ "Setting quantity to 0 will archive"
+    end
+
+    test "entering 0 quantity shows archive modal", %{conn: conn} do
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
+
+      {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
+
+      html =
+        show_live
+        |> form("#quantity-update-form", %{quantity: "0"})
+        |> render_change()
+
+      assert html =~ "modal-open"
+      assert html =~ "Archive Item?"
+    end
+
+    test "confirm archive from quantity modal archives item", %{conn: conn} do
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
+
+      {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
+
+      show_live
+      |> element("button[phx-click='decrement_quantity']")
+      |> render_click()
+
+      html =
+        show_live
+        |> element("button[phx-click='confirm_archive_from_quantity']")
+        |> render_click()
+
+      refute html =~ "modal-open"
+      assert html =~ "Archived"
+
+      updated = Inventory.get_item_type!(item.id)
+      assert updated.archived == true
+      assert updated.quantity == 0
+    end
+
+    test "cancel archive from quantity modal keeps item active", %{conn: conn} do
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
+
+      {:ok, show_live, _html} = live(conn, ~p"/items/#{item.id}")
+
+      show_live
+      |> element("button[phx-click='decrement_quantity']")
+      |> render_click()
+
+      html =
+        show_live
+        |> element("button[phx-click='cancel_archive_from_quantity']")
+        |> render_click()
+
+      refute html =~ "modal-open"
+      refute html =~ "Archived"
+
+      updated = Inventory.get_item_type!(item.id)
+      assert updated.archived == false
+      assert updated.quantity == 1
     end
   end
 end
