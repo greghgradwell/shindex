@@ -16,7 +16,8 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
      |> assign(:page_title, "Projects")
      |> assign(:show_archived_modal, false)
      |> assign(:archived_items, [])
-     |> assign(:blocked_project, nil)}
+     |> assign(:blocked_project, nil)
+     |> assign(:selected_item_id, nil)}
   end
 
   @impl true
@@ -56,5 +57,20 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
      |> assign(:show_archived_modal, false)
      |> assign(:archived_items, [])
      |> assign(:blocked_project, nil)}
+  end
+
+  def handle_event("open_item_modal", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
+  end
+
+  @impl true
+  @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:close_item_modal}, socket) do
+    projects = Inventory.list_all_projects_with_items()
+
+    {:noreply,
+     socket
+     |> assign(:selected_item_id, nil)
+     |> assign(:projects, projects)}
   end
 end

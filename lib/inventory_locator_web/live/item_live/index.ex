@@ -60,6 +60,21 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("open_item_modal", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
+  end
+
+  @impl true
+  @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:close_item_modal}, socket) do
+    socket =
+      socket
+      |> assign(:selected_item_id, nil)
+      |> perform_search()
+
+    {:noreply, socket}
+  end
+
   @spec assign_defaults(Socket.t()) :: Socket.t()
   defp assign_defaults(socket) do
     socket
@@ -68,6 +83,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:show_archived, false)
     |> assign(:active_filters, [])
     |> assign(:page_title, "Search Items")
+    |> assign(:selected_item_id, nil)
   end
 
   @spec perform_search(Socket.t()) :: Socket.t()

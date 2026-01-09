@@ -164,20 +164,24 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Implementation Note**: Originally planned with ILIKE for Phase 2 and fuzzy search for Phase 3, but implemented fuzzy search directly in Phase 2.2 since pg_trgm index already existed from Phase 1.2.
 
-### 2.4 Item Detail View
+### 2.4 Item Detail View (Modal)
 
-**Module**: `ItemLive.Show`
+**Module**: `ItemLive.ShowModal` (LiveComponent, replaces `ItemLive.Show` page)
 
-**Purpose**: Full item details with quantity controls and archive/restore
+**Purpose**: Full item details with quantity controls and archive/restore, displayed as modal overlay
 
 **Strategy**:
-- Preload item with location hierarchy
+- LiveComponent with `update/2` callback to load item data when `item_id` changes
+- Preload item with location hierarchy and installations
 - Quantity controls: increment/decrement buttons
 - When qty decrements to 0: trigger archive flow (confirmation UI)
-- For archived items: show "Restock" button → restore flow (assign location + qty)
-- Edit button navigates to edit form
+- For archived items: show "Restore" button → restore flow (assign location + qty)
+- Move-to-location form for relocating items
+- Install/uninstall items to/from projects
+- Close via ESC key, click-outside, or X button
+- Parent LiveView manages `selected_item_id` state
 
-**Why**: Central place for item management, clear archive/restore UX
+**Why**: Modal keeps user in search context, eliminates page navigation overhead, supports "< 30s per item" goal
 
 ### 2.5 Add Item Flow (Hybrid Workflow)
 
@@ -233,17 +237,19 @@ Implement the core user interface for the inventory system based on UX decisions
 
 ### 2.6 Router Configuration
 
-**Add routes**:
-- `/` → Landing page (redirect to `/items` or show welcome)
+**Routes**:
+- `/` → Search interface (search-first with filters)
 - `/locations` → Location management (hierarchical view)
-- `/items` → Search interface (search-first with filters)
-- `/items/incomplete` → Batch completion view (filter by missing fields)
-- `/items/new` → Add item form (desktop)
-- `/items/:id` → Item detail view
-- `/items/:id/edit` → Edit item form (with auto-advance for batch completion)
-- `/camera` → Photo capture + quick entry (mobile)
+- `/projects` → Projects management
+- `/items/incomplete` → Batch completion view (filter by missing fields) *(planned)*
+- `/items/new` → Add item form (desktop) *(planned)*
+- `/items/:id/edit` → Edit item form (with auto-advance for batch completion) *(planned)*
+- `/camera` → Photo capture + quick entry (mobile) *(planned)*
 
-**Why**: Clear navigation structure, separate mobile vs desktop entry points, dedicated batch completion route
+**Removed routes**:
+- ~~`/items/:id`~~ → Item detail view (replaced by modal overlay from search/projects pages)
+
+**Why**: Modal approach eliminates need for dedicated item detail route, keeps user in search context
 
 ## Data Flow
 
@@ -425,15 +431,24 @@ Implement the core user interface for the inventory system based on UX decisions
 
 ---
 
-### Phase 2.3: Item Detail View
-**Deliverables**:
-- `ItemLive.Show` with full item display
-- Quantity increment/decrement controls
-- Archive confirmation when qty→0
-- Restore form for archived items
-- Tests for quantity changes and archive flow
+### Phase 2.3: Item Detail View (Modal) ✅ PAGE COMPLETE → CONVERTING TO MODAL
 
-**Go/No-Go**: Can view item, adjust quantity, archive when depleted, restore later.
+**Original Implementation** (page version - complete):
+- ✅ `ItemLive.Show` with full item display
+- ✅ Quantity increment/decrement controls
+- ✅ Archive confirmation when qty→0
+- ✅ Restore form for archived items
+- ✅ Move-to-location functionality
+- ✅ Install/uninstall to projects functionality
+
+**Modal Conversion** (in progress):
+- [ ] Create `ItemLive.ShowModal` LiveComponent
+- [ ] Remove `/items/:id` route
+- [ ] Wire modal to ItemLive.Index and ProjectLive.Index
+
+**Why Modal?** Eliminates page navigation, keeps user in search context, faster workflow aligned with "< 30s per item" goal.
+
+**Go/No-Go**: Click item → modal opens → all actions work → ESC/click-outside closes.
 
 ---
 

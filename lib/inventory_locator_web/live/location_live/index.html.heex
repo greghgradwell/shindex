@@ -7,3 +7,10 @@
     <.shelf_row shelf={shelf} />
   <% end %>
 </div>
+
+<.live_component
+  :if={@selected_item_id}
+  module={InventoryLocatorWeb.ItemLive.ShowModal}
+  id="item-show-modal"
+  item_id={@selected_item_id}
+/>

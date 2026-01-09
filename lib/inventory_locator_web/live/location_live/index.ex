@@ -17,7 +17,8 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      socket
      |> assign(:shelves, shelves)
      |> assign(:stats, stats)
-     |> assign(:page_title, "Location Management")}
+     |> assign(:page_title, "Location Management")
+     |> assign(:selected_item_id, nil)}
   end
 
   @impl true
@@ -41,5 +42,22 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to delete location")}
     end
+  end
+
+  def handle_event("open_item_modal", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
+  end
+
+  @impl true
+  @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:close_item_modal}, socket) do
+    shelves = Inventory.list_shelves_with_hierarchy()
+    stats = Inventory.count_locations_by_occupancy()
+
+    {:noreply,
+     socket
+     |> assign(:selected_item_id, nil)
+     |> assign(:shelves, shelves)
+     |> assign(:stats, stats)}
   end
 end

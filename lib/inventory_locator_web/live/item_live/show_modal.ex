@@ -1,6 +1,6 @@
-defmodule InventoryLocatorWeb.ItemLive.Show do
+defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   @moduledoc false
-  use InventoryLocatorWeb, :live_view
+  use InventoryLocatorWeb, :live_component
 
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.ItemType
@@ -8,9 +8,9 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
   alias Phoenix.LiveView.Socket
 
   @impl true
-  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
-  def mount(%{"id" => id}, _session, socket) do
-    item = Inventory.get_item_type_with_location!(String.to_integer(id))
+  @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
+  def update(%{item_id: item_id} = assigns, socket) do
+    item = Inventory.get_item_type_with_location!(item_id)
     location_codes = Inventory.list_location_codes()
     project_names = Inventory.list_project_names()
     installations = Inventory.list_installations_for_item(item)
@@ -18,8 +18,8 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
 
     {:ok,
      socket
+     |> assign(assigns)
      |> assign(:item, item)
-     |> assign(:page_title, item.name)
      |> assign(:show_restore_modal, false)
      |> assign(:show_archive_quantity_modal, false)
      |> assign(:editing, false)
@@ -30,12 +30,18 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
      |> assign(:project_names, project_names)
      |> assign(:installations, installations)
      |> assign(:installed_quantity, installed_quantity)
-     |> assign(:pending_restore_quantity, nil)}
+     |> assign(:pending_restore_quantity, nil)
+     |> assign(:location_warning, nil)
+     |> assign(:move_location_warning, nil)}
   end
 
   @impl true
-  @spec handle_event(String.t(), map(), Socket.t()) ::
-          {:noreply, Socket.t()}
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("close_modal", _params, socket) do
+    send(self(), {:close_item_modal})
+    {:noreply, socket}
+  end
+
   def handle_event("increment_quantity", _params, socket) do
     item = socket.assigns.item
     new_quantity = item.quantity + 1
@@ -134,9 +140,19 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
     item = socket.assigns.item
     quantity = String.to_integer(qty_str)
 
-    with_location(socket, location_code, "restore item", fn location ->
-      do_restore(socket, item, location, quantity, location_code)
-    end)
+    case Inventory.ensure_location_with_code(location_code) do
+      {:ok, location} ->
+        do_restore(socket, item, location, quantity, location_code)
+
+      {:ok, location, _item_count} ->
+        do_restore(socket, item, location, quantity, location_code)
+
+      {:error, :invalid_format} ->
+        {:noreply, put_flash(socket, :error, "Invalid location code format")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to restore item")}
+    end
   end
 
   def handle_event("validate_location", %{"location_code" => code}, socket) do
@@ -240,9 +256,19 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
   def handle_event("move_to_location", %{"location_code" => location_code}, socket) do
     item = socket.assigns.item
 
-    with_location(socket, location_code, "move item", fn location ->
-      do_move(socket, item, location, location_code)
-    end)
+    case Inventory.ensure_location_with_code(location_code) do
+      {:ok, location} ->
+        do_move(socket, item, location, location_code)
+
+      {:ok, location, _item_count} ->
+        do_move(socket, item, location, location_code)
+
+      {:error, :invalid_format} ->
+        {:noreply, put_flash(socket, :error, "Invalid location code format")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to move item")}
+    end
   end
 
   def handle_event("ghost_value_changed", _params, socket) do
@@ -355,7 +381,10 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
            |> assign(:pending_restore_quantity, restore_quantity)
            |> assign(:show_restore_modal, true)
            |> refresh_item_data()
-           |> put_flash(:info, "#{restore_quantity} removed from #{installation.project_name}. Choose a location to restore.")}
+           |> put_flash(
+             :info,
+             "#{restore_quantity} removed from #{installation.project_name}. Choose a location to restore."
+           )}
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, "Failed to remove installation")}
@@ -377,24 +406,6 @@ defmodule InventoryLocatorWeb.ItemLive.Show do
     |> assign(:installations, installations)
     |> assign(:installed_quantity, installed_quantity)
     |> assign(:project_names, project_names)
-  end
-
-  @spec with_location(Socket.t(), String.t(), String.t(), (Location.t() -> {:noreply, Socket.t()})) ::
-          {:noreply, Socket.t()}
-  defp with_location(socket, location_code, action, success_fn) do
-    case Inventory.ensure_location_with_code(location_code) do
-      {:ok, location} ->
-        success_fn.(location)
-
-      {:ok, location, _item_count} ->
-        success_fn.(location)
-
-      {:error, :invalid_format} ->
-        {:noreply, put_flash(socket, :error, "Invalid location code format")}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to #{action}")}
-    end
   end
 
   @spec do_move(Socket.t(), ItemType.t(), Location.t(), String.t()) ::

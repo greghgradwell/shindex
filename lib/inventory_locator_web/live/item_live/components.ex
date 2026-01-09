@@ -30,7 +30,8 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
         "border rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer",
         if(@item.archived, do: "opacity-50", else: "")
       ]}
-      phx-click={JS.navigate(~p"/items/#{@item.id}")}
+      phx-click="open_item_modal"
+      phx-value-id={@item.id}
     >
       <%= if @item.photo_path do %>
         <img

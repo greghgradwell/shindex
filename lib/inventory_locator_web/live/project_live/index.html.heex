@@ -37,12 +37,13 @@
             <%= for installation <- installations do %>
               <li class="py-2 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <.link
-                    navigate={~p"/items/#{installation.item_type.id}"}
-                    class="font-semibold link link-hover"
+                  <button
+                    phx-click="open_item_modal"
+                    phx-value-id={installation.item_type.id}
+                    class="font-semibold link link-hover text-left"
                   >
                     {installation.item_type.name}
-                  </.link>
+                  </button>
                   <span class="text-base-content/60">×{installation.quantity}</span>
                 </div>
                 <span class="text-sm text-base-content/60 font-mono">
@@ -77,12 +78,13 @@
       <ul class="space-y-1">
         <%= for installation <- @archived_items do %>
           <li class="flex items-center justify-between text-sm">
-            <.link
-              navigate={~p"/items/#{installation.item_type.id}"}
-              class="link link-hover"
+            <button
+              phx-click="open_item_modal"
+              phx-value-id={installation.item_type.id}
+              class="link link-hover text-left"
             >
               {installation.item_type.name}
-            </.link>
+            </button>
             <span class="text-base-content/60">×{installation.quantity}</span>
           </li>
         <% end %>
@@ -90,7 +92,7 @@
     </div>
 
     <p class="text-xs text-base-content/60">
-      Click an item above to go to its detail page where you can uninstall it and choose a restore location.
+      Click an item above to open its details where you can uninstall it and choose a restore location.
     </p>
 
     <div class="modal-action">
@@ -100,3 +102,10 @@
     </div>
   </div>
 </div>
+
+<.live_component
+  :if={@selected_item_id}
+  module={InventoryLocatorWeb.ItemLive.ShowModal}
+  id="item-show-modal"
+  item_id={@selected_item_id}
+/>

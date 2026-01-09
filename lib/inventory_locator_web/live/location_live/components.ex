@@ -67,12 +67,13 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
     ]}>
       <%= if @occupied do %>
         <%= for item <- @active_items do %>
-          <.link
-            navigate={~p"/items/#{item.id}"}
+          <button
+            phx-click="open_item_modal"
+            phx-value-id={item.id}
             class="border border-success/50 bg-success/20 hover:bg-success/30 rounded px-2 py-1 text-xs font-medium text-center transition-colors truncate"
           >
             {item.name}
-          </.link>
+          </button>
         <% end %>
       <% else %>
         <div class="flex items-center justify-between w-full">

@@ -426,14 +426,13 @@ defmodule InventoryLocator.Inventory do
 
   @spec list_items_in_project(String.t()) :: [{ItemInstallation.t(), ItemType.t()}]
   def list_items_in_project(project_name) do
-    Repo.all(
-      from(i in ItemInstallation,
-        join: item in assoc(i, :item_type),
-        where: i.project_name == ^String.upcase(project_name),
-        preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
-        order_by: item.name
-      )
+    from(i in ItemInstallation,
+      join: item in assoc(i, :item_type),
+      where: i.project_name == ^String.upcase(project_name),
+      preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+      order_by: item.name
     )
+    |> Repo.all()
     |> Enum.map(fn installation -> {installation, installation.item_type} end)
   end
 
@@ -444,7 +443,7 @@ defmodule InventoryLocator.Inventory do
       when is_binary(project_name) and project_name != "" and is_integer(quantity) and quantity > 0 do
     project_name = String.upcase(project_name)
 
-    Repo.transaction(fn ->
+    fn ->
       fresh_item = Repo.get!(ItemType, item.id)
 
       cond do
@@ -469,7 +468,8 @@ defmodule InventoryLocator.Inventory do
           installation = upsert_installation(fresh_item.id, project_name, quantity)
           {installation, updated_item}
       end
-    end)
+    end
+    |> Repo.transaction()
     |> case do
       {:ok, {installation, updated_item}} -> {:ok, installation, updated_item}
       {:error, reason} -> {:error, reason}
@@ -498,10 +498,9 @@ defmodule InventoryLocator.Inventory do
           {:ok, :returned_to_stock, ItemType.t()}
           | {:ok, :needs_restore, pos_integer()}
           | {:error, Ecto.Changeset.t()}
-  def uninstall_item(%ItemInstallation{} = installation, quantity)
-      when is_integer(quantity) and quantity > 0 do
-    Repo.transaction(fn ->
-      fresh_installation = Repo.get!(ItemInstallation, installation.id) |> Repo.preload(:item_type)
+  def uninstall_item(%ItemInstallation{} = installation, quantity) when is_integer(quantity) and quantity > 0 do
+    fn ->
+      fresh_installation = ItemInstallation |> Repo.get!(installation.id) |> Repo.preload(:item_type)
       item = fresh_installation.item_type
       uninstall_quantity = min(quantity, fresh_installation.quantity)
       remaining = fresh_installation.quantity - uninstall_quantity
@@ -521,7 +520,8 @@ defmodule InventoryLocator.Inventory do
         {:ok, updated_item} = update_item_type(item, %{quantity: item.quantity + uninstall_quantity})
         {:returned_to_stock, updated_item}
       end
-    end)
+    end
+    |> Repo.transaction()
     |> case do
       {:ok, {:returned_to_stock, updated_item}} -> {:ok, :returned_to_stock, updated_item}
       {:ok, {:needs_restore, qty}} -> {:ok, :needs_restore, qty}
@@ -580,13 +580,12 @@ defmodule InventoryLocator.Inventory do
 
   @spec list_all_projects_with_items() :: [{String.t(), [ItemInstallation.t()]}]
   def list_all_projects_with_items do
-    Repo.all(
-      from(i in ItemInstallation,
-        join: item in assoc(i, :item_type),
-        preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
-        order_by: [i.project_name, item.name]
-      )
+    from(i in ItemInstallation,
+      join: item in assoc(i, :item_type),
+      preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+      order_by: [i.project_name, item.name]
     )
+    |> Repo.all()
     |> Enum.group_by(& &1.project_name)
     |> Enum.sort_by(fn {project_name, _} -> project_name end)
   end

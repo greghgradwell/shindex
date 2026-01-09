@@ -102,7 +102,7 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
       assert html =~ "B"
     end
 
-    test "shows multiple items as clickable links in same cell", %{conn: conn} do
+    test "shows multiple items as clickable buttons in same cell", %{conn: conn} do
       {:ok, item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 5, "Desc")
       {:ok, item2} = Inventory.create_item_with_location("A-1-1", "Item 2", 3, "Desc")
 
@@ -110,8 +110,23 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
 
       assert html =~ "Item 1"
       assert html =~ "Item 2"
-      assert html =~ "/items/#{item1.id}"
-      assert html =~ "/items/#{item2.id}"
+      assert html =~ "phx-value-id=\"#{item1.id}\""
+      assert html =~ "phx-value-id=\"#{item2.id}\""
+    end
+
+    test "clicking item opens detail modal", %{conn: conn} do
+      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test Item", 5, "Test Description")
+
+      {:ok, view, _html} = live(conn, ~p"/locations")
+
+      html =
+        view
+        |> element("button[phx-value-id='#{item.id}']")
+        |> render_click()
+
+      assert html =~ "modal modal-open"
+      assert html =~ "Test Item"
+      assert html =~ "A-1-1"
     end
   end
 end
