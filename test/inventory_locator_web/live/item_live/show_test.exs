@@ -201,15 +201,6 @@ defmodule InventoryLocatorWeb.ItemLive.ShowTest do
       assert html =~ "X-2000"
     end
 
-    test "has back to search link", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
-
-      {:ok, _show_live, html} = live(conn, ~p"/items/#{item.id}")
-
-      assert html =~ "Back to Search"
-      assert html =~ "/items"
-    end
-
     test "validates location code format on restore", %{conn: conn} do
       {:ok, item} = Inventory.create_item_with_location("A-1-1", "Test", 5, "Desc")
       {:ok, _archived} = Inventory.archive_item_type(item)

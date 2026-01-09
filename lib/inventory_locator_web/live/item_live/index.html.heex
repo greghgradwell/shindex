@@ -8,7 +8,7 @@
 </.header>
 
 <div class="mt-8">
-  <.form :let={f} for={%{}} phx-change="search">
+  <.form :let={f} for={%{}} phx-change="search" autocomplete="off">
     <.input
       field={f[:query]}
       type="text"

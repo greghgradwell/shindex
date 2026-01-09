@@ -30,7 +30,15 @@
       })();
     </script>
   </head>
-  <body>
-    {@inner_content}
+  <body class="bg-base-100">
+    <nav class="navbar bg-base-200 border-b border-base-300 px-4">
+      <div class="flex gap-2">
+        <.link navigate={~p"/"} class="btn btn-ghost">Search</.link>
+        <.link navigate={~p"/locations"} class="btn btn-ghost">Locations</.link>
+      </div>
+    </nav>
+    <main class="container mx-auto px-4 py-8">
+      {@inner_content}
+    </main>
   </body>
 </html>

@@ -28,13 +28,13 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
 
   def bin_segment(assigns) do
     ~H"""
-    <div class="border border-base-300 rounded-lg p-2 flex-1 max-w-sm">
+    <div class="border border-base-300 rounded-lg p-2 min-w-[120px] max-w-[200px]">
       <!-- Bin header -->
       <div class="mb-2 pb-1 border-b border-base-300">
         <span class="font-medium text-sm">Bin {@bin.code}</span>
       </div>
-      <!-- Cells row -->
-      <div class="flex gap-1 items-start">
+      <!-- Cells column (stacked vertically with dividers) -->
+      <div class="flex flex-col divide-y-2 divide-base-content/20">
         <%= for cell <- @bin.cells do %>
           <%= if cell.location do %>
             <.cell_box cell={cell} location={cell.location} />
@@ -56,10 +56,10 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
 
     ~H"""
     <div class={[
-      "flex-1 max-w-32 flex flex-col gap-1",
-      @occupied && "",
+      "flex flex-col gap-1 min-h-12 py-2",
+      @occupied && "px-1",
       !@occupied &&
-        "border border-base-300 bg-base-100 rounded min-h-16 items-center justify-center p-1"
+        "bg-base-100 rounded items-center justify-center px-1"
     ]}>
       <%= if @occupied do %>
         <%= for item <- @active_items do %>
@@ -71,13 +71,16 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
           </.link>
         <% end %>
       <% else %>
-        <button
-          phx-click={JS.push("delete_location", value: %{id: @location.id})}
-          class="btn btn-xs btn-ghost"
-          data-confirm="Delete this empty location?"
-        >
-          <.icon name="hero-trash" class="size-3" />
-        </button>
+        <div class="flex items-center justify-between w-full">
+          <span class="text-xs text-base-content/50">{@cell.code}</span>
+          <button
+            phx-click={JS.push("delete_location", value: %{id: @location.id})}
+            class="btn btn-xs btn-ghost"
+            data-confirm="Delete this empty location?"
+          >
+            <.icon name="hero-trash" class="size-3" />
+          </button>
+        </div>
       <% end %>
     </div>
     """

@@ -17,9 +17,8 @@ defmodule InventoryLocatorWeb.Router do
   scope "/", InventoryLocatorWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", ItemLive.Index
     live "/locations", LocationLive.Index
-    live "/items", ItemLive.Index
     live "/items/:id", ItemLive.Show
   end
 

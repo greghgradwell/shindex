@@ -10,11 +10,6 @@
         {if @item.location, do: @item.location.full_code, else: "No location"}
       <% end %>
     </:subtitle>
-    <:actions>
-      <.link navigate={~p"/items"} class="text-sm text-blue-600 hover:text-blue-800">
-        ← Back to Search
-      </.link>
-    </:actions>
   </.header>
 
   <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -53,6 +48,7 @@
               for={@edit_changeset}
               id="item-details-form"
               phx-submit="update_item_details"
+              autocomplete="off"
             >
               <.input field={f[:name]} type="text" label="Name" value={@item.name} required />
               <.input
@@ -109,6 +105,7 @@
                   id="move-location-form"
                   phx-submit="move_to_location"
                   phx-change="validate_move_location"
+                  autocomplete="off"
                 >
                   <.input
                     field={f[:location_code]}
@@ -153,7 +150,12 @@
             >
               <.icon name="hero-minus-circle" class="w-8 h-8" />
             </button>
-            <form id="quantity-update-form" phx-change="update_quantity" class="flex-shrink-0">
+            <form
+              id="quantity-update-form"
+              phx-change="update_quantity"
+              class="flex-shrink-0"
+              autocomplete="off"
+            >
               <input
                 type="number"
                 name="quantity"
@@ -197,7 +199,7 @@
 <div
   :if={@show_restore_modal}
   class="modal modal-open"
-  phx-click="close_restore_modal"
+  phx-window-keydown="close_restore_modal"
   phx-key="escape"
 >
   <div class="modal-box" phx-click-away="close_restore_modal">
@@ -212,6 +214,7 @@
       id="restore-item-form"
       phx-submit="restore"
       phx-change="validate_location"
+      autocomplete="off"
     >
       <.input
         field={f[:location_code]}
@@ -255,7 +258,7 @@
 <div
   :if={@show_archive_quantity_modal}
   class="modal modal-open"
-  phx-click="cancel_archive_from_quantity"
+  phx-window-keydown="cancel_archive_from_quantity"
   phx-key="escape"
 >
   <div class="modal-box" phx-click-away="cancel_archive_from_quantity">
