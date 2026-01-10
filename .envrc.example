@@ -17,3 +17,4 @@ export DB_USERNAME=your_db_username
 export DB_PASSWORD=your_db_password
 export DB_HOST=localhost
 export DB_NAME=inventory_locator_dev
+export SECRET_KEY_BASE=your_secret_key

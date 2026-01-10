@@ -1,0 +1,190 @@
+<div class="max-w-lg mx-auto space-y-4">
+  <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-4">
+    <%!-- Photo capture area --%>
+    <div class="relative">
+      <div
+        class="border-2 border-dashed border-base-300 rounded-xl p-6 text-center bg-base-200 cursor-pointer hover:border-primary transition-colors"
+        phx-drop-target={@uploads.photo.ref}
+      >
+        <%!-- File input must ALWAYS be in DOM for preview to work --%>
+        <.live_file_input upload={@uploads.photo} class="hidden" />
+
+        <%= for entry <- @uploads.photo.entries do %>
+          <div class="relative inline-block">
+            <.live_img_preview entry={entry} class="max-h-48 rounded-lg mx-auto" />
+            <button
+              type="button"
+              phx-click="cancel-upload"
+              phx-value-ref={entry.ref}
+              class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error"
+            >
+              ✕
+            </button>
+            <%!-- Show progress/status --%>
+            <div class="mt-2 text-center">
+              <div :if={not entry.done?} class="space-y-1">
+                <progress
+                  class="progress progress-primary w-full"
+                  value={entry.progress}
+                  max="100"
+                />
+                <p class="text-xs text-base-content/60">
+                  {if entry.progress == 0,
+                    do: "Starting upload...",
+                    else: "Uploading #{entry.progress}%"}
+                </p>
+              </div>
+              <div :if={entry.done?} class="text-success text-sm font-medium">
+                ✓ Ready
+              </div>
+            </div>
+          </div>
+          <%= for err <- upload_errors(@uploads.photo, entry) do %>
+            <p class="text-error text-sm mt-2">{error_to_string(err)}</p>
+          <% end %>
+        <% end %>
+
+        <div :if={@uploads.photo.entries == []} class="space-y-3">
+          <div class="text-5xl">📷</div>
+          <div class="text-base-content/60">Tap to capture or select photo</div>
+          <label for={@uploads.photo.ref} class="btn btn-primary btn-lg cursor-pointer">
+            📷 Select Photo
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Required fields --%>
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text font-bold">Name *</span>
+      </label>
+      <input
+        type="text"
+        name="name"
+        value={@form[:name].value}
+        placeholder="What is this item?"
+        required
+        class="input input-bordered input-lg w-full"
+        autofocus
+      />
+    </div>
+
+    <.ghost_autocomplete
+      id="camera-location"
+      name="location"
+      value={@form[:location].value}
+      suggestions={@location_codes}
+      placeholder="A-1-1"
+      label="Location *"
+      required
+      class="input input-bordered input-lg w-full font-mono"
+    />
+
+    <div :if={@co_location_warning} class="alert alert-warning">
+      <span>⚠️ {@co_location_warning}</span>
+    </div>
+
+    <%!-- Quantity --%>
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Quantity</span>
+      </label>
+      <input
+        type="number"
+        name="quantity"
+        value={@form[:quantity].value}
+        min="1"
+        class="input input-bordered w-full"
+      />
+    </div>
+
+    <%!-- Optional fields toggle --%>
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm w-full"
+      phx-click="toggle_optional"
+    >
+      {if @show_optional,
+        do: "▲ Hide optional fields",
+        else: "▼ More fields (manufacturer, model, description)"}
+    </button>
+
+    <div :if={@show_optional} class="space-y-3 animate-fade-in">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Manufacturer</span>
+        </label>
+        <input
+          type="text"
+          name="manufacturer"
+          placeholder="Brand name"
+          class="input input-bordered w-full"
+        />
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Model</span>
+        </label>
+        <input
+          type="text"
+          name="model"
+          placeholder="Model number"
+          class="input input-bordered w-full"
+        />
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Description</span>
+        </label>
+        <textarea
+          name="description"
+          placeholder="Additional details..."
+          rows="2"
+          class="textarea textarea-bordered w-full"
+        />
+      </div>
+    </div>
+
+    <%!-- Save button --%>
+    <button
+      type="submit"
+      class="btn btn-primary btn-lg w-full"
+      disabled={upload_in_progress?(@uploads.photo)}
+    >
+      {if upload_in_progress?(@uploads.photo), do: "⏳ Uploading photo...", else: "💾 Save Item"}
+    </button>
+  </.form>
+
+  <%!-- Recently saved items --%>
+  <div :if={@saved_items != []} class="mt-8">
+    <h3 class="text-lg font-bold mb-3">Saved this session ({length(@saved_items)})</h3>
+    <div class="space-y-2">
+      <%= for item <- Enum.take(@saved_items, 5) do %>
+        <div class="flex items-center gap-3 p-3 bg-base-200 rounded-lg">
+          <div :if={item.photo_path} class="avatar">
+            <div class="w-12 h-12 rounded">
+              <img src={~p"/uploads/#{item.photo_path}"} alt={item.name} />
+            </div>
+          </div>
+          <div
+            :if={is_nil(item.photo_path)}
+            class="w-12 h-12 rounded bg-base-300 flex items-center justify-center"
+          >
+            📦
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">{item.name}</div>
+            <div class="text-sm text-base-content/60">Qty: {item.quantity}</div>
+          </div>
+          <div class="badge badge-success">✓</div>
+        </div>
+      <% end %>
+      <div :if={length(@saved_items) > 5} class="text-center text-base-content/60 text-sm">
+        +{length(@saved_items) - 5} more
+      </div>
+    </div>
+  </div>
+</div>

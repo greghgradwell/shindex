@@ -77,6 +77,9 @@ defmodule InventoryLocator.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
 
+      # Image processing (server-side photo downsampling)
+      {:image, "~> 0.62"},
+
       # Development tools
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

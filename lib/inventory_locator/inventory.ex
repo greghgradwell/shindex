@@ -253,7 +253,7 @@ defmodule InventoryLocator.Inventory do
   end
 
   @spec create_item_type(map()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
-  defp create_item_type(attrs) do
+  def create_item_type(attrs) do
     %ItemType{}
     |> ItemType.changeset(attrs)
     |> Repo.insert()
@@ -266,6 +266,38 @@ defmodule InventoryLocator.Inventory do
     |> ItemType.changeset(attrs)
     |> Repo.update()
   end
+
+  @spec list_incomplete_items([atom()]) :: [ItemType.t()]
+  def list_incomplete_items(missing_fields) when is_list(missing_fields) do
+    ItemType
+    |> filter_by_archived(false)
+    |> filter_by_missing_fields(missing_fields)
+    |> order_by([i], asc: i.name)
+    |> Repo.all()
+    |> Repo.preload(location: [cell: [bin: :shelf]])
+  end
+
+  @spec get_next_incomplete_item(integer(), [atom()]) :: ItemType.t() | nil
+  def get_next_incomplete_item(current_id, missing_fields) when is_list(missing_fields) do
+    current_item = Repo.get(ItemType, current_id)
+
+    if is_nil(current_item) do
+      nil
+    else
+      ItemType
+      |> filter_by_archived(false)
+      |> filter_by_missing_fields(missing_fields)
+      |> where([i], i.name > ^current_item.name or (i.name == ^current_item.name and i.id > ^current_id))
+      |> order_by([i], asc: i.name, asc: i.id)
+      |> limit(1)
+      |> Repo.one()
+      |> maybe_preload_location()
+    end
+  end
+
+  @spec maybe_preload_location(ItemType.t() | nil) :: ItemType.t() | nil
+  defp maybe_preload_location(nil), do: nil
+  defp maybe_preload_location(item), do: Repo.preload(item, location: [cell: [bin: :shelf]])
 
   @spec delete_item_type(ItemType.t()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
   def delete_item_type(%ItemType{} = item_type) do

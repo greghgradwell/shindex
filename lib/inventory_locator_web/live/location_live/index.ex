@@ -60,4 +60,16 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      |> assign(:shelves, shelves)
      |> assign(:stats, stats)}
   end
+
+  def handle_info({:item_deleted, item_name}, socket) do
+    shelves = Inventory.list_shelves_with_hierarchy()
+    stats = Inventory.count_locations_by_occupancy()
+
+    {:noreply,
+     socket
+     |> assign(:selected_item_id, nil)
+     |> assign(:shelves, shelves)
+     |> assign(:stats, stats)
+     |> put_flash(:info, "Deleted: #{item_name}")}
+  end
 end

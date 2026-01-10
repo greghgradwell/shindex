@@ -34,19 +34,137 @@
 
       <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Photo Section -->
-        <div>
-          <%= if @item.photo_path do %>
-            <img
-              src={"/uploads/#{@item.photo_path}"}
-              alt={@item.name}
-              class="w-full h-80 object-cover rounded-lg shadow-lg"
-            />
-          <% else %>
-            <div class="w-full h-80 bg-gray-200 rounded-lg flex items-center justify-center">
-              <.icon name="hero-photo" class="w-20 h-20 text-gray-400" />
+        <%!-- Form wrapper required for LiveComponent uploads - routes events to component --%>
+        <form id="photo-upload-form" phx-change="photo_selected" phx-target={@myself}>
+          <%!-- File input: positioned off-screen so it can't intercept clicks but still receives label events --%>
+          <.live_file_input upload={@uploads.photo} class="absolute -top-[9999px] -left-[9999px]" />
+
+          <%!-- Edit Mode: Show upload preview or current photo with change button --%>
+          <%= if @editing do %>
+            <%!-- Show preview of new photo if selected --%>
+            <%= for entry <- @uploads.photo.entries do %>
+              <div class="relative">
+                <.live_img_preview
+                  entry={entry}
+                  class="w-full h-80 object-cover rounded-lg shadow-lg"
+                />
+                <button
+                  type="button"
+                  phx-click="cancel_photo_upload"
+                  phx-target={@myself}
+                  class="absolute top-2 right-2 btn btn-circle btn-sm btn-error"
+                >
+                  ✕
+                </button>
+                <%!-- Progress bar --%>
+                <div :if={entry.progress < 100} class="absolute bottom-0 left-0 right-0 p-2">
+                  <progress
+                    class="progress progress-primary w-full"
+                    value={entry.progress}
+                    max="100"
+                  />
+                </div>
+              </div>
+              <%!-- Upload errors --%>
+              <%= for err <- upload_errors(@uploads.photo, entry) do %>
+                <p class="text-error text-sm mt-2">{upload_error_to_string(err)}</p>
+              <% end %>
+            <% end %>
+
+            <%!-- Show current photo or placeholder with "Change Photo" button when no pending upload --%>
+            <div :if={@uploads.photo.entries == []} class="relative">
+              <%= if @item.photo_path do %>
+                <img
+                  src={"/uploads/#{@item.photo_path}"}
+                  alt={@item.name}
+                  class="w-full h-80 object-cover rounded-lg shadow-lg"
+                />
+              <% else %>
+                <div class="w-full h-80 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <.icon name="hero-photo" class="w-20 h-20 text-gray-400" />
+                </div>
+              <% end %>
+              <label
+                for={@uploads.photo.ref}
+                class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary btn-sm cursor-pointer shadow-lg"
+              >
+                📷 {if @item.photo_path, do: "Change Photo", else: "Add Photo"}
+              </label>
             </div>
+          <% else %>
+            <%!-- View Mode --%>
+            <%= if @uploads.photo.entries != [] do %>
+              <%!-- Upload in progress: show preview with Save/Cancel --%>
+              <%= for entry <- @uploads.photo.entries do %>
+                <div class="relative">
+                  <.live_img_preview
+                    entry={entry}
+                    class="w-full h-80 object-cover rounded-lg shadow-lg"
+                  />
+                  <%!-- Progress bar --%>
+                  <div :if={entry.progress < 100} class="absolute bottom-0 left-0 right-0 p-2">
+                    <progress
+                      class="progress progress-primary w-full"
+                      value={entry.progress}
+                      max="100"
+                    />
+                  </div>
+                  <%!-- Save/Cancel buttons after upload completes --%>
+                  <div
+                    :if={entry.progress == 100}
+                    class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2"
+                  >
+                    <button
+                      type="button"
+                      phx-click="save_photo_only"
+                      phx-target={@myself}
+                      class="btn btn-primary btn-sm shadow-lg"
+                    >
+                      ✓ Save
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_photo_upload"
+                      phx-target={@myself}
+                      class="btn btn-ghost btn-sm bg-base-100/80 shadow-lg"
+                    >
+                      ✕ Cancel
+                    </button>
+                  </div>
+                </div>
+                <%!-- Upload errors --%>
+                <%= for err <- upload_errors(@uploads.photo, entry) do %>
+                  <p class="text-error text-sm mt-2">{upload_error_to_string(err)}</p>
+                <% end %>
+              <% end %>
+            <% else %>
+              <%!-- No upload in progress --%>
+              <%= if @item.photo_path do %>
+                <%!-- Has photo: just show it --%>
+                <img
+                  src={"/uploads/#{@item.photo_path}"}
+                  alt={@item.name}
+                  class="w-full h-80 object-cover rounded-lg shadow-lg"
+                />
+              <% else %>
+                <%!-- No photo: show placeholder with Select Photo button --%>
+                <div class="relative">
+                  <div class="w-full h-80 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <.icon name="hero-photo" class="w-20 h-20 text-gray-400" />
+                  </div>
+                  <div class="absolute bottom-4 left-0 right-0 flex justify-center">
+                    <label
+                      for={@uploads.photo.ref}
+                      class="btn btn-primary btn-sm cursor-pointer shadow-lg"
+                    >
+                      📷 Select Photo
+                    </label>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
           <% end %>
-        </div>
+        </form>
         
 <!-- Details Section -->
         <div class="space-y-4">
@@ -337,14 +455,14 @@
             <% end %>
           </div>
           
-<!-- Archive Section -->
+<!-- Archive/Restore Section -->
           <%= if not @item.archived do %>
             <div class="border-t pt-4">
               <.button
                 phx-click="archive"
                 phx-target={@myself}
                 data-confirm="Archive this item? Its location will be freed for reuse and the item quantity will be set to 0."
-                class="w-full btn btn-outline btn-error btn-sm"
+                class="w-full btn btn-outline btn-warning btn-sm"
               >
                 Archive Item
               </.button>
@@ -359,6 +477,18 @@
               </p>
             </div>
           <% end %>
+          
+<!-- Delete Section -->
+          <div class="border-t pt-4">
+            <button
+              type="button"
+              phx-click="show_delete_modal"
+              phx-target={@myself}
+              class="btn btn-outline btn-error btn-sm w-full"
+            >
+              🗑️ Delete Permanently
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -368,7 +498,7 @@
   <div
     :if={@show_restore_modal}
     class="modal modal-open"
-    style="z-index: 60;"
+    style="z-index: 1000;"
     phx-window-keydown="close_restore_modal"
     phx-key="escape"
     phx-target={@myself}
@@ -442,7 +572,7 @@
   <div
     :if={@show_archive_quantity_modal}
     class="modal modal-open"
-    style="z-index: 60;"
+    style="z-index: 1000;"
     phx-window-keydown="cancel_archive_from_quantity"
     phx-key="escape"
     phx-target={@myself}
@@ -471,6 +601,45 @@
           Archive Item
         </button>
       </div>
+    </div>
+  </div>
+  
+<!-- Delete Confirmation Modal (nested) -->
+  <div
+    :if={@show_delete_modal}
+    class="modal modal-open"
+    style="z-index: 1000;"
+    phx-window-keydown="hide_delete_modal"
+    phx-key="escape"
+    phx-target={@myself}
+  >
+    <div class="modal-box">
+      <h3 class="font-bold text-lg text-error">Delete Item Permanently?</h3>
+      <p class="py-4">
+        Are you sure you want to permanently delete <strong>{@item.name}</strong>?
+        This will remove the item from the database and cannot be undone.
+      </p>
+
+      <div class="modal-action">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          phx-click="hide_delete_modal"
+          phx-target={@myself}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-error"
+          phx-click="delete"
+          phx-target={@myself}
+        >
+          🗑️ Delete Forever
+        </button>
+      </div>
+    </div>
+    <div class="modal-backdrop bg-black/50" phx-click="hide_delete_modal" phx-target={@myself}>
     </div>
   </div>
 </div>

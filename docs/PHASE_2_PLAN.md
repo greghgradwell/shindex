@@ -118,7 +118,7 @@ Implement the core user interface for the inventory system based on UX decisions
 - Archived items don't block location reuse
 - Clear separation: active (has location + qty>0) vs archived (no location + qty=0)
 
-### 2.1 Inventory Context Enhancements
+### 2.05 Inventory Context Enhancements
 
 **Add archive/restore operations**:
 - `archive_item_type(item)`: Sets qty=0, archived=true, location_id=nil
@@ -129,7 +129,7 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Why**: Clear API for archive lifecycle, filtering active vs archived
 
-### 2.2 Location Management LiveView
+### 2.1 Location Management LiveView
 
 **Module**: `LocationLive.Index`
 
@@ -143,7 +143,7 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Why**: Spatial view of storage system, manage empty locations
 
-### 2.3 Item Search Interface
+### 2.2 Item Search Interface
 
 **Module**: `ItemLive.Index`
 
@@ -164,7 +164,7 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Implementation Note**: Originally planned with ILIKE for Phase 2 and fuzzy search for Phase 3, but implemented fuzzy search directly in Phase 2.2 since pg_trgm index already existed from Phase 1.2.
 
-### 2.4 Item Detail View (Modal)
+### 2.3 Item Detail View (Modal)
 
 **Module**: `ItemLive.ShowModal` (LiveComponent, replaces `ItemLive.Show` page)
 
@@ -183,7 +183,7 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Why**: Modal keeps user in search context, eliminates page navigation overhead, supports "< 30s per item" goal
 
-### 2.5 Add Item Flow (Hybrid Workflow)
+### 2.4 Add Item Flow (Hybrid Workflow)
 
 #### Phone: Camera Capture + Quick Entry
 
@@ -235,7 +235,7 @@ Implement the core user interface for the inventory system based on UX decisions
 
 **Why**: Keyboard-optimized, batch workflow for completing metadata, real-time photo sync from phone
 
-### 2.6 Router Configuration
+### 2.5 Router Configuration
 
 **Routes**:
 - `/` → Search interface (search-first with filters)
@@ -431,24 +431,21 @@ Implement the core user interface for the inventory system based on UX decisions
 
 ---
 
-### Phase 2.3: Item Detail View (Modal) ✅ PAGE COMPLETE → CONVERTING TO MODAL
+### Phase 2.3: Item Detail View (Modal) ✅ COMPLETE
 
-**Original Implementation** (page version - complete):
-- ✅ `ItemLive.Show` with full item display
+**Implementation**:
+- ✅ `ItemLive.ShowModal` LiveComponent with full item display
 - ✅ Quantity increment/decrement controls
 - ✅ Archive confirmation when qty→0
 - ✅ Restore form for archived items
 - ✅ Move-to-location functionality
 - ✅ Install/uninstall to projects functionality
-
-**Modal Conversion** (in progress):
-- [ ] Create `ItemLive.ShowModal` LiveComponent
-- [ ] Remove `/items/:id` route
-- [ ] Wire modal to ItemLive.Index and ProjectLive.Index
+- ✅ Removed `/items/:id` route (modal-only access)
+- ✅ Wired to ItemLive.Index, LocationLive.Index, ProjectLive.Index
 
 **Why Modal?** Eliminates page navigation, keeps user in search context, faster workflow aligned with "< 30s per item" goal.
 
-**Go/No-Go**: Click item → modal opens → all actions work → ESC/click-outside closes.
+**Go/No-Go**: ✅ Click item → modal opens → all actions work → ESC/click-outside closes.
 
 ---
 

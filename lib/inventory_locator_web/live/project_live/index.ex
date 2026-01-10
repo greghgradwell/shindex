@@ -73,4 +73,14 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
      |> assign(:selected_item_id, nil)
      |> assign(:projects, projects)}
   end
+
+  def handle_info({:item_deleted, item_name}, socket) do
+    projects = Inventory.list_all_projects_with_items()
+
+    {:noreply,
+     socket
+     |> assign(:selected_item_id, nil)
+     |> assign(:projects, projects)
+     |> put_flash(:info, "Deleted: #{item_name}")}
+  end
 end

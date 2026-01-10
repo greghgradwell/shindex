@@ -89,16 +89,16 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Display results in photo grid
 - [x] Write tests for search flow and filtering (26 new tests, 107 total passing)
 
-### 2.3 Item Detail View (Modal)
-- [x] Create ItemLive.Show with full item display (page version - complete)
+### 2.3 Item Detail View (Modal) ✅ COMPLETE
+- [x] Create ItemLive.Show with full item display (page version)
 - [x] Add quantity increment/decrement controls
 - [x] Add archive confirmation when qty→0
 - [x] Add restore form for archived items (assign new location)
 - [x] Add move-to-location functionality
 - [x] Add install/uninstall to projects functionality
-- [ ] Convert from page to modal (ShowModal LiveComponent)
-- [ ] Remove /items/:id route (modal-only access)
-- [ ] Wire modal to ItemLive.Index and ProjectLive.Index
+- [x] Convert from page to modal (ShowModal LiveComponent)
+- [x] Remove /items/:id route (modal-only access)
+- [x] Wire modal to ItemLive.Index, LocationLive.Index, and ProjectLive.Index
 
 ### 2.4 Add Item Flow (Hybrid Workflow)
 - [ ] Add image dependency for photo downsampling (~0.62)

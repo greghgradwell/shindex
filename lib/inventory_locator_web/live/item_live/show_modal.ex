@@ -5,7 +5,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Media
   alias Phoenix.LiveView.Socket
+
+  require Logger
 
   @impl true
   @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
@@ -16,12 +19,26 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
 
+    # Configure uploads only on initial mount (avoid re-init on every update)
+    socket =
+      if Map.has_key?(socket.assigns, :uploads) do
+        socket
+      else
+        allow_upload(socket, :photo,
+          accept: ~w(.jpg .jpeg .png .webp image/*),
+          max_entries: 1,
+          max_file_size: 30_000_000,
+          auto_upload: true
+        )
+      end
+
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:item, item)
      |> assign(:show_restore_modal, false)
      |> assign(:show_archive_quantity_modal, false)
+     |> assign(:show_delete_modal, false)
      |> assign(:editing, false)
      |> assign(:moving, false)
      |> assign(:installing, false)
@@ -38,8 +55,15 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("close_modal", _params, socket) do
-    send(self(), {:close_item_modal})
-    {:noreply, socket}
+    # Don't close if a nested modal is open (clicks inside nested modals trigger parent's click-away)
+    if socket.assigns.show_delete_modal or
+         socket.assigns.show_restore_modal or
+         socket.assigns.show_archive_quantity_modal do
+      {:noreply, socket}
+    else
+      send(self(), {:close_item_modal})
+      {:noreply, socket}
+    end
   end
 
   def handle_event("increment_quantity", _params, socket) do
@@ -53,7 +77,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> refresh_item_data()
          |> put_flash(:info, "Quantity updated")}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
         {:noreply, put_flash(socket, :error, "Failed to update quantity")}
     end
   end
@@ -77,7 +102,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
              |> refresh_item_data()
              |> put_flash(:info, "Quantity updated")}
 
-          {:error, _changeset} ->
+          {:error, changeset} ->
+            Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
             {:noreply, put_flash(socket, :error, "Failed to update quantity")}
         end
     end
@@ -95,7 +121,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> assign(:item, updated_item)
          |> put_flash(:info, "Item archived. Location is now available for reuse.")}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        Logger.warning("Failed to archive item: #{inspect(changeset.errors)}")
         {:noreply, put_flash(socket, :error, "Failed to archive item")}
     end
   end
@@ -124,7 +151,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> assign(:show_archive_quantity_modal, false)
          |> put_flash(:info, "Item archived. Location is now available for reuse.")}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        Logger.warning("Failed to archive item: #{inspect(changeset.errors)}")
+
         {:noreply,
          socket
          |> assign(:show_archive_quantity_modal, false)
@@ -180,7 +209,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
              |> refresh_item_data()
              |> put_flash(:info, "Quantity updated")}
 
-          {:error, _changeset} ->
+          {:error, changeset} ->
+            Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
             {:noreply, put_flash(socket, :error, "Failed to update quantity")}
         end
 
@@ -200,6 +230,13 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   end
 
   def handle_event("cancel_edit", _params, socket) do
+    # Clear any pending photo upload
+    socket =
+      case socket.assigns.uploads.photo.entries do
+        [entry | _] -> cancel_upload(socket, :photo, entry.ref)
+        [] -> socket
+      end
+
     {:noreply,
      socket
      |> assign(:editing, false)
@@ -209,12 +246,18 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   def handle_event("update_item_details", params, socket) do
     item = socket.assigns.item
 
+    # Process photo upload if present
+    photo_path = consume_uploaded_photo(socket)
+
     attrs = %{
       name: Map.get(params, "name", item.name),
       manufacturer: Map.get(params, "manufacturer", ""),
       model: Map.get(params, "model", ""),
       description: Map.get(params, "description", "")
     }
+
+    # Add photo_path only if a new photo was uploaded
+    attrs = if photo_path, do: Map.put(attrs, :photo_path, photo_path), else: attrs
 
     case Inventory.update_item_type(item, attrs) do
       {:ok, updated_item} ->
@@ -227,7 +270,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> assign(:edit_changeset, nil)
          |> put_flash(:info, "Item details updated")}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
         {:noreply, put_flash(socket, :error, "Failed to update item details")}
     end
   end
@@ -273,6 +317,65 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   def handle_event("ghost_value_changed", _params, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("photo_selected", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_photo_upload", _params, socket) do
+    socket =
+      case socket.assigns.uploads.photo.entries do
+        [entry | _] -> cancel_upload(socket, :photo, entry.ref)
+        [] -> socket
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("save_photo_only", _params, socket) do
+    case consume_uploaded_photo(socket) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No photo to save")}
+
+      photo_path ->
+        item = socket.assigns.item
+
+        case Inventory.update_item_type(item, %{photo_path: photo_path}) do
+          {:ok, updated_item} ->
+            updated_item = Inventory.get_item_type_with_location!(updated_item.id)
+
+            {:noreply,
+             socket
+             |> assign(:item, updated_item)
+             |> put_flash(:info, "Photo saved")}
+
+          {:error, changeset} ->
+            Logger.warning("Failed to save photo: #{inspect(changeset.errors)}")
+            {:noreply, put_flash(socket, :error, "Failed to save photo")}
+        end
+    end
+  end
+
+  def handle_event("show_delete_modal", _params, socket) do
+    {:noreply, assign(socket, :show_delete_modal, true)}
+  end
+
+  def handle_event("hide_delete_modal", _params, socket) do
+    {:noreply, assign(socket, :show_delete_modal, false)}
+  end
+
+  def handle_event("delete", _params, socket) do
+    item = socket.assigns.item
+
+    case Inventory.delete_item_type(item) do
+      {:ok, _} ->
+        send(self(), {:item_deleted, item.name})
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete item")}
+    end
   end
 
   def handle_event("toggle_install", _params, socket) do
@@ -444,4 +547,30 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply, put_flash(socket, :error, "Failed to restore item")}
     end
   end
+
+  @spec consume_uploaded_photo(Socket.t()) :: String.t() | nil
+  defp consume_uploaded_photo(socket) do
+    case socket.assigns.uploads.photo.entries do
+      [] ->
+        nil
+
+      [entry | _] ->
+        if entry.done? do
+          consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
+            binary = File.read!(temp_path)
+
+            case Media.process_and_save_photo(binary, entry.client_name) do
+              {:ok, filename} -> {:ok, filename}
+              {:error, _} = error -> error
+            end
+          end)
+        end
+    end
+  end
+
+  @spec upload_error_to_string(atom()) :: String.t()
+  def upload_error_to_string(:too_large), do: "File is too large (max 30MB)"
+  def upload_error_to_string(:too_many_files), do: "Only one photo allowed"
+  def upload_error_to_string(:not_accepted), do: "Invalid file type"
+  def upload_error_to_string(_), do: "Upload error"
 end

@@ -17,13 +17,13 @@ config :inventory_locator, InventoryLocator.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :inventory_locator, InventoryLocatorWeb.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
-  check_origin: false,
+  # Binding to all interfaces allows access from other machines (phone, etc.)
+  http: [ip: {0, 0, 0, 0}, port: 4000],
+  # Allow connections from localhost and private networks (for phone testing)
+  check_origin: {InventoryLocatorWeb.Endpoint, :check_origin, []},
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "t7TQPonYfUt1evsp2WD64KosT2kaX6xqlxOYAq5QB1Fo9mhx1mqkrd3sd2/0bxA6",
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:inventory_locator, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:inventory_locator, ~w(--watch)]}

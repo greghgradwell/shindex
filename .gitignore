@@ -51,3 +51,4 @@ npm-debug.log
 *.plt
 *.plt.hash
 
+priv/static/uploads/

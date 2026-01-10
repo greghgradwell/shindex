@@ -27,6 +27,9 @@ defmodule InventoryLocatorWeb.Endpoint do
     only: InventoryLocatorWeb.static_paths(),
     raise_on_missing_only: code_reloading?
 
+  # Add security headers for user uploads to prevent XSS via uploaded files
+  plug :secure_upload_headers
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
@@ -52,4 +55,35 @@ defmodule InventoryLocatorWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug InventoryLocatorWeb.Router
+
+  @spec secure_upload_headers(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
+  defp secure_upload_headers(conn, _opts) do
+    if String.starts_with?(conn.request_path, "/uploads/") do
+      conn
+      |> Plug.Conn.put_resp_header("content-disposition", "inline")
+      |> Plug.Conn.put_resp_header("x-content-type-options", "nosniff")
+    else
+      conn
+    end
+  end
+
+  @spec check_origin(URI.t()) :: boolean()
+  def check_origin(%URI{host: host}) do
+    cond do
+      host in ["localhost", "127.0.0.1"] -> true
+      String.ends_with?(host, ".local") -> true
+      private_ip?(host) -> true
+      true -> false
+    end
+  end
+
+  @spec private_ip?(String.t()) :: boolean()
+  defp private_ip?(host) do
+    case :inet.parse_address(String.to_charlist(host)) do
+      {:ok, {192, 168, _, _}} -> true
+      {:ok, {10, _, _, _}} -> true
+      {:ok, {172, b, _, _}} when b >= 16 and b <= 31 -> true
+      _ -> false
+    end
+  end
 end

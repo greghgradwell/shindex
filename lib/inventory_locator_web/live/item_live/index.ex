@@ -75,6 +75,16 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info({:item_deleted, item_name}, socket) do
+    socket =
+      socket
+      |> assign(:selected_item_id, nil)
+      |> perform_search()
+      |> put_flash(:info, "Deleted: #{item_name}")
+
+    {:noreply, socket}
+  end
+
   @spec assign_defaults(Socket.t()) :: Socket.t()
   defp assign_defaults(socket) do
     socket
