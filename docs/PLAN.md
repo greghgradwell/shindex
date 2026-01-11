@@ -100,31 +100,33 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Remove /items/:id route (modal-only access)
 - [x] Wire modal to ItemLive.Index, LocationLive.Index, and ProjectLive.Index
 
-### 2.4 Add Item Flow (Hybrid Workflow)
-- [ ] Add image dependency for photo downsampling (~0.62)
-- [ ] Implement server-side photo downsampling (1920x1080, ~85% quality)
-- [ ] Create CameraLive.Index for mobile photo capture + quick entry
-  - [ ] Required fields: name, location (with inline creation)
-  - [ ] Optional fields: description, manufacturer, model, quantity
-  - [ ] Save immediately after photo + required fields
-- [ ] Implement photo upload + downsample + PubSub broadcast
-- [ ] Create ItemLive.New with photo subscription (full desktop entry)
-- [ ] Update ItemLive.Edit with batch completion mode
-  - [ ] Auto-advance to next incomplete item (Ctrl+Enter)
-  - [ ] Focus on missing field when opened from filter
-- [ ] Add location input with real-time validation
-- [ ] Add inline location creation button
-- [ ] Write tests for full workflow + photo downsampling
+### 2.4 Add Item Flow (Hybrid Workflow) ✅ COMPLETE
+- [x] Add image dependency for photo downsampling (~0.62)
+- [x] Implement server-side photo downsampling (1920x1080, ~85% quality) - Media.ex
+- [x] Create CameraLive.Index for mobile photo capture + quick entry
+  - [x] Required fields: name, location (with inline creation via ensure_location_with_code)
+  - [x] Optional fields: description, manufacturer, model, quantity (toggle to show)
+  - [x] Save immediately after photo + required fields
+  - [x] Recently saved items displayed in session
+- [x] Implement photo upload + downsample (no PubSub - refresh page to see new items)
+- [x] Update ItemLive.Index/ShowModal with batch completion mode
+  - [x] Auto-enter edit mode when filters are active
+  - [x] Auto-advance to next incomplete item on save
+  - [x] Focus first empty field (FocusFirstEmpty JS hook)
+  - [x] Progress indicator ("X remaining")
+  - [x] Dynamic form IDs for proper state reset between items
+- [x] Add location input with real-time validation (GhostAutocomplete + co-location warnings)
+- [x] Add inline location creation (ensure_location_with_code creates missing hierarchy)
 
 ### 2.5 Polish & UX
 - [ ] Responsive CSS for mobile/desktop
 - [ ] Mobile-optimize camera UI (clear required field indicators)
-- [ ] Desktop-optimize data entry forms (keyboard shortcuts, Ctrl+Enter)
-- [ ] Batch completion UX (progress indicator, "X items remaining")
+- [ ] Desktop-optimize data entry forms (keyboard shortcuts)
+- [x] Batch completion UX (progress indicator, auto-advance, auto-focus)
 - [ ] Error messaging improvements
 - [ ] Loading states (photo upload/downsample progress)
 - [ ] "Incomplete metadata" badge styling
-- [ ] Archived item opacity/styling
+- [x] Archived item opacity/styling
 
 **Go/No-Go:** Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
 

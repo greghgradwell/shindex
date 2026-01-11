@@ -60,27 +60,64 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     {:noreply, socket}
   end
 
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("open_item_modal", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
+    item_id = String.to_integer(id)
+
+    socket =
+      if socket.assigns.active_filters == [] do
+        socket
+        |> assign(:selected_item_id, item_id)
+        |> assign(:batch_mode, false)
+        |> assign(:batch_item_ids, [])
+      else
+        batch_ids = Enum.map(socket.assigns.results, & &1.id)
+
+        socket
+        |> assign(:selected_item_id, item_id)
+        |> assign(:batch_mode, true)
+        |> assign(:batch_item_ids, batch_ids)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
   @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_info({:close_item_modal}, socket) do
+    {:noreply, socket |> reset_batch_state() |> perform_search()}
+  end
+
+  @impl true
+  @spec handle_info({:item_deleted, String.t()}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:item_deleted, item_name}, socket) do
     socket =
       socket
-      |> assign(:selected_item_id, nil)
+      |> reset_batch_state()
       |> perform_search()
+      |> put_flash(:info, "Deleted: #{item_name}")
 
     {:noreply, socket}
   end
 
-  def handle_info({:item_deleted, item_name}, socket) do
+  @impl true
+  @spec handle_info({:advance_to_next_incomplete}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:advance_to_next_incomplete}, socket) do
+    socket = perform_search(socket)
+
     socket =
-      socket
-      |> assign(:selected_item_id, nil)
-      |> perform_search()
-      |> put_flash(:info, "Deleted: #{item_name}")
+      case socket.assigns.results do
+        [] ->
+          socket
+          |> reset_batch_state()
+          |> put_flash(:info, "All items complete!")
+
+        [next | _] = results ->
+          socket
+          |> assign(:selected_item_id, next.id)
+          |> assign(:batch_item_ids, Enum.map(results, & &1.id))
+      end
 
     {:noreply, socket}
   end
@@ -93,7 +130,15 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:show_archived, false)
     |> assign(:active_filters, [])
     |> assign(:page_title, "Search Items")
+    |> reset_batch_state()
+  end
+
+  @spec reset_batch_state(Socket.t()) :: Socket.t()
+  defp reset_batch_state(socket) do
+    socket
     |> assign(:selected_item_id, nil)
+    |> assign(:batch_mode, false)
+    |> assign(:batch_item_ids, [])
   end
 
   @spec perform_search(Socket.t()) :: Socket.t()

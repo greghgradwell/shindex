@@ -1,7 +1,7 @@
 import GhostAutocomplete from "./ghost_autocomplete"
-import BatchEditKeyboard from "./batch_edit_keyboard"
+import FocusFirstEmpty from "./focus_first_empty"
 
 export default {
   GhostAutocomplete,
-  BatchEditKeyboard,
+  FocusFirstEmpty,
 }

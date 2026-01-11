@@ -32,6 +32,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         )
       end
 
+    # Batch mode: auto-enter edit mode for efficient completion
+    batch_mode = Map.get(assigns, :batch_mode, false)
+    editing = batch_mode
+    edit_changeset = if editing, do: ItemType.changeset(item, %{})
+
     {:ok,
      socket
      |> assign(assigns)
@@ -39,17 +44,19 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:show_restore_modal, false)
      |> assign(:show_archive_quantity_modal, false)
      |> assign(:show_delete_modal, false)
-     |> assign(:editing, false)
+     |> assign(:editing, editing)
      |> assign(:moving, false)
      |> assign(:installing, false)
-     |> assign(:edit_changeset, nil)
+     |> assign(:edit_changeset, edit_changeset)
      |> assign(:location_codes, location_codes)
      |> assign(:project_names, project_names)
      |> assign(:installations, installations)
      |> assign(:installed_quantity, installed_quantity)
      |> assign(:pending_restore_quantity, nil)
      |> assign(:location_warning, nil)
-     |> assign(:move_location_warning, nil)}
+     |> assign(:move_location_warning, nil)
+     |> assign(:batch_mode, batch_mode)
+     |> assign(:batch_total, Map.get(assigns, :batch_total, 0))}
   end
 
   @impl true
@@ -246,29 +253,30 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   def handle_event("update_item_details", params, socket) do
     item = socket.assigns.item
 
+    # Form params are nested under "item_type" when using for={changeset}
+    item_params = params["item_type"] || params
+
     # Process photo upload if present
     photo_path = consume_uploaded_photo(socket)
 
     attrs = %{
-      name: Map.get(params, "name", item.name),
-      manufacturer: Map.get(params, "manufacturer", ""),
-      model: Map.get(params, "model", ""),
-      description: Map.get(params, "description", "")
+      name: Map.get(item_params, "name", item.name),
+      manufacturer: Map.get(item_params, "manufacturer", ""),
+      model: Map.get(item_params, "model", ""),
+      description: Map.get(item_params, "description", "")
     }
 
     # Add photo_path only if a new photo was uploaded
     attrs = if photo_path, do: Map.put(attrs, :photo_path, photo_path), else: attrs
 
     case Inventory.update_item_type(item, attrs) do
-      {:ok, updated_item} ->
-        updated_item = Inventory.get_item_type_with_location!(updated_item.id)
+      {:ok, _updated_item} ->
+        # In batch mode, advance to next incomplete item
+        if socket.assigns.batch_mode do
+          send(self(), {:advance_to_next_incomplete})
+        end
 
-        {:noreply,
-         socket
-         |> assign(:item, updated_item)
-         |> assign(:editing, false)
-         |> assign(:edit_changeset, nil)
-         |> put_flash(:info, "Item details updated")}
+        {:noreply, put_flash(socket, :info, "Item details updated")}
 
       {:error, changeset} ->
         Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
