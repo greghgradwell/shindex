@@ -9,7 +9,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
   describe "Index" do
     test "renders search box on mount", %{conn: conn} do
       {:ok, _index_live, html} = live(conn, ~p"/")
-      assert html =~ "Search Items"
+      assert html =~ "<h1"
+      assert html =~ "Items"
       assert html =~ "placeholder=\"Search by name...\""
     end
 

@@ -386,9 +386,40 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
+  @spec list_all_items(keyword()) :: [ItemType.t()]
+  def list_all_items(opts) do
+    show_archived = Keyword.get(opts, :show_archived, false)
+    sort_by = Keyword.get(opts, :sort_by, :name)
+    sort_order = Keyword.get(opts, :sort_order, :asc)
+
+    ItemType
+    |> filter_by_archived(show_archived)
+    |> apply_sort(sort_by, sort_order)
+    |> Repo.all()
+    |> Repo.preload(location: [cell: [bin: :shelf]])
+  end
+
   @spec filter_by_archived(Ecto.Queryable.t(), boolean()) :: Ecto.Queryable.t()
   defp filter_by_archived(query, false), do: where(query, [i], i.archived == false)
   defp filter_by_archived(query, true), do: query
+
+  @spec apply_sort(Ecto.Queryable.t(), atom(), :asc | :desc) :: Ecto.Queryable.t()
+  defp apply_sort(query, :name, order) do
+    order_by(query, [i], [{^order, i.name}])
+  end
+
+  defp apply_sort(query, :manufacturer, order) do
+    order_by(query, [i], [
+      {^order, fragment("COALESCE(?, '')", i.manufacturer)},
+      {:asc, i.name}
+    ])
+  end
+
+  defp apply_sort(query, :location, order) do
+    query
+    |> join(:left, [i], l in assoc(i, :location))
+    |> order_by([i, l], [{^order, fragment("COALESCE(?, '')", l.full_code)}, {:asc, i.name}])
+  end
 
   @spec filter_by_missing_fields(Ecto.Queryable.t(), [atom()]) :: Ecto.Queryable.t()
   defp filter_by_missing_fields(query, []), do: query

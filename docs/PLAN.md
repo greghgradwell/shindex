@@ -118,7 +118,14 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Add location input with real-time validation (GhostAutocomplete + co-location warnings)
 - [x] Add inline location creation (ensure_location_with_code creates missing hierarchy)
 
-### 2.5 Polish & UX
+### 2.5 Items Table View
+- [x] Add `list_all_items/1` function to Inventory context with sorting
+- [x] Add view mode toggle to ItemLive.Index (Search / Browse tabs)
+- [x] Implement table view with sortable columns (name, manufacturer, location)
+- [x] Extract search UI into `search_view` component
+- [x] Create `table_view` and `sort_indicator` components
+
+### 2.6 Polish & UX
 - [ ] Responsive CSS for mobile/desktop
 - [ ] Mobile-optimize camera UI (clear required field indicators)
 - [ ] Desktop-optimize data entry forms (keyboard shortcuts)

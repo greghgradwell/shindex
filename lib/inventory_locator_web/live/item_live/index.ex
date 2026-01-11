@@ -9,8 +9,17 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
-  def mount(_params, _session, socket) do
-    {:ok, assign_defaults(socket)}
+  def mount(params, _session, socket) do
+    view_mode = if params["view"] == "table", do: :table, else: :search
+
+    socket =
+      socket
+      |> assign_defaults()
+      |> assign(:view_mode, view_mode)
+
+    socket = if view_mode == :table, do: load_all_items(socket), else: socket
+
+    {:ok, socket}
   end
 
   @impl true
@@ -32,7 +41,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     socket =
       socket
       |> assign(:show_archived, !socket.assigns.show_archived)
-      |> perform_search()
+      |> refresh_current_view()
 
     {:noreply, socket}
   end
@@ -84,9 +93,41 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("sort", %{"column" => column}, socket)
+      when column in ["name", "manufacturer", "location"] do
+    column_atom =
+      case column do
+        "name" -> :name
+        "manufacturer" -> :manufacturer
+        "location" -> :location
+      end
+
+    {sort_by, sort_order} =
+      if socket.assigns.sort_by == column_atom do
+        new_order = if socket.assigns.sort_order == :asc, do: :desc, else: :asc
+        {column_atom, new_order}
+      else
+        {column_atom, :asc}
+      end
+
+    socket =
+      socket
+      |> assign(:sort_by, sort_by)
+      |> assign(:sort_order, sort_order)
+      |> load_all_items()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("sort", %{"column" => _invalid}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_info({:close_item_modal}, socket) do
-    {:noreply, socket |> reset_batch_state() |> perform_search()}
+    {:noreply, socket |> reset_batch_state() |> refresh_current_view()}
   end
 
   @impl true
@@ -95,7 +136,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     socket =
       socket
       |> reset_batch_state()
-      |> perform_search()
+      |> refresh_current_view()
       |> put_flash(:info, "Deleted: #{item_name}")
 
     {:noreply, socket}
@@ -125,11 +166,15 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @spec assign_defaults(Socket.t()) :: Socket.t()
   defp assign_defaults(socket) do
     socket
+    |> assign(:view_mode, :search)
     |> assign(:query, "")
     |> assign(:results, [])
     |> assign(:show_archived, false)
     |> assign(:active_filters, [])
-    |> assign(:page_title, "Search Items")
+    |> assign(:items, [])
+    |> assign(:sort_by, :name)
+    |> assign(:sort_order, :asc)
+    |> assign(:page_title, "Items")
     |> reset_batch_state()
   end
 
@@ -151,6 +196,27 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       )
 
     assign(socket, :results, results)
+  end
+
+  @spec refresh_current_view(Socket.t()) :: Socket.t()
+  defp refresh_current_view(%{assigns: %{view_mode: :search}} = socket) do
+    perform_search(socket)
+  end
+
+  defp refresh_current_view(%{assigns: %{view_mode: :table}} = socket) do
+    load_all_items(socket)
+  end
+
+  @spec load_all_items(Socket.t()) :: Socket.t()
+  defp load_all_items(socket) do
+    items =
+      Inventory.list_all_items(
+        show_archived: socket.assigns.show_archived,
+        sort_by: socket.assigns.sort_by,
+        sort_order: socket.assigns.sort_order
+      )
+
+    assign(socket, :items, items)
   end
 
   @spec toggle_filter_list([atom()], atom()) :: [atom()]
