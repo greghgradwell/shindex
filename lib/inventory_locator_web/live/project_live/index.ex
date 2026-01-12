@@ -3,6 +3,7 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   use InventoryLocatorWeb, :live_view
 
   alias InventoryLocator.Inventory
+  alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
 
   @impl true
@@ -82,5 +83,23 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
      |> assign(:selected_item_id, nil)
      |> assign(:projects, projects)
      |> put_flash(:info, "Deleted: #{item_name}")}
+  end
+
+  def handle_info({:photo_pending, _id, photo_data}, socket) do
+    send_update(ShowModal,
+      id: "item-show-modal",
+      pending_photo: photo_data
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:photo_cleared, _id}, socket) do
+    send_update(ShowModal,
+      id: "item-show-modal",
+      clear_pending_photo: true
+    )
+
+    {:noreply, socket}
   end
 end

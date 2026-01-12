@@ -1,9 +1,9 @@
 defmodule InventoryLocator.Search.AI do
   @moduledoc false
 
-  require Logger
-
   alias InventoryLocator.Inventory.ItemType
+
+  require Logger
 
   @api_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
@@ -103,7 +103,7 @@ defmodule InventoryLocator.Search.AI do
             ids =
               matches
               |> Enum.map(fn [_, id_str] -> String.to_integer(id_str) end)
-              |> then(&filter_valid_ids(&1, valid_ids))
+              |> filter_valid_ids(valid_ids)
 
             Logger.info("Salvaged #{length(ids)} IDs from malformed response")
             {:ok, ids}

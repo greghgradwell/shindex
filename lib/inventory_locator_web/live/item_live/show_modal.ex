@@ -12,25 +12,20 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @impl true
   @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
+  def update(%{pending_photo: photo_data}, socket) do
+    {:ok, assign(socket, :pending_photo, photo_data)}
+  end
+
+  def update(%{clear_pending_photo: true}, socket) do
+    {:ok, assign(socket, :pending_photo, nil)}
+  end
+
   def update(%{item_id: item_id} = assigns, socket) do
     item = Inventory.get_item_type_with_location!(item_id)
     location_codes = Inventory.list_location_codes()
     project_names = Inventory.list_project_names()
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
-
-    # Configure uploads only on initial mount (avoid re-init on every update)
-    socket =
-      if Map.has_key?(socket.assigns, :uploads) do
-        socket
-      else
-        allow_upload(socket, :photo,
-          accept: ~w(.jpg .jpeg .png .webp image/*),
-          max_entries: 1,
-          max_file_size: 30_000_000,
-          auto_upload: true
-        )
-      end
 
     # Batch mode: auto-enter edit mode for efficient completion
     batch_mode = Map.get(assigns, :batch_mode, false)
@@ -56,7 +51,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:location_warning, nil)
      |> assign(:move_location_warning, nil)
      |> assign(:batch_mode, batch_mode)
-     |> assign(:batch_total, Map.get(assigns, :batch_total, 0))}
+     |> assign(:batch_total, Map.get(assigns, :batch_total, 0))
+     |> assign_new(:pending_photo, fn -> nil end)}
   end
 
   @impl true
@@ -237,17 +233,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   end
 
   def handle_event("cancel_edit", _params, socket) do
-    # Clear any pending photo upload
-    socket =
-      case socket.assigns.uploads.photo.entries do
-        [entry | _] -> cancel_upload(socket, :photo, entry.ref)
-        [] -> socket
-      end
-
     {:noreply,
      socket
      |> assign(:editing, false)
-     |> assign(:edit_changeset, nil)}
+     |> assign(:edit_changeset, nil)
+     |> assign(:pending_photo, nil)}
   end
 
   def handle_event("update_item_details", params, socket) do
@@ -256,8 +246,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     # Form params are nested under "item_type" when using for={changeset}
     item_params = params["item_type"] || params
 
-    # Process photo upload if present
-    photo_path = consume_uploaded_photo(socket)
+    # Process pending photo if present
+    photo_path = process_pending_photo(socket.assigns.pending_photo)
 
     attrs = %{
       name: Map.get(item_params, "name", item.name),
@@ -276,7 +266,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
           send(self(), {:advance_to_next_incomplete})
         end
 
-        {:noreply, put_flash(socket, :info, "Item details updated")}
+        {:noreply,
+         socket
+         |> assign(:pending_photo, nil)
+         |> put_flash(:info, "Item details updated")}
 
       {:error, changeset} ->
         Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
@@ -327,22 +320,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:noreply, socket}
   end
 
-  def handle_event("photo_selected", _params, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_event("cancel_photo_upload", _params, socket) do
-    socket =
-      case socket.assigns.uploads.photo.entries do
-        [entry | _] -> cancel_upload(socket, :photo, entry.ref)
-        [] -> socket
-      end
-
-    {:noreply, socket}
-  end
-
   def handle_event("save_photo_only", _params, socket) do
-    case consume_uploaded_photo(socket) do
+    case process_pending_photo(socket.assigns.pending_photo) do
       nil ->
         {:noreply, put_flash(socket, :error, "No photo to save")}
 
@@ -353,9 +332,16 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
           {:ok, updated_item} ->
             updated_item = Inventory.get_item_type_with_location!(updated_item.id)
 
+            # Clear the PhotoCapture component's internal pending state
+            send_update(InventoryLocatorWeb.Components.PhotoCapture,
+              id: "modal-photo-capture",
+              clear_pending: true
+            )
+
             {:noreply,
              socket
              |> assign(:item, updated_item)
+             |> assign(:pending_photo, nil)
              |> put_flash(:info, "Photo saved")}
 
           {:error, changeset} ->
@@ -363,6 +349,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
             {:noreply, put_flash(socket, :error, "Failed to save photo")}
         end
     end
+  end
+
+  def handle_event("cancel_pending_photo", _params, socket) do
+    {:noreply, assign(socket, :pending_photo, nil)}
   end
 
   def handle_event("show_delete_modal", _params, socket) do
@@ -556,29 +546,13 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
-  @spec consume_uploaded_photo(Socket.t()) :: String.t() | nil
-  defp consume_uploaded_photo(socket) do
-    case socket.assigns.uploads.photo.entries do
-      [] ->
-        nil
+  @spec process_pending_photo(map() | nil) :: String.t() | nil
+  defp process_pending_photo(nil), do: nil
 
-      [entry | _] ->
-        if entry.done? do
-          consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
-            binary = File.read!(temp_path)
-
-            case Media.process_and_save_photo(binary, entry.client_name) do
-              {:ok, filename} -> {:ok, filename}
-              {:error, _} = error -> error
-            end
-          end)
-        end
+  defp process_pending_photo(%{binary: binary, filename: filename}) do
+    case Media.process_and_save_photo(binary, filename) do
+      {:ok, saved_filename} -> saved_filename
+      {:error, _} -> nil
     end
   end
-
-  @spec upload_error_to_string(atom()) :: String.t()
-  def upload_error_to_string(:too_large), do: "File is too large (max 30MB)"
-  def upload_error_to_string(:too_many_files), do: "Only one photo allowed"
-  def upload_error_to_string(:not_accepted), do: "Invalid file type"
-  def upload_error_to_string(_), do: "Upload error"
 end

@@ -245,6 +245,29 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** Know where every item is, even when installed in a project rather than storage.
 
+### 8. Photo Capture with URL Fetching
+
+**Decision:** Consolidated PhotoCapture LiveComponent with secure URL fetching.
+
+**Architecture:**
+- Reusable `PhotoCapture` LiveComponent for both CameraLive and ShowModal
+- Supports file upload (via LiveView uploads) and URL fetching (via Req HTTP client)
+- Parent-child communication via `send(self(), message)` pattern
+- AutoConfirmUpload JS hook bridges upload completion to Save/Cancel UI
+
+**URL Fetching Security (Defense in Depth):**
+1. **URL validation:** HTTPS-only, reject file://, data://, ftp://
+2. **Host blocklist (SSRF protection):**
+   - Localhost: `127.x.x.x`, `localhost`
+   - Private networks: `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`
+   - Cloud metadata: `169.254.x.x`, `metadata.google.internal`
+   - IPv6 localhost: `::1`, `::`
+3. **HEAD request:** Validate `Content-Type: image/*` before downloading body
+4. **Size limits:** 10MB download max, 5MB preview max (prevents browser crashes from large data URIs)
+5. **Timeout:** 5 second receive timeout
+
+**Why:** Users often have product images in browser tabs. URL fetching is faster than download → re-upload. Security layers prevent SSRF attacks that could access internal services or cloud metadata endpoints.
+
 ## File Structure
 
 ```
@@ -268,13 +291,15 @@ inventory_locator/
 │   │   │   ├── camera_live/     # Photo capture
 │   │   │   └── project_live/    # Project management
 │   │   └── components/
-│   │       └── ghost_autocomplete.ex
+│   │       ├── ghost_autocomplete.ex
+│   │       └── photo_capture.ex  # Reusable photo upload/URL fetch
 │   └── inventory_locator_web.ex
 ├── assets/
 │   └── js/
 │       └── hooks/               # JavaScript hooks
 │           ├── ghost_autocomplete.js
-│           └── focus_first_empty.js
+│           ├── focus_first_empty.js
+│           └── auto_confirm_upload.js  # Upload completion → Save/Cancel
 ├── priv/
 │   ├── repo/migrations/
 │   └── static/uploads/          # Photo storage (MVP)

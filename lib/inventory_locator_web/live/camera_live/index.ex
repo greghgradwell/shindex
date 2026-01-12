@@ -5,7 +5,6 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
   alias InventoryLocator.Inventory
   alias InventoryLocator.Media
   alias Phoenix.LiveView.Socket
-  alias Phoenix.LiveView.UploadConfig
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
@@ -18,12 +17,7 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
       |> assign(:form, to_form(%{"name" => "", "location" => "", "quantity" => "1"}))
       |> assign(:show_optional, false)
       |> assign(:co_location_warning, nil)
-      |> allow_upload(:photo,
-        accept: ~w(.jpg .jpeg .png .webp image/*),
-        max_entries: 1,
-        max_file_size: 30_000_000,
-        auto_upload: true
-      )
+      |> assign(:pending_photo, nil)
 
     {:ok, socket}
   end
@@ -66,6 +60,7 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
             |> assign(:saved_items, [item | socket.assigns.saved_items])
             |> assign(:form, to_form(%{"name" => "", "location" => location, "quantity" => "1"}))
             |> assign(:co_location_warning, nil)
+            |> assign(:pending_photo, nil)
             |> put_flash(:info, "Saved: #{item.name}")
 
           {:noreply, socket}
@@ -76,8 +71,15 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
     end
   end
 
-  def handle_event("cancel-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :photo, ref)}
+  # Handle messages from PhotoCapture component
+  @impl true
+  @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:photo_pending, _id, photo_data}, socket) do
+    {:noreply, assign(socket, :pending_photo, photo_data)}
+  end
+
+  def handle_info({:photo_cleared, _id}, socket) do
+    {:noreply, assign(socket, :pending_photo, nil)}
   end
 
   @spec save_item_with_photo(
@@ -91,42 +93,21 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
         ) ::
           {:ok, map(), Socket.t()} | {:error, term(), Socket.t()}
   defp save_item_with_photo(socket, name, location, quantity, description, manufacturer, model) do
-    photo_result = consume_uploaded_photo(socket)
-
-    case photo_result do
-      {:ok, photo_path, socket} ->
+    # Process pending photo if present
+    case process_pending_photo(socket.assigns.pending_photo) do
+      {:ok, photo_path} ->
         create_item(socket, name, location, quantity, description, manufacturer, model, photo_path)
 
-      {:error, reason, socket} ->
+      {:error, reason} ->
         {:error, reason, socket}
     end
   end
 
-  @spec consume_uploaded_photo(Socket.t()) :: {:ok, String.t() | nil, Socket.t()} | {:error, term(), Socket.t()}
-  defp consume_uploaded_photo(socket) do
-    case socket.assigns.uploads.photo.entries do
-      [] ->
-        {:ok, nil, socket}
+  @spec process_pending_photo(map() | nil) :: {:ok, String.t() | nil} | {:error, term()}
+  defp process_pending_photo(nil), do: {:ok, nil}
 
-      [entry | _] ->
-        if entry.done? do
-          result =
-            consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
-              binary = File.read!(temp_path)
-              Media.process_and_save_photo(binary, entry.client_name)
-            end)
-
-          case result do
-            filename when is_binary(filename) ->
-              {:ok, filename, socket}
-
-            {:error, reason} ->
-              {:error, reason, socket}
-          end
-        else
-          {:error, :upload_in_progress, socket}
-        end
-    end
+  defp process_pending_photo(%{binary: binary, filename: filename}) do
+    Media.process_and_save_photo(binary, filename)
   end
 
   @spec create_item(
@@ -238,23 +219,6 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
   @spec format_error(term()) :: String.t()
   defp format_error(:invalid_location), do: "Invalid location format (use A-1-1)"
   defp format_error(:invalid_format), do: "Invalid location format (use A-1-1)"
-  defp format_error(:upload_in_progress), do: "Photo still uploading, please wait..."
   defp format_error(%Ecto.Changeset{} = cs), do: "Save failed: #{inspect(cs.errors)}"
   defp format_error(reason), do: "Error: #{inspect(reason)}"
-
-  @spec error_to_string(atom()) :: String.t()
-  def error_to_string(:too_large), do: "File is too large (max 30MB)"
-  def error_to_string(:too_many_files), do: "Only one photo allowed"
-  def error_to_string(:not_accepted), do: "Invalid file type (use JPG, PNG, or WebP)"
-  def error_to_string(err), do: "Upload error: #{inspect(err)}"
-
-  @spec upload_in_progress?(UploadConfig.t()) :: boolean()
-  def upload_in_progress?(upload_config) do
-    Enum.any?(upload_config.entries, fn entry -> not entry.done? end)
-  end
-
-  @spec upload_complete?(UploadConfig.t()) :: boolean()
-  def upload_complete?(upload_config) do
-    upload_config.entries != [] and Enum.all?(upload_config.entries, fn entry -> entry.done? end)
-  end
 end

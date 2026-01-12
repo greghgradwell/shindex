@@ -125,8 +125,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
           </p>
         <% @results == [] -> %>
           <p class="text-base-content/60 text-center py-8">
-            No results for "{@query}"
-            <br />
+            No results for "{@query}" <br />
             <span class="text-sm">Press Enter to try AI-powered search</span>
           </p>
         <% true -> %>
@@ -216,7 +215,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
     ~H"""
     <%= if @column == @sort_by do %>
       <span class="ml-1 text-primary">
-        <%= if @sort_order == :asc, do: "▲", else: "▼" %>
+        {if @sort_order == :asc, do: "▲", else: "▼"}
       </span>
     <% end %>
     """

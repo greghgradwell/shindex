@@ -143,6 +143,22 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Batch completion UX (progress indicator, auto-advance, auto-focus)
 - [x] Archived item opacity/styling
 
+### 2.7 Photo Capture Consolidation ✅ COMPLETE
+- [x] Create reusable PhotoCapture LiveComponent
+  - [x] Supports file upload (LiveView uploads with auto_upload)
+  - [x] Supports URL fetching with security protections
+  - [x] Parent notification via `send(self(), {:photo_pending, id, data})`
+- [x] Add URL fetching to Media module with defense-in-depth security:
+  - [x] HTTPS-only validation
+  - [x] SSRF protection (blocklist for private IPs, localhost, cloud metadata)
+  - [x] HEAD request to validate Content-Type before download
+  - [x] Size limits (10MB download, 5MB preview)
+- [x] Create AutoConfirmUpload JS hook for seamless mobile UX
+- [x] Refactor CameraLive to use PhotoCapture component
+- [x] Refactor ShowModal to use PhotoCapture component
+- [x] Add inline error display (fixed LiveComponent flash issue)
+- [x] Add 22 SSRF protection tests
+
 **Go/No-Go:** ✅ Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
 
 ## Phase 3: Search

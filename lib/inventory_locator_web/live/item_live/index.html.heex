@@ -41,7 +41,6 @@
         <span class="loading loading-spinner loading-lg text-primary"></span>
         <span class="text-base-content/60">Searching with AI...</span>
       </div>
-
     <% @ai_results != nil -> %>
       <div class="mt-8">
         <div class="flex items-center gap-2 mb-4">
@@ -55,7 +54,6 @@
           <.item_grid items={@ai_results} />
         <% end %>
       </div>
-
     <% true -> %>
       <!-- fuzzy results handled inside search_view -->
   <% end %>
@@ -95,12 +93,10 @@
             OK
           </button>
         </div>
-
       <% @ai_modal_type == :no_results -> %>
         <h3 class="font-bold text-lg">No Results Found</h3>
         <p class="py-4">
-          No items match "<span class="font-medium">{@query}</span>".
-          <br />
+          No items match "<span class="font-medium">{@query}</span>". <br />
           <span class="text-sm text-base-content/70">
             Try AI search to find semantically related items.
           </span>
@@ -113,11 +109,9 @@
             phx-click="confirm_ai_search"
             phx-mounted={JS.focus()}
           >
-            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" />
-            Try AI Search
+            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" /> Try AI Search
           </button>
         </div>
-
       <% true -> %>
         <h3 class="font-bold text-lg">Try AI Search?</h3>
         <p class="py-4">
@@ -135,8 +129,7 @@
             phx-click="confirm_ai_search"
             phx-mounted={JS.focus()}
           >
-            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" />
-            Try AI Search
+            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" /> Try AI Search
           </button>
         </div>
     <% end %>

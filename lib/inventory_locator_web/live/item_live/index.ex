@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   import InventoryLocatorWeb.ItemLive.Components
 
   alias InventoryLocator.Inventory
+  alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
 
   @impl true
@@ -94,8 +95,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("sort", %{"column" => column}, socket)
-      when column in ["name", "manufacturer", "location"] do
+  def handle_event("sort", %{"column" => column}, socket) when column in ["name", "manufacturer", "location"] do
     column_atom =
       case column do
         "name" -> :name
@@ -131,12 +131,12 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     results_count = length(socket.assigns.results)
 
     socket =
-      if query != "" do
+      if query == "" do
+        socket
+      else
         socket
         |> assign(:show_ai_modal, true)
         |> assign(:ai_modal_type, if(results_count == 0, do: :no_results, else: :has_results))
-      else
-        socket
       end
 
     {:noreply, socket}
@@ -197,6 +197,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
         {:error, reason} ->
           require Logger
+
           Logger.error("AI search failed: #{inspect(reason)}")
 
           socket
@@ -237,6 +238,28 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
           |> assign(:selected_item_id, next.id)
           |> assign(:batch_item_ids, Enum.map(results, & &1.id))
       end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_info({:photo_pending, String.t(), map()}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:photo_pending, _id, photo_data}, socket) do
+    send_update(ShowModal,
+      id: "item-show-modal",
+      pending_photo: photo_data
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_info({:photo_cleared, String.t()}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:photo_cleared, _id}, socket) do
+    send_update(ShowModal,
+      id: "item-show-modal",
+      clear_pending_photo: true
+    )
 
     {:noreply, socket}
   end

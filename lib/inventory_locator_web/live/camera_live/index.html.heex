@@ -1,58 +1,10 @@
 <div class="max-w-lg mx-auto space-y-4">
   <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-4">
-    <%!-- Photo capture area --%>
-    <div class="relative">
-      <div
-        class="border-2 border-dashed border-base-300 rounded-xl p-6 text-center bg-base-200 cursor-pointer hover:border-primary transition-colors"
-        phx-drop-target={@uploads.photo.ref}
-      >
-        <%!-- File input must ALWAYS be in DOM for preview to work --%>
-        <.live_file_input upload={@uploads.photo} class="hidden" />
-
-        <%= for entry <- @uploads.photo.entries do %>
-          <div class="relative inline-block">
-            <.live_img_preview entry={entry} class="max-h-48 rounded-lg mx-auto" />
-            <button
-              type="button"
-              phx-click="cancel-upload"
-              phx-value-ref={entry.ref}
-              class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error"
-            >
-              ✕
-            </button>
-            <%!-- Show progress/status --%>
-            <div class="mt-2 text-center">
-              <div :if={not entry.done?} class="space-y-1">
-                <progress
-                  class="progress progress-primary w-full"
-                  value={entry.progress}
-                  max="100"
-                />
-                <p class="text-xs text-base-content/60">
-                  {if entry.progress == 0,
-                    do: "Starting upload...",
-                    else: "Uploading #{entry.progress}%"}
-                </p>
-              </div>
-              <div :if={entry.done?} class="text-success text-sm font-medium">
-                ✓ Ready
-              </div>
-            </div>
-          </div>
-          <%= for err <- upload_errors(@uploads.photo, entry) do %>
-            <p class="text-error text-sm mt-2">{error_to_string(err)}</p>
-          <% end %>
-        <% end %>
-
-        <div :if={@uploads.photo.entries == []} class="space-y-3">
-          <div class="text-5xl">📷</div>
-          <div class="text-base-content/60">Tap to capture or select photo</div>
-          <label for={@uploads.photo.ref} class="btn btn-primary btn-lg cursor-pointer">
-            📷 Select Photo
-          </label>
-        </div>
-      </div>
-    </div>
+    <%!-- Photo capture component --%>
+    <.live_component
+      module={InventoryLocatorWeb.Components.PhotoCapture}
+      id="camera-photo-capture"
+    />
 
     <%!-- Required fields --%>
     <div class="form-control">
@@ -149,12 +101,8 @@
     </div>
 
     <%!-- Save button --%>
-    <button
-      type="submit"
-      class="btn btn-primary btn-lg w-full"
-      disabled={upload_in_progress?(@uploads.photo)}
-    >
-      {if upload_in_progress?(@uploads.photo), do: "⏳ Uploading photo...", else: "💾 Save Item"}
+    <button type="submit" class="btn btn-primary btn-lg w-full">
+      💾 Save Item
     </button>
   </.form>
 
