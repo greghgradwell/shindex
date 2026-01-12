@@ -68,7 +68,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   def search_view(assigns) do
     ~H"""
     <div class="mt-4">
-      <.form :let={f} for={%{}} phx-change="search" autocomplete="off">
+      <.form :let={f} for={%{}} phx-change="search" phx-submit="submit_search" autocomplete="off">
         <.input
           field={f[:query]}
           type="text"
@@ -118,12 +118,19 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
     </div>
 
     <div class="mt-8">
-      <%= if @query != "" or @active_filters != [] do %>
-        <.item_grid items={@results} />
-      <% else %>
-        <p class="text-gray-500 text-center py-12">
-          Start typing to search for items or select filters to find incomplete items
-        </p>
+      <%= cond do %>
+        <% @query == "" and @active_filters == [] -> %>
+          <p class="text-gray-500 text-center py-12">
+            Start typing to search for items or select filters to find incomplete items
+          </p>
+        <% @results == [] -> %>
+          <p class="text-base-content/60 text-center py-8">
+            No results for "{@query}"
+            <br />
+            <span class="text-sm">Press Enter to try AI-powered search</span>
+          </p>
+        <% true -> %>
+          <.item_grid items={@results} />
       <% end %>
     </div>
     """

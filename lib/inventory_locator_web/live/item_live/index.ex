@@ -125,9 +125,87 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("submit_search", %{"query" => query}, socket) do
+    socket = assign(socket, :query, query)
+    results_count = length(socket.assigns.results)
+
+    socket =
+      if query != "" do
+        socket
+        |> assign(:show_ai_modal, true)
+        |> assign(:ai_modal_type, if(results_count == 0, do: :no_results, else: :has_results))
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("confirm_ai_search", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_ai_modal, false)
+      |> assign(:ai_loading, true)
+
+    all_items = Inventory.list_all_items(show_archived: socket.assigns.show_archived)
+    send(self(), {:perform_ai_search, socket.assigns.query, all_items})
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("close_ai_modal", _params, socket) do
+    {:noreply, assign(socket, :show_ai_modal, false)}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("clear_ai_results", _params, socket) do
+    {:noreply, assign(socket, ai_results: nil, ai_query: nil)}
+  end
+
+  @impl true
   @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_info({:close_item_modal}, socket) do
     {:noreply, socket |> reset_batch_state() |> refresh_current_view()}
+  end
+
+  @impl true
+  @spec handle_info({:perform_ai_search, String.t(), [map()]}, Socket.t()) ::
+          {:noreply, Socket.t()}
+  def handle_info({:perform_ai_search, query, items}, socket) do
+    alias InventoryLocator.Search.AI
+
+    socket =
+      case AI.search(query, items) do
+        {:ok, matched_ids} ->
+          ai_results =
+            items
+            |> Enum.filter(&(&1.id in matched_ids))
+            |> Enum.sort_by(fn item ->
+              Enum.find_index(matched_ids, fn id -> id == item.id end) || 999
+            end)
+
+          socket
+          |> assign(:ai_loading, false)
+          |> assign(:ai_results, ai_results)
+          |> assign(:ai_query, query)
+
+        {:error, reason} ->
+          require Logger
+          Logger.error("AI search failed: #{inspect(reason)}")
+
+          socket
+          |> assign(:ai_loading, false)
+          |> assign(:show_ai_modal, true)
+          |> assign(:ai_modal_type, :error)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -175,6 +253,11 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:sort_by, :name)
     |> assign(:sort_order, :asc)
     |> assign(:page_title, "Items")
+    |> assign(:show_ai_modal, false)
+    |> assign(:ai_modal_type, nil)
+    |> assign(:ai_loading, false)
+    |> assign(:ai_results, nil)
+    |> assign(:ai_query, nil)
     |> reset_batch_state()
   end
 

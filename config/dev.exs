@@ -73,6 +73,9 @@ config :inventory_locator, dev_routes: true
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
+# Suppress debug-level logs in development (MOUNT, HANDLE EVENT, QUERY OK, etc.)
+config :logger, level: :info
+
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
 

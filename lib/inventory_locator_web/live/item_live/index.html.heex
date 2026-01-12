@@ -34,6 +34,31 @@
 
 <%= if @view_mode == :search do %>
   <.search_view query={@query} results={@results} active_filters={@active_filters} />
+
+  <%= cond do %>
+    <% @ai_loading -> %>
+      <div class="flex flex-col items-center justify-center py-12 gap-2">
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+        <span class="text-base-content/60">Searching with AI...</span>
+      </div>
+
+    <% @ai_results != nil -> %>
+      <div class="mt-8">
+        <div class="flex items-center gap-2 mb-4">
+          <.icon name="hero-sparkles" class="w-5 h-5 text-primary" />
+          <span class="font-semibold">AI results for "{@ai_query}"</span>
+          <button class="btn btn-xs btn-ghost" phx-click="clear_ai_results">Clear</button>
+        </div>
+        <%= if @ai_results == [] do %>
+          <p class="text-base-content/60 text-center py-8">No semantic matches found</p>
+        <% else %>
+          <.item_grid items={@ai_results} />
+        <% end %>
+      </div>
+
+    <% true -> %>
+      <!-- fuzzy results handled inside search_view -->
+  <% end %>
 <% else %>
   <.table_view items={@items} sort_by={@sort_by} sort_order={@sort_order} />
 <% end %>
@@ -46,3 +71,75 @@
   batch_mode={@batch_mode}
   batch_total={length(@batch_item_ids)}
 />
+
+<div
+  :if={@show_ai_modal}
+  class="modal modal-open"
+  phx-window-keydown="close_ai_modal"
+  phx-key="escape"
+>
+  <div class="modal-box">
+    <%= cond do %>
+      <% @ai_modal_type == :error -> %>
+        <h3 class="font-bold text-lg text-error">AI Search Failed</h3>
+        <p class="py-4">
+          Something went wrong with the AI search. Please try again.
+        </p>
+        <div class="modal-action">
+          <button
+            id="ai-modal-ok-btn"
+            class="btn"
+            phx-click="close_ai_modal"
+            phx-mounted={JS.focus()}
+          >
+            OK
+          </button>
+        </div>
+
+      <% @ai_modal_type == :no_results -> %>
+        <h3 class="font-bold text-lg">No Results Found</h3>
+        <p class="py-4">
+          No items match "<span class="font-medium">{@query}</span>".
+          <br />
+          <span class="text-sm text-base-content/70">
+            Try AI search to find semantically related items.
+          </span>
+        </p>
+        <div class="modal-action">
+          <button class="btn" phx-click="close_ai_modal">Cancel</button>
+          <button
+            id="ai-modal-confirm-btn"
+            class="btn btn-primary"
+            phx-click="confirm_ai_search"
+            phx-mounted={JS.focus()}
+          >
+            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" />
+            Try AI Search
+          </button>
+        </div>
+
+      <% true -> %>
+        <h3 class="font-bold text-lg">Try AI Search?</h3>
+        <p class="py-4">
+          Found {length(@results)} items matching "<span class="font-medium">{@query}</span>".
+          <br />
+          <span class="text-sm text-base-content/70">
+            AI search can find semantically related items that don't match exactly.
+          </span>
+        </p>
+        <div class="modal-action">
+          <button class="btn" phx-click="close_ai_modal">Cancel</button>
+          <button
+            id="ai-modal-confirm-btn"
+            class="btn btn-primary"
+            phx-click="confirm_ai_search"
+            phx-mounted={JS.focus()}
+          >
+            <.icon name="hero-sparkles" class="w-4 h-4 mr-1" />
+            Try AI Search
+          </button>
+        </div>
+    <% end %>
+  </div>
+  <div class="modal-backdrop" phx-click="close_ai_modal"></div>
+</div>
