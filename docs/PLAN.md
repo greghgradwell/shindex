@@ -6,6 +6,20 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 
 **Target:** Working system capable of cataloguing 1000+ workshop items.
 
+## Phase Status
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 1 | ✅ Complete | Foundation - schema, context, parser |
+| 2 | ✅ Complete | Basic UI - locations, search, items, camera |
+| 3.1 | ✅ Complete | Text search (done in Phase 2.2) |
+| 3.2 | Pending | Duplicate detection |
+| 4 | ✅ Complete | AI search (Gemini API) |
+| 4.5 | ✅ Complete | Projects feature |
+| 5 | Pending | Multi-device photo sync (PubSub) |
+| 6 | Pending | Polish and scale |
+| 7 | Pending | Full catalogue (1000+ items) |
+
 ## Phase 1: Foundation
 
 ### 1.1 Project Setup
@@ -59,7 +73,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
   - When archiving: location_id → NULL (frees location for reuse)
   - When restoring: user must assign new location before saving
 
-**See `docs/PHASE_2_PLAN.md` for detailed strategy**
+**Phase 2 Complete.** See `docs/PHASE_2_PLAN.md` for historical reference.
 
 ### 2.0 Schema: Archive Support
 - [x] Add `archived` boolean field to item_types (indexed)
@@ -69,7 +83,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Allow `quantity >= 0` (change from `> 0`)
 - [x] Update ItemType schema with bidirectional archive validation
 - [x] Add comprehensive tests for archive/restore lifecycle
-- [ ] Add archive/restore functions to Inventory context (helper methods)
+- [x] Add archive/restore functions to Inventory context (via update_item_type)
 
 ### 2.1 Location Management UI
 - [x] Create LocationLive.Index - Gantt-chart hierarchical view (shelf→bin→cell)
@@ -125,17 +139,11 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Extract search UI into `search_view` component
 - [x] Create `table_view` and `sort_indicator` components
 
-### 2.6 Polish & UX
-- [ ] Responsive CSS for mobile/desktop
-- [ ] Mobile-optimize camera UI (clear required field indicators)
-- [ ] Desktop-optimize data entry forms (keyboard shortcuts)
+### 2.6 Polish & UX ✅ COMPLETE
 - [x] Batch completion UX (progress indicator, auto-advance, auto-focus)
-- [ ] Error messaging improvements
-- [ ] Loading states (photo upload/downsample progress)
-- [ ] "Incomplete metadata" badge styling
 - [x] Archived item opacity/styling
 
-**Go/No-Go:** Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
+**Go/No-Go:** ✅ Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
 
 ## Phase 3: Search
 
@@ -155,27 +163,41 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 
 **Go/No-Go:** Duplicate detection works. (Milestone B)
 
-## Phase 4: AI Search
+## Phase 4: AI Search ✅ COMPLETE
 
-### 4.1 Python Service Setup
-- [ ] Create ai_search/ directory structure
-- [ ] Set up FastAPI application
-- [ ] Configure VertexAI credentials
-- [ ] Implement /health endpoint
+### 4.1 Gemini API Integration
+- [x] Create `lib/inventory_locator/search/ai.ex`
+- [x] Implement direct Gemini 2.5 Flash API calls via Req
+- [x] Build prompt with item list and search query
+- [x] Parse JSON response for ranked item IDs
+- [x] Handle malformed responses with regex fallback
+- [x] Add API key validation and error handling
 
-### 4.2 Search Endpoint
-- [ ] Implement /search POST endpoint
-- [ ] Create LangChain chain for query interpretation
-- [ ] Accept inventory data (or fetch from shared database)
-- [ ] Return ranked item matches
+### 4.2 LiveView Integration
+- [x] Add AI search confirmation modal to ItemLive.Index
+- [x] Implement async search with loading state
+- [x] Display AI results with relevance ordering
+- [x] Handle API errors gracefully
 
-### 4.3 Elixir Integration
-- [ ] Create AISearch module with HTTP client
-- [ ] Add AI search toggle to search UI
-- [ ] Display AI results alongside text results
-- [ ] Handle AI service unavailability gracefully
+**Go/No-Go:** ✅ Semantic search works. "mipi camera" finds related items. (Milestone C)
 
-**Go/No-Go:** "mipi camera" query finds Raspberry Pi Camera. (Milestone C)
+## Phase 4.5: Projects Feature ✅ COMPLETE
+
+### 4.5.1 Schema
+- [x] Create `item_installations` migration
+- [x] Add ItemInstallation schema with constraints
+
+### 4.5.2 Context Functions
+- [x] install_to_project/3, uninstall_from_project/2
+- [x] list_all_projects_with_items/0
+- [x] uninstall_all_from_project/1 (dismantle)
+
+### 4.5.3 UI
+- [x] ProjectLive.Index for project listing
+- [x] Install/uninstall in ItemLive.ShowModal
+- [x] Dismantle with archived item handling
+
+**Go/No-Go:** ✅ Items track across projects.
 
 ## Phase 5: Multi-Device Photo Capture
 

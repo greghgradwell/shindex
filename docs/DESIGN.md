@@ -19,48 +19,39 @@
 │                          │                                       │
 │  ┌───────────────────────▼────────────────────────────────────┐  │
 │  │                    LiveView UI                              │  │
-│  │  • Item Management  • Search  • Location Management        │  │
+│  │  • Item Management  • Search  • Location  • Projects       │  │
 │  └───────────────────────┬────────────────────────────────────┘  │
 │                          │                                       │
 │  ┌───────────────────────▼────────────────────────────────────┐  │
 │  │                   Core Contexts                             │  │
-│  │  • Inventory (Items, Locations)                            │  │
-│  │  • Search (Text, Fuzzy)                                    │  │
+│  │  • Inventory (Items, Locations, Projects)                  │  │
+│  │  • Search (Text, AI)                                       │  │
 │  │  • Media (Photo Storage)                                   │  │
 │  └───────────────────────┬────────────────────────────────────┘  │
 │                          │                                       │
-│  ┌───────────────────────▼─────────┐  ┌────────────────────────┐ │
-│  │         Ecto + PostgreSQL       │  │   AI Search Client     │ │
-│  │  • Items  • Locations  • Media  │  │   (HTTP to Python)     │ │
-│  └─────────────────────────────────┘  └───────────┬────────────┘ │
-└───────────────────────────────────────────────────┼──────────────┘
-                                                    │ HTTP/JSON
-┌───────────────────────────────────────────────────┼──────────────┐
-│                    AI Search Service (Python)                    │
-│                                                   │              │
-│  ┌────────────────────────────────────────────────▼───────────┐  │
-│  │                    FastAPI Server                          │  │
-│  └────────────────────────────────────────────────┬───────────┘  │
-│                                                   │              │
-│  ┌────────────────────────────────────────────────▼───────────┐  │
-│  │              LangChain + VertexAI                          │  │
-│  │  • Semantic query interpretation                           │  │
-│  │  • Inventory-aware search                                  │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────┘
+│  ┌───────────────────────▼─────────┐                            │
+│  │         Ecto + PostgreSQL       │                            │
+│  │  • Items  • Locations  • Media  │                            │
+│  │  • ItemInstallations (Projects) │                            │
+│  └─────────────────────────────────┘                            │
+└──────────────────────────────────────────────────┬──────────────┘
+                                                   │ HTTPS/JSON
+                                                   ▼
+                              ┌────────────────────────────────────┐
+                              │   Google Gemini 2.5 Flash API      │
+                              │   (generativelanguage.googleapis)  │
+                              └────────────────────────────────────┘
 ```
 
 ## Technology Stack
 
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
-| **Web Framework** | Phoenix 1.7+ | LiveView for real-time UI, excellent WebSocket support |
+| **Web Framework** | Phoenix 1.8+ | LiveView for real-time UI, excellent WebSocket support |
 | **UI** | Phoenix LiveView | No JavaScript framework needed, real-time updates built-in |
-| **Database** | PostgreSQL 15+ | Relational integrity, full-text search, mature Ecto support |
+| **Database** | PostgreSQL 14+ | Relational integrity, pg_trgm for fuzzy search, mature Ecto support |
 | **ORM** | Ecto | Native Elixir, migrations, changesets for validation |
-| **AI Service** | Python + FastAPI | Mature AI tooling ecosystem |
-| **AI Framework** | LangChain | Agent abstractions, prompt management |
-| **LLM Provider** | VertexAI | Google Cloud, reliable, good pricing |
+| **AI Search** | Gemini 2.5 Flash | Direct API via Req HTTP client, prompt-based semantic search |
 | **File Storage** | Local filesystem (MVP) | Simple, migrateable to S3/GCS later |
 
 ## Data Model
@@ -89,7 +80,7 @@
                            │ bin_id              │
                            │ cell_id             │
                            └──────────┬──────────┘
-                                      │ 1:1
+                                      │ N:1 (co-location allowed)
                                       ▼
                            ┌─────────────────────┐
                            │     ItemType        │
@@ -100,9 +91,21 @@
                            │ manufacturer        │ ← nullable
                            │ model               │ ← nullable
                            │ quantity            │ ← >= 0
-                           │ location_id         │ ← unique, nullable
+                           │ location_id         │ ← nullable (co-location OK)
                            │ photo_path          │
                            │ archived            │ ← indexed
+                           │ inserted_at         │
+                           │ updated_at          │
+                           └──────────┬──────────┘
+                                      │ 1:N
+                                      ▼
+                           ┌─────────────────────┐
+                           │  ItemInstallation   │
+                           ├─────────────────────┤
+                           │ id                  │
+                           │ item_type_id        │ ← FK to ItemType
+                           │ project_name        │ ← uppercase
+                           │ quantity            │ ← > 0
                            │ inserted_at         │
                            │ updated_at          │
                            └─────────────────────┘
@@ -110,15 +113,16 @@
 
 ### Key Constraints
 
-1. **One item type per location:** `item_types.location_id` has UNIQUE constraint
+1. **Co-location allowed:** Multiple items can share a location (user warned but not blocked)
 2. **Location uniqueness:** Combination of (shelf_id, bin_id, cell_id) is unique
-3. **Full code generation:** Computed as "{shelf.code}{bin.code}-{cell.code}"
+3. **Full code generation:** Computed as "{shelf.code}-{bin.code}-{cell.code}"
 4. **Referential integrity:** Bins require a shelf, cells require a bin
 5. **Active items require location:** `CHECK ((archived = false AND location_id IS NOT NULL) OR (archived = true AND location_id IS NULL))`
    - Active items (archived=false) MUST have a location
    - Archived items (archived=true) MUST NOT have a location (frees location for reuse)
 6. **Deletion protection:** Cannot delete a location with an active item; cannot delete shelf/bin with children
 7. **Quantity validation:** `CHECK (quantity >= 0)` - allows zero for archived items
+8. **Item installations:** (item_type_id, project_name) unique constraint, quantity > 0
 
 ### Why Full Hierarchy from Day One
 
@@ -145,13 +149,20 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 ### 3. AI Search Integration
 
-**Decision:** Elixir calls Python service via HTTP/JSON.
+**Decision:** Direct Gemini API calls from Elixir via Req HTTP client.
 
-- Python service runs on same machine (MVP) or separate container (production)
-- Elixir uses HTTP client (Req) to call FastAPI endpoints
-- Clear boundary between inventory logic (Elixir) and AI logic (Python)
+- Module: `lib/inventory_locator/search/ai.ex`
+- Model: Gemini 2.5 Flash
+- Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+- Auth: `x-goog-api-key` header from `GEMINI_API_KEY` env var
 
-**Why:** Mature AI tooling in Python, clean separation of concerns, easy to test independently.
+**Flow:**
+1. Build prompt with search query + item list (ID, name, manufacturer, description)
+2. POST to Gemini API with low temperature (0.1) for focused results
+3. Parse JSON array of matching item IDs from response
+4. Fallback to regex extraction if JSON malformed
+
+**Why:** Simpler than Python service, no deployment complexity, sufficient for MVP semantic search.
 
 ### 4. Text Search
 
@@ -217,6 +228,23 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** String entry is faster than dropdown navigation for high-volume data entry. At 1000+ items, this saves significant time. Validation logic lives in schema modules (single source of truth), and parser delegates to them for flexibility.
 
+### 7. Item Installations (Projects)
+
+**Decision:** Track items installed in project builds.
+
+**Schema:**
+- `item_installations` table
+- Fields: item_type_id (FK), project_name (uppercase), quantity (> 0)
+- Unique constraint on (item_type_id, project_name)
+
+**Workflow:**
+1. "Install" X units of item into named project
+2. Reduces available quantity shown in inventory
+3. "Dismantle" returns all items to stock
+4. Cannot dismantle if project contains archived items
+
+**Why:** Know where every item is, even when installed in a project rather than storage.
+
 ## File Structure
 
 ```
@@ -224,20 +252,32 @@ inventory_locator/
 ├── lib/
 │   ├── inventory_locator/
 │   │   ├── inventory/           # Core inventory context
-│   │   ├── search/              # Search context (text + AI client)
-│   │   ├── media/               # Photo handling
+│   │   │   ├── item_type.ex
+│   │   │   ├── item_installation.ex  # Project tracking
+│   │   │   ├── location.ex
+│   │   │   ├── shelf.ex, bin.ex, cell.ex
+│   │   │   └── location_parser.ex
+│   │   ├── search/
+│   │   │   └── ai.ex            # Gemini API integration
+│   │   ├── media.ex             # Photo handling
 │   │   └── repo.ex
 │   ├── inventory_locator_web/
-│   │   ├── live/                # LiveView modules
+│   │   ├── live/
+│   │   │   ├── item_live/       # Search, detail modal
+│   │   │   ├── location_live/   # Hierarchy view
+│   │   │   ├── camera_live/     # Photo capture
+│   │   │   └── project_live/    # Project management
 │   │   └── components/
+│   │       └── ghost_autocomplete.ex
 │   └── inventory_locator_web.ex
+├── assets/
+│   └── js/
+│       └── hooks/               # JavaScript hooks
+│           ├── ghost_autocomplete.js
+│           └── focus_first_empty.js
 ├── priv/
 │   ├── repo/migrations/
 │   └── static/uploads/          # Photo storage (MVP)
-├── ai_search/                   # Python service (separate directory)
-│   ├── main.py
-│   ├── search.py
-│   └── requirements.txt
 ├── config/
 ├── test/
 └── mix.exs
@@ -256,12 +296,12 @@ inventory_locator/
 ## Deployment (MVP)
 
 - **Local network only** - No public internet exposure initially
-- **Single machine** - Phoenix + PostgreSQL + Python service co-located
+- **Single machine** - Phoenix + PostgreSQL co-located
 - **Process management** - Mix for dev, systemd or similar for production
 
 ## Future Considerations
 
 1. **Image-based search:** Store embeddings in pgvector, query by image similarity
 2. **Mobile app:** Consider LiveView Native if web responsive proves insufficient
-3. **Cloud deployment:** Fly.io (Elixir), Cloud Run (Python), Cloud SQL (Postgres)
+3. **Cloud deployment:** Fly.io (Elixir), Cloud SQL (Postgres)
 4. **File storage:** Migrate from local filesystem to GCS/S3

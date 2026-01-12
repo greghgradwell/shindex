@@ -1,3 +1,8 @@
+> **ARCHIVED:** Phase 2 is complete. This document preserved for historical reference.
+> Current status in `docs/PLAN.md`.
+
+---
+
 # Phase 2: Basic UI - Strategy & Implementation Plan
 
 ## Overview

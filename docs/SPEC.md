@@ -34,14 +34,14 @@ Workshop and household items are difficult to locate, leading to:
 ### Location Management
 - **Hierarchy:** Shelf → Bin → Cell
 - **Naming:** Short codes preferred (e.g., "A-3-0" for Shelf A, Bin 3, Cell 0)
-- **Constraint:** Each location holds exactly ONE item type
+- **Co-location:** Multiple items can share a location (user warned but allowed)
 - **Flexibility:** Locations can be created on-the-fly during item entry
 
 ### Location Entry (String-Based)
 - User types location as string (e.g., "a-3-0")
 - System normalizes and validates (e.g., "a-3-0" → "A-3-0")
 - If location exists and is empty: confirm and use
-- If location exists and is occupied: alert user (collision)
+- If location exists and is occupied: warn user, but allow co-location
 - If location does not exist: prompt to create (e.g., "Shelf A has 2 bins. Create bin 3?")
 - No dropdown menus required - string entry is faster for high-volume data entry
 
@@ -49,7 +49,8 @@ Workshop and household items are difficult to locate, leading to:
 - **Required fields:** Name, photo, location, quantity, archived status
 - **Optional fields:** Description, manufacturer, model
 - **Photos:** Captured from phone camera or desktop webcam
-- **Constraint:** One item type per location (enforced by system)
+- **Co-location:** Multiple items can share a location (user warned but allowed)
+- **Projects:** Items can be installed in named projects, reducing available stock
 - **Constraint:** Active items MUST have a valid location
   - With chaotic storage, a lost location = lost item
   - Database enforces: `(archived=false AND location_id IS NOT NULL)`
@@ -59,6 +60,13 @@ Workshop and household items are difficult to locate, leading to:
   - Archived items remain searchable but don't occupy a location
   - Restoring requires assigning a new valid location before saving
   - Database enforces: `(archived=true AND location_id IS NULL)`
+
+### Project Tracking
+- **Purpose:** Track items installed in project builds
+- **Workflow:** Install items to named project, reducing available stock
+- **Visibility:** Projects page shows all active projects with components
+- **Dismantling:** Return all items from project to stock
+- **Constraint:** Cannot dismantle project with archived items (must restore first)
 
 ### Duplicate Detection
 - System suggests possible duplicates when adding new items
@@ -90,8 +98,8 @@ Workshop and household items are difficult to locate, leading to:
 ### Data Integrity (Invariants)
 | ID | Invariant | Enforcement |
 |----|-----------|-------------|
-| X1 | No orphaned items (every item has a valid location) | NOT NULL constraint, block location deletion if occupied |
-| X2 | One item type per location | UNIQUE constraint on location_id |
+| X1 | No orphaned items (every active item has a valid location) | Conditional NOT NULL, block location deletion if occupied |
+| X2 | Co-location warnings | User warned when placing item in occupied location (no unique constraint) |
 | X3 | Location hierarchy valid (bin belongs to shelf, etc.) | Foreign key constraints |
 
 ### Expanded MVP
