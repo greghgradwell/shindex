@@ -39,6 +39,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:show_restore_modal, false)
      |> assign(:show_archive_quantity_modal, false)
      |> assign(:show_delete_modal, false)
+     |> assign(:show_cell_confirm_modal, false)
      |> assign(:editing, editing)
      |> assign(:moving, false)
      |> assign(:installing, false)
@@ -49,7 +50,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:installed_quantity, installed_quantity)
      |> assign(:pending_restore_quantity, nil)
      |> assign(:location_warning, nil)
+     |> assign(:location_error, nil)
      |> assign(:move_location_warning, nil)
+     |> assign(:move_location_error, nil)
+     |> assign(:pending_cell_creation, nil)
      |> assign(:batch_mode, batch_mode)
      |> assign(:batch_total, Map.get(assigns, :batch_total, 0))
      |> assign_new(:pending_photo, fn -> nil end)}
@@ -61,7 +65,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     # Don't close if a nested modal is open (clicks inside nested modals trigger parent's click-away)
     if socket.assigns.show_delete_modal or
          socket.assigns.show_restore_modal or
-         socket.assigns.show_archive_quantity_modal do
+         socket.assigns.show_archive_quantity_modal or
+         socket.assigns.show_cell_confirm_modal do
       {:noreply, socket}
     else
       send(self(), {:close_item_modal})
@@ -138,7 +143,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:noreply,
      socket
      |> assign(:show_restore_modal, false)
-     |> assign(:pending_restore_quantity, nil)}
+     |> assign(:pending_restore_quantity, nil)
+     |> assign(:location_warning, nil)
+     |> assign(:location_error, nil)}
   end
 
   def handle_event("confirm_archive_from_quantity", _params, socket) do
@@ -172,28 +179,89 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     item = socket.assigns.item
     quantity = String.to_integer(qty_str)
 
-    case Inventory.ensure_location_with_code(location_code) do
-      {:ok, location} ->
+    case Inventory.validate_location_code(location_code) do
+      {:ok, :exists, location} ->
         do_restore(socket, item, location, quantity, location_code)
 
-      {:ok, location, _item_count} ->
+      {:ok, :exists_occupied, location, _item_count} ->
         do_restore(socket, item, location, quantity, location_code)
+
+      {:ok, :needs_cell, bin, cell_code} ->
+        {:noreply,
+         socket
+         |> assign(:pending_cell_creation, %{
+           bin: bin,
+           cell_code: cell_code,
+           action: :restore,
+           location_code: location_code,
+           quantity: quantity
+         })
+         |> assign(:show_cell_confirm_modal, true)}
 
       {:error, :invalid_format} ->
-        {:noreply, put_flash(socket, :error, "Invalid location code format")}
+        {:noreply, assign(socket, :location_error, "Invalid format. Use SHELF-BIN-CELL (e.g., A-1-1)")}
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to restore item")}
+      {:error, :shelf_not_found, shelf_code} ->
+        {:noreply,
+         assign(socket, :location_error, "Shelf '#{shelf_code}' doesn't exist. Create it on the Locations page.")}
+
+      {:error, :bin_not_found, shelf_code, bin_code} ->
+        {:noreply,
+         assign(
+           socket,
+           :location_error,
+           "Bin #{bin_code} doesn't exist on shelf #{shelf_code}. Add it on the Locations page."
+         )}
     end
   end
 
   def handle_event("validate_location", %{"location_code" => code}, socket) do
-    case Inventory.ensure_location_with_code(code) do
-      {:ok, _location, item_count} when item_count > 0 ->
-        {:noreply, assign(socket, :location_warning, %{code: code, count: item_count})}
+    if code == "" do
+      {:noreply,
+       socket
+       |> assign(:location_warning, nil)
+       |> assign(:location_error, nil)}
+    else
+      case Inventory.validate_location_code(code) do
+        {:ok, :exists, _location} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, nil)
+           |> assign(:location_error, nil)}
 
-      _ ->
-        {:noreply, assign(socket, :location_warning, nil)}
+        {:ok, :exists_occupied, _location, item_count} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, %{code: code, count: item_count})
+           |> assign(:location_error, nil)}
+
+        {:ok, :needs_cell, _bin, _cell_code} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, nil)
+           |> assign(:location_error, nil)}
+
+        {:error, :invalid_format} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, nil)
+           |> assign(:location_error, "Invalid format. Use SHELF-BIN-CELL (e.g., A-1-1)")}
+
+        {:error, :shelf_not_found, shelf_code} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, nil)
+           |> assign(:location_error, "Shelf '#{shelf_code}' doesn't exist. Create it on the Locations page.")}
+
+        {:error, :bin_not_found, shelf_code, bin_code} ->
+          {:noreply,
+           socket
+           |> assign(:location_warning, nil)
+           |> assign(
+             :location_error,
+             "Bin #{bin_code} doesn't exist on shelf #{shelf_code}. Add it on the Locations page."
+           )}
+      end
     end
   end
 
@@ -285,39 +353,137 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:noreply,
      socket
      |> assign(:moving, false)
-     |> assign(:move_location_warning, nil)}
+     |> assign(:move_location_warning, nil)
+     |> assign(:move_location_error, nil)}
   end
 
   def handle_event("validate_move_location", %{"location_code" => code}, socket) do
-    case Inventory.ensure_location_with_code(code) do
-      {:ok, _location, item_count} when item_count > 0 ->
-        {:noreply, assign(socket, :move_location_warning, %{code: code, count: item_count})}
+    if code == "" do
+      {:noreply,
+       socket
+       |> assign(:move_location_warning, nil)
+       |> assign(:move_location_error, nil)}
+    else
+      case Inventory.validate_location_code(code) do
+        {:ok, :exists, _location} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, nil)
+           |> assign(:move_location_error, nil)}
 
-      _ ->
-        {:noreply, assign(socket, :move_location_warning, nil)}
+        {:ok, :exists_occupied, _location, item_count} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, %{code: code, count: item_count})
+           |> assign(:move_location_error, nil)}
+
+        {:ok, :needs_cell, _bin, _cell_code} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, nil)
+           |> assign(:move_location_error, nil)}
+
+        {:error, :invalid_format} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, nil)
+           |> assign(:move_location_error, "Invalid format. Use SHELF-BIN-CELL (e.g., A-1-1)")}
+
+        {:error, :shelf_not_found, shelf_code} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, nil)
+           |> assign(:move_location_error, "Shelf '#{shelf_code}' doesn't exist. Create it on the Locations page.")}
+
+        {:error, :bin_not_found, shelf_code, bin_code} ->
+          {:noreply,
+           socket
+           |> assign(:move_location_warning, nil)
+           |> assign(
+             :move_location_error,
+             "Bin #{bin_code} doesn't exist on shelf #{shelf_code}. Add it on the Locations page."
+           )}
+      end
     end
   end
 
   def handle_event("move_to_location", %{"location_code" => location_code}, socket) do
     item = socket.assigns.item
 
-    case Inventory.ensure_location_with_code(location_code) do
-      {:ok, location} ->
+    case Inventory.validate_location_code(location_code) do
+      {:ok, :exists, location} ->
         do_move(socket, item, location, location_code)
 
-      {:ok, location, _item_count} ->
+      {:ok, :exists_occupied, location, _item_count} ->
         do_move(socket, item, location, location_code)
+
+      {:ok, :needs_cell, bin, cell_code} ->
+        {:noreply,
+         socket
+         |> assign(:pending_cell_creation, %{
+           bin: bin,
+           cell_code: cell_code,
+           action: :move,
+           location_code: location_code
+         })
+         |> assign(:show_cell_confirm_modal, true)}
 
       {:error, :invalid_format} ->
-        {:noreply, put_flash(socket, :error, "Invalid location code format")}
+        {:noreply, assign(socket, :move_location_error, "Invalid format. Use SHELF-BIN-CELL (e.g., A-1-1)")}
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to move item")}
+      {:error, :shelf_not_found, shelf_code} ->
+        {:noreply,
+         assign(socket, :move_location_error, "Shelf '#{shelf_code}' doesn't exist. Create it on the Locations page.")}
+
+      {:error, :bin_not_found, shelf_code, bin_code} ->
+        {:noreply,
+         assign(
+           socket,
+           :move_location_error,
+           "Bin #{bin_code} doesn't exist on shelf #{shelf_code}. Add it on the Locations page."
+         )}
     end
   end
 
   def handle_event("ghost_value_changed", _params, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("cancel_cell_creation", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_cell_confirm_modal, false)
+     |> assign(:pending_cell_creation, nil)}
+  end
+
+  def handle_event("confirm_cell_creation", _params, socket) do
+    pending = socket.assigns.pending_cell_creation
+    item = socket.assigns.item
+
+    case Inventory.create_cell_with_location(pending.bin, pending.cell_code) do
+      {:ok, cell} ->
+        location = cell.location
+
+        socket =
+          socket
+          |> assign(:show_cell_confirm_modal, false)
+          |> assign(:pending_cell_creation, nil)
+
+        case pending.action do
+          :move ->
+            do_move(socket, item, location, pending.location_code)
+
+          :restore ->
+            do_restore(socket, item, location, pending.quantity, pending.location_code)
+        end
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> assign(:show_cell_confirm_modal, false)
+         |> assign(:pending_cell_creation, nil)
+         |> put_flash(:error, "Failed to create cell")}
+    end
   end
 
   def handle_event("save_photo_only", _params, socket) do

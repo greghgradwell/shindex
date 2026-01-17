@@ -390,4 +390,195 @@ defmodule InventoryLocator.InventoryTest do
       assert hd(results).archived == true
     end
   end
+
+  describe "create_shelf_with_bins/2" do
+    test "creates shelf with specified number of bins" do
+      assert {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 3)
+
+      shelf = Repo.preload(shelf, bins: :cells)
+      assert shelf.code == "TEST"
+      assert length(shelf.bins) == 3
+      assert shelf.bins |> Enum.map(& &1.code) |> Enum.sort() == ["1", "2", "3"]
+    end
+
+    test "each bin starts with cell 1 and a location" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 2)
+
+      shelf = Repo.preload(shelf, bins: [cells: :location])
+
+      for bin <- shelf.bins do
+        assert length(bin.cells) == 1
+        assert hd(bin.cells).code == "1"
+        assert hd(bin.cells).location
+        assert hd(bin.cells).location.full_code == "TEST-#{bin.code}-1"
+      end
+    end
+
+    test "returns error for duplicate shelf code" do
+      {:ok, _shelf} = Inventory.create_shelf_with_bins(%{code: "DUPE"}, 1)
+
+      assert {:error, changeset} = Inventory.create_shelf_with_bins(%{code: "DUPE"}, 1)
+      assert changeset.errors[:code]
+    end
+
+    test "returns error for invalid shelf code" do
+      assert {:error, _changeset} = Inventory.create_shelf_with_bins(%{code: "123"}, 1)
+      assert {:error, _changeset} = Inventory.create_shelf_with_bins(%{code: "_bad"}, 1)
+    end
+  end
+
+  describe "add_bin_to_shelf/1" do
+    test "adds bin with next sequential code" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 2)
+
+      {:ok, new_bin} = Inventory.add_bin_to_shelf(shelf)
+
+      assert new_bin.code == "3"
+      assert new_bin.shelf_id == shelf.id
+    end
+
+    test "new bin includes cell 1 with location" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 1)
+
+      {:ok, new_bin} = Inventory.add_bin_to_shelf(shelf)
+      new_bin = Repo.preload(new_bin, cells: :location)
+
+      assert length(new_bin.cells) == 1
+      assert hd(new_bin.cells).code == "1"
+      assert hd(new_bin.cells).location.full_code == "TEST-2-1"
+    end
+  end
+
+  describe "add_cell_to_bin/1" do
+    test "adds cell with next sequential code" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 1)
+      shelf = Repo.preload(shelf, :bins)
+      bin = hd(shelf.bins)
+
+      {:ok, new_cell} = Inventory.add_cell_to_bin(bin)
+
+      assert new_cell.code == "2"
+      assert new_cell.bin_id == bin.id
+    end
+
+    test "new cell includes location with correct full_code" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 1)
+      shelf = Repo.preload(shelf, :bins)
+      bin = hd(shelf.bins)
+
+      {:ok, new_cell} = Inventory.add_cell_to_bin(bin)
+      new_cell = Repo.preload(new_cell, :location)
+
+      assert new_cell.location.full_code == "TEST-1-2"
+    end
+  end
+
+  describe "rename_shelf/2" do
+    test "updates shelf code" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "OLD"}, 1)
+
+      {:ok, updated} = Inventory.rename_shelf(shelf, "NEW")
+
+      assert updated.code == "NEW"
+    end
+
+    test "updates all location full_codes" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "OLD"}, 2)
+      shelf = Repo.preload(shelf, :bins)
+      Inventory.add_cell_to_bin(hd(shelf.bins))
+
+      {:ok, _updated} = Inventory.rename_shelf(shelf, "NEW")
+
+      locations = Repo.all(from(l in Inventory.Location, order_by: l.full_code))
+      codes = Enum.map(locations, & &1.full_code)
+
+      assert "NEW-1-1" in codes
+      assert "NEW-1-2" in codes
+      assert "NEW-2-1" in codes
+      refute Enum.any?(codes, &String.starts_with?(&1, "OLD"))
+    end
+
+    test "returns error for invalid code format" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "TEST"}, 1)
+
+      assert {:error, :invalid_code} = Inventory.rename_shelf(shelf, "123")
+      assert {:error, :invalid_code} = Inventory.rename_shelf(shelf, "_bad")
+    end
+
+    test "returns error if new code already exists" do
+      {:ok, shelf1} = Inventory.create_shelf_with_bins(%{code: "FIRST"}, 1)
+      {:ok, _shelf2} = Inventory.create_shelf_with_bins(%{code: "SECOND"}, 1)
+
+      assert {:error, :code_exists} = Inventory.rename_shelf(shelf1, "SECOND")
+    end
+
+    test "succeeds when renaming to same code (no-op)" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "SAME"}, 1)
+
+      assert {:ok, unchanged} = Inventory.rename_shelf(shelf, "SAME")
+      assert unchanged.code == "SAME"
+    end
+
+    test "normalizes code to uppercase" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "OLD"}, 1)
+
+      {:ok, updated} = Inventory.rename_shelf(shelf, "new")
+
+      assert updated.code == "NEW"
+    end
+  end
+
+  describe "delete_empty_shelf/1" do
+    test "deletes shelf with no items" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "EMPTY"}, 2)
+
+      assert {:ok, _deleted} = Inventory.delete_empty_shelf(shelf)
+
+      assert Repo.get(Shelf, shelf.id) == nil
+      assert Repo.all(from(b in Bin, where: b.shelf_id == ^shelf.id)) == []
+    end
+
+    test "deletes all bins, cells, and locations" do
+      {:ok, shelf} = Inventory.create_shelf_with_bins(%{code: "EMPTY"}, 2)
+      shelf = Repo.preload(shelf, :bins)
+      Inventory.add_cell_to_bin(hd(shelf.bins))
+
+      location_count_before = Repo.aggregate(Inventory.Location, :count)
+      assert location_count_before == 3
+
+      {:ok, _deleted} = Inventory.delete_empty_shelf(shelf)
+
+      assert Repo.aggregate(Inventory.Location, :count) == 0
+      assert Repo.aggregate(Cell, :count) == 0
+      assert Repo.aggregate(Bin, :count) == 0
+    end
+
+    test "returns error when shelf has active items" do
+      {:ok, _item} = Inventory.create_item_with_location("OCCUPIED-1-1", "Test", 1, "Desc")
+      shelf = Repo.get_by!(Shelf, code: "OCCUPIED")
+
+      assert {:error, :has_items} = Inventory.delete_empty_shelf(shelf)
+      assert Repo.get(Shelf, shelf.id)
+    end
+
+    test "succeeds when shelf only has archived items" do
+      {:ok, item} = Inventory.create_item_with_location("ARCHIVED-1-1", "Test", 1, "Desc")
+      Inventory.archive_item_type(item)
+      shelf = Repo.get_by!(Shelf, code: "ARCHIVED")
+
+      assert {:ok, _deleted} = Inventory.delete_empty_shelf(shelf)
+      assert Repo.get(Shelf, shelf.id) == nil
+    end
+
+    test "clears location_id from archived items before deletion" do
+      {:ok, item} = Inventory.create_item_with_location("CLEAR-1-1", "Test", 1, "Desc")
+      {:ok, archived_item} = Inventory.archive_item_type(item)
+      shelf = Repo.get_by!(Shelf, code: "CLEAR")
+
+      {:ok, _deleted} = Inventory.delete_empty_shelf(shelf)
+
+      reloaded_item = Repo.get!(Inventory.ItemType, archived_item.id)
+      assert reloaded_item.location_id == nil
+    end
+  end
 end

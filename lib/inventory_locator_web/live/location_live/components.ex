@@ -9,41 +9,82 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
   alias Phoenix.LiveView.JS
 
   attr :shelf, Shelf, required: true
+  attr :show_cells, :boolean, required: true
 
   def shelf_row(assigns) do
     ~H"""
     <div class="flex gap-4 items-start border-b border-base-300 pb-4">
       <!-- Shelf label (fixed width) -->
       <div class="w-32 flex-shrink-0">
-        <h3 class="font-semibold">{@shelf.code}</h3>
-        <p class="text-sm text-base-content/70">{@shelf.name}</p>
+        <div class="flex items-center gap-1">
+          <h3 class="font-semibold">{@shelf.code}</h3>
+          <button
+            phx-click="show_rename_shelf_modal"
+            phx-value-id={@shelf.id}
+            class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
+            title="Rename shelf"
+          >
+            <.icon name="hero-pencil" class="w-3 h-3" />
+          </button>
+          <button
+            phx-click="delete_shelf"
+            phx-value-id={@shelf.id}
+            class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
+            title="Delete shelf"
+            data-confirm={"Delete shelf #{@shelf.code} and all its bins/cells?"}
+          >
+            <.icon name="hero-trash" class="w-3 h-3" />
+          </button>
+        </div>
       </div>
       <!-- Bins container -->
-      <div class="flex-1 flex gap-2">
+      <div class="flex-1 flex gap-2 flex-wrap items-start">
         <%= for bin <- @shelf.bins do %>
-          <.bin_segment bin={bin} />
+          <.bin_segment bin={bin} show_cells={@show_cells} />
         <% end %>
+        <!-- Add Bin button -->
+        <button
+          phx-click="add_bin"
+          phx-value-shelf_id={@shelf.id}
+          class="border border-dashed border-base-300 rounded-lg p-2 min-w-[80px] h-[80px] flex items-center justify-center text-base-content/50 hover:border-primary hover:text-primary transition-colors"
+          title="Add bin"
+        >
+          <.icon name="hero-plus" class="w-5 h-5" />
+        </button>
       </div>
     </div>
     """
   end
 
   attr :bin, Bin, required: true
+  attr :show_cells, :boolean, required: true
 
   def bin_segment(assigns) do
     ~H"""
     <div class="border border-base-300 rounded-lg p-2 min-w-[120px] max-w-[200px]">
       <!-- Bin header -->
-      <div class="mb-2 pb-1 border-b border-base-300">
+      <div class={[
+        !@show_cells && "mb-0 pb-0 border-b-0",
+        @show_cells && "mb-2 pb-1 border-b border-base-300"
+      ]}>
         <span class="font-medium text-sm">Bin {@bin.code}</span>
       </div>
       <!-- Cells column (stacked vertically with dividers) -->
-      <div class="flex flex-col divide-y-2 divide-base-content/20">
+      <div :if={@show_cells} class="flex flex-col divide-y-2 divide-base-content/20">
         <%= for cell <- @bin.cells do %>
           <%= if cell.location do %>
             <.cell_box cell={cell} location={cell.location} />
           <% end %>
         <% end %>
+        <!-- Add Cell button -->
+        <button
+          phx-click="add_cell"
+          phx-value-bin_id={@bin.id}
+          class="py-2 text-xs text-base-content/50 hover:text-primary transition-colors flex items-center justify-center gap-1"
+          title="Add cell"
+        >
+          <.icon name="hero-plus" class="w-3 h-3" /> Cell
+        </button>
       </div>
     </div>
     """

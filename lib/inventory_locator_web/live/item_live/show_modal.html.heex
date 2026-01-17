@@ -216,8 +216,21 @@
                         </div>
                       <% end %>
 
+                      <%= if @move_location_error do %>
+                        <div class="alert alert-error mt-2">
+                          <.icon name="hero-x-circle" />
+                          <span>{@move_location_error}</span>
+                        </div>
+                      <% end %>
+
                       <div class="flex gap-2 mt-3">
-                        <button type="submit" class="btn btn-sm btn-primary">Move</button>
+                        <button
+                          type="submit"
+                          class="btn btn-sm btn-primary"
+                          disabled={@move_location_error != nil}
+                        >
+                          Move
+                        </button>
                         <button
                           type="button"
                           phx-click="cancel_move"
@@ -475,6 +488,13 @@
           </div>
         <% end %>
 
+        <%= if @location_error do %>
+          <div class="alert alert-error mt-2">
+            <.icon name="hero-x-circle" />
+            <span>{@location_error}</span>
+          </div>
+        <% end %>
+
         <.input
           field={f[:quantity]}
           type="number"
@@ -493,7 +513,7 @@
           >
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary" disabled={@location_error != nil}>
             Restore
           </button>
         </div>
@@ -573,6 +593,45 @@
       </div>
     </div>
     <div class="modal-backdrop bg-black/50" phx-click="hide_delete_modal" phx-target={@myself}>
+    </div>
+  </div>
+
+  <%!-- Cell Creation Confirmation Modal (nested) --%>
+  <div
+    :if={@show_cell_confirm_modal}
+    class="modal modal-open"
+    style="z-index: 1000;"
+    phx-window-keydown="cancel_cell_creation"
+    phx-key="escape"
+    phx-target={@myself}
+  >
+    <div class="modal-box" phx-click-away="cancel_cell_creation" phx-target={@myself}>
+      <h3 class="font-bold text-lg">Create New Cell?</h3>
+      <p class="py-4 text-sm text-gray-600">
+        <%= if @pending_cell_creation do %>
+          Cell {@pending_cell_creation.cell_code} doesn't exist in Bin {@pending_cell_creation.bin.code}.
+          Would you like to create it?
+        <% end %>
+      </p>
+
+      <div class="modal-action">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          phx-click="cancel_cell_creation"
+          phx-target={@myself}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          phx-click="confirm_cell_creation"
+          phx-target={@myself}
+        >
+          Create Cell
+        </button>
+      </div>
     </div>
   </div>
 </div>

@@ -49,9 +49,17 @@ defmodule InventoryLocator.Inventory.ShelfTest do
       refute Shelf.valid_code?("a-b")
     end
 
-    test "returns false for codes with numbers" do
-      refute Shelf.valid_code?("shelf1")
-      refute Shelf.valid_code?("a2b")
+    test "returns true for codes with numbers" do
+      assert Shelf.valid_code?("shelf1")
+      assert Shelf.valid_code?("a2b")
+      assert Shelf.valid_code?("SHELF_2")
+      assert Shelf.valid_code?("A1")
+    end
+
+    test "returns false for codes starting with numbers" do
+      refute Shelf.valid_code?("1shelf")
+      refute Shelf.valid_code?("2")
+      refute Shelf.valid_code?("123")
     end
 
     test "returns false for codes with special characters" do

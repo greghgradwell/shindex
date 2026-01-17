@@ -1,11 +1,162 @@
 <.header>
   Location Management
+  <:actions>
+    <.button phx-click="show_create_shelf_modal">
+      <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create Shelf
+    </.button>
+  </:actions>
 </.header>
 
-<div class="mt-8 space-y-6">
-  <%= for shelf <- @shelves do %>
-    <.shelf_row shelf={shelf} />
+<div
+  class="mt-4 flex justify-end"
+  id="show-cells-toggle"
+  phx-hook="PersistToggle"
+  data-storage-key="show_cells"
+>
+  <label class="label cursor-pointer gap-2">
+    <span class="label-text">Show cells</span>
+    <input
+      type="checkbox"
+      class="toggle toggle-sm"
+      checked={@show_cells}
+      phx-click="toggle_cells"
+    />
+  </label>
+</div>
+
+<div class="mt-4 space-y-6">
+  <%= if @shelves == [] do %>
+    <div class="text-center py-12 text-base-content/60">
+      <.icon name="hero-archive-box" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+      <p class="text-lg">No shelves yet</p>
+      <p class="text-sm mt-2">Create your first shelf to start organizing your inventory.</p>
+    </div>
+  <% else %>
+    <%= for shelf <- @shelves do %>
+      <.shelf_row shelf={shelf} show_cells={@show_cells} />
+    <% end %>
   <% end %>
+</div>
+
+<%!-- Create Shelf Modal --%>
+<div
+  :if={@show_create_shelf_modal}
+  class="modal modal-open"
+  phx-window-keydown="close_create_shelf_modal"
+  phx-key="escape"
+>
+  <div class="modal-box" phx-click-away="close_create_shelf_modal">
+    <h3 class="font-bold text-lg mb-4">Create New Shelf</h3>
+
+    <form phx-submit="create_shelf" phx-change="validate_shelf_code" autocomplete="off">
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">Shelf Code</span>
+        </label>
+        <input
+          type="text"
+          name="code"
+          id="create-shelf-code-input"
+          placeholder="e.g., A, TOOLS, PARTS"
+          class={["input input-bordered w-full uppercase", @shelf_code_error && "input-error"]}
+          required
+          phx-mounted={JS.focus()}
+        />
+        <label :if={@shelf_code_error} class="label">
+          <span class="label-text-alt text-error">{@shelf_code_error}</span>
+        </label>
+        <label :if={!@shelf_code_error} class="label">
+          <span class="label-text-alt">
+            Must start with a letter (letters, numbers, underscores allowed)
+          </span>
+        </label>
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">Number of Bins</span>
+        </label>
+        <select name="bin_count" class="select select-bordered w-full">
+          <%= for n <- 1..20 do %>
+            <option value={n} selected={n == 1}>{n}</option>
+          <% end %>
+        </select>
+        <label class="label">
+          <span class="label-text-alt">Each bin will start with Cell 1</span>
+        </label>
+      </div>
+
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" phx-click="close_create_shelf_modal">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" disabled={@shelf_code_error != nil}>
+          Create Shelf
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%!-- Rename Shelf Modal --%>
+<div
+  :if={@show_rename_shelf_modal}
+  class="modal modal-open"
+  phx-window-keydown="close_rename_shelf_modal"
+  phx-key="escape"
+>
+  <div class="modal-box" phx-click-away="close_rename_shelf_modal">
+    <h3 class="font-bold text-lg mb-4">Rename Shelf</h3>
+
+    <form phx-submit="rename_shelf" phx-change="validate_shelf_code" autocomplete="off">
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">Current Code</span>
+        </label>
+        <input
+          type="text"
+          value={@rename_shelf && @rename_shelf.code}
+          class="input input-bordered w-full"
+          disabled
+        />
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">New Code</span>
+        </label>
+        <input
+          type="text"
+          name="new_code"
+          id="rename-shelf-code-input"
+          value={@rename_shelf && @rename_shelf.code}
+          placeholder="e.g., A, TOOLS"
+          class={["input input-bordered w-full uppercase", @shelf_code_error && "input-error"]}
+          required
+          phx-mounted={JS.focus()}
+        />
+        <label :if={@shelf_code_error} class="label">
+          <span class="label-text-alt text-error">{@shelf_code_error}</span>
+        </label>
+      </div>
+
+      <%= if @rename_shelf_location_count > 0 do %>
+        <div class="alert alert-warning mb-4">
+          <.icon name="hero-exclamation-triangle" />
+          <span>This will update {@rename_shelf_location_count} location code(s)</span>
+        </div>
+      <% end %>
+
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" phx-click="close_rename_shelf_modal">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" disabled={@shelf_code_error != nil}>
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <.live_component

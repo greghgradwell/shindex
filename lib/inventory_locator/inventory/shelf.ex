@@ -34,7 +34,7 @@ defmodule InventoryLocator.Inventory.Shelf do
   def valid_code?(code) when is_binary(code) do
     String.length(code) > 0 &&
       String.length(code) <= @max_code_length &&
-      Regex.match?(~r/^[a-zA-Z]([a-zA-Z_]*[a-zA-Z])?$/, code)
+      Regex.match?(~r/^[a-zA-Z]([a-zA-Z0-9_]*[a-zA-Z0-9])?$/, code)
   end
 
   def valid_code?(_), do: false
@@ -45,7 +45,7 @@ defmodule InventoryLocator.Inventory.Shelf do
       if valid_code?(code) do
         []
       else
-        [code: "must contain only letters and underscores, 1-50 characters"]
+        [code: "must start with a letter and contain only letters, numbers, and underscores"]
       end
     end)
   end

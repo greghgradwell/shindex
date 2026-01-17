@@ -20,6 +20,151 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  @spec get_shelf!(integer()) :: Shelf.t()
+  def get_shelf!(id), do: Repo.get!(Shelf, id)
+
+  @spec create_shelf_with_bins(map(), pos_integer()) ::
+          {:ok, Shelf.t()} | {:error, Ecto.Changeset.t()}
+  def create_shelf_with_bins(shelf_attrs, bin_count) when bin_count >= 1 do
+    Repo.transaction(fn ->
+      case create_shelf(shelf_attrs) do
+        {:ok, shelf} ->
+          Enum.each(1..bin_count, fn bin_num ->
+            create_bin_with_cell_1(shelf, "#{bin_num}")
+          end)
+
+          Repo.preload(shelf, bins: :cells)
+
+        {:error, changeset} ->
+          Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  @spec add_bin_to_shelf(Shelf.t()) :: {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
+  def add_bin_to_shelf(%Shelf{} = shelf) do
+    next_bin_code = get_next_bin_code(shelf.id)
+
+    Repo.transaction(fn ->
+      case create_bin_with_cell_1(shelf, next_bin_code) do
+        {:ok, bin} -> bin
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  @spec get_next_bin_code(integer()) :: String.t()
+  defp get_next_bin_code(shelf_id) do
+    max_code =
+      Repo.one(
+        from(b in Bin,
+          where: b.shelf_id == ^shelf_id,
+          select: max(fragment("CAST(? AS INTEGER)", b.code))
+        )
+      ) || 0
+
+    "#{max_code + 1}"
+  end
+
+  @spec create_bin_with_cell_1(Shelf.t(), String.t()) ::
+          {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
+  defp create_bin_with_cell_1(shelf, bin_code) do
+    with {:ok, bin} <- create_bin(%{code: bin_code, shelf_id: shelf.id}),
+         {:ok, cell} <- create_cell(%{code: "1", bin_id: bin.id}),
+         full_code = "#{shelf.code}-#{bin_code}-1",
+         {:ok, _location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
+      {:ok, Repo.preload(bin, :cells)}
+    end
+  end
+
+  @spec rename_shelf(Shelf.t(), String.t()) ::
+          {:ok, Shelf.t()} | {:error, :invalid_code | :code_exists | Ecto.Changeset.t()}
+  def rename_shelf(%Shelf{} = shelf, new_code) do
+    new_code = String.upcase(new_code)
+
+    cond do
+      not Shelf.valid_code?(new_code) ->
+        {:error, :invalid_code}
+
+      shelf.code == new_code ->
+        {:ok, shelf}
+
+      Repo.exists?(from(s in Shelf, where: s.code == ^new_code)) ->
+        {:error, :code_exists}
+
+      true ->
+        do_rename_shelf(shelf, new_code)
+    end
+  end
+
+  @spec do_rename_shelf(Shelf.t(), String.t()) ::
+          {:ok, Shelf.t()} | {:error, Ecto.Changeset.t()}
+  defp do_rename_shelf(shelf, new_code) do
+    old_code = shelf.code
+    old_prefix_len = String.length(old_code) + 1
+
+    Repo.transaction(fn ->
+      # Update all Location.full_code strings that start with the old shelf code
+      # Cast position to integer explicitly for Postgrex type inference
+      Repo.update_all(
+        from(l in Location,
+          where: like(l.full_code, ^"#{old_code}-%"),
+          update: [set: [full_code: fragment("? || substring(full_code, ?::int)", ^new_code, ^old_prefix_len)]]
+        ),
+        []
+      )
+
+      # Update the shelf code
+      case Repo.update(Shelf.changeset(shelf, %{code: new_code})) do
+        {:ok, updated_shelf} -> updated_shelf
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  @spec count_locations_for_shelf(Shelf.t()) :: non_neg_integer()
+  def count_locations_for_shelf(%Shelf{} = shelf) do
+    Repo.aggregate(
+      from(l in Location, where: like(l.full_code, ^"#{shelf.code}-%")),
+      :count
+    )
+  end
+
+  @spec delete_empty_shelf(Shelf.t()) ::
+          {:ok, Shelf.t()} | {:error, :has_items}
+  def delete_empty_shelf(%Shelf{} = shelf) do
+    active_item_count =
+      Repo.aggregate(
+        from(i in ItemType,
+          join: l in Location,
+          on: i.location_id == l.id,
+          where: like(l.full_code, ^"#{shelf.code}-%") and i.archived == false
+        ),
+        :count
+      )
+
+    if active_item_count > 0 do
+      {:error, :has_items}
+    else
+      Repo.transaction(fn ->
+        location_ids = Repo.all(from(l in Location, where: like(l.full_code, ^"#{shelf.code}-%"), select: l.id))
+
+        Repo.update_all(
+          from(i in ItemType, where: i.location_id in ^location_ids and i.archived == true),
+          set: [location_id: nil]
+        )
+
+        Repo.delete_all(from(l in Location, where: l.id in ^location_ids))
+
+        bin_ids = Repo.all(from(b in Bin, where: b.shelf_id == ^shelf.id, select: b.id))
+        Repo.delete_all(from(c in Cell, where: c.bin_id in ^bin_ids))
+        Repo.delete_all(from(b in Bin, where: b.id in ^bin_ids))
+
+        Repo.delete!(shelf)
+      end)
+    end
+  end
+
   # Bins
 
   @spec create_bin(map()) :: {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
@@ -29,6 +174,9 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
+  @spec get_bin!(integer()) :: Bin.t()
+  def get_bin!(id), do: Repo.get!(Bin, id)
+
   # Cells
 
   @spec create_cell(map()) :: {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
@@ -36,6 +184,51 @@ defmodule InventoryLocator.Inventory do
     %Cell{}
     |> Cell.changeset(attrs)
     |> Repo.insert()
+  end
+
+  @spec add_cell_to_bin(Bin.t()) :: {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
+  def add_cell_to_bin(%Bin{} = bin) do
+    bin = Repo.preload(bin, :shelf)
+    next_cell_code = get_next_cell_code(bin.id)
+    full_code = "#{bin.shelf.code}-#{bin.code}-#{next_cell_code}"
+
+    Repo.transaction(fn ->
+      with {:ok, cell} <- create_cell(%{code: next_cell_code, bin_id: bin.id}),
+           {:ok, _location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
+        Repo.preload(cell, :location)
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  @spec get_next_cell_code(integer()) :: String.t()
+  defp get_next_cell_code(bin_id) do
+    max_code =
+      Repo.one(
+        from(c in Cell,
+          where: c.bin_id == ^bin_id,
+          select: max(fragment("CAST(? AS INTEGER)", c.code))
+        )
+      ) || 0
+
+    "#{max_code + 1}"
+  end
+
+  @spec create_cell_with_location(Bin.t(), String.t()) ::
+          {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
+  def create_cell_with_location(%Bin{} = bin, cell_code) do
+    bin = Repo.preload(bin, :shelf)
+    full_code = "#{bin.shelf.code}-#{bin.code}-#{cell_code}"
+
+    Repo.transaction(fn ->
+      with {:ok, cell} <- create_cell(%{code: cell_code, bin_id: bin.id}),
+           {:ok, location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
+        %{cell | location: location}
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
   end
 
   # Locations
@@ -72,6 +265,66 @@ defmodule InventoryLocator.Inventory do
         :exists_occupied ->
           active_item_count = count_active_items_at_location(validation.location.id)
           {:ok, validation.location, active_item_count}
+      end
+    end
+  end
+
+  @type validate_location_result ::
+          {:ok, :exists, Location.t()}
+          | {:ok, :exists_occupied, Location.t(), non_neg_integer()}
+          | {:ok, :needs_cell, Bin.t(), String.t()}
+          | {:error, :invalid_format}
+          | {:error, :shelf_not_found, String.t()}
+          | {:error, :bin_not_found, String.t(), String.t()}
+
+  @spec validate_location_code(String.t()) :: validate_location_result()
+  def validate_location_code(location_code) do
+    case LocationParser.parse(location_code) do
+      {:error, :invalid_format} ->
+        {:error, :invalid_format}
+
+      {:ok, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}} ->
+        validate_location_hierarchy(shelf_code, bin_code, cell_code)
+    end
+  end
+
+  @spec validate_location_hierarchy(String.t(), String.t(), String.t()) ::
+          validate_location_result()
+  defp validate_location_hierarchy(shelf_code, bin_code, cell_code) do
+    shelf = Repo.get_by(Shelf, code: shelf_code)
+
+    if is_nil(shelf) do
+      {:error, :shelf_not_found, shelf_code}
+    else
+      validate_bin_and_cell(shelf, bin_code, cell_code)
+    end
+  end
+
+  @spec validate_bin_and_cell(Shelf.t(), String.t(), String.t()) :: validate_location_result()
+  defp validate_bin_and_cell(shelf, bin_code, cell_code) do
+    bin = Repo.get_by(Bin, code: bin_code, shelf_id: shelf.id)
+
+    if is_nil(bin) do
+      {:error, :bin_not_found, shelf.code, bin_code}
+    else
+      validate_cell_and_location(bin, cell_code)
+    end
+  end
+
+  @spec validate_cell_and_location(Bin.t(), String.t()) :: validate_location_result()
+  defp validate_cell_and_location(bin, cell_code) do
+    cell = Repo.get_by(Cell, code: cell_code, bin_id: bin.id)
+
+    if is_nil(cell) do
+      {:ok, :needs_cell, bin, cell_code}
+    else
+      location = Repo.get_by!(Location, cell_id: cell.id)
+      active_count = count_active_items_at_location(location.id)
+
+      if active_count > 0 do
+        {:ok, :exists_occupied, location, active_count}
+      else
+        {:ok, :exists, location}
       end
     end
   end
@@ -150,8 +403,15 @@ defmodule InventoryLocator.Inventory do
     bins_query = from(b in Bin, order_by: b.code)
     cells_query = from(c in Cell, order_by: [desc: c.code])
 
-    Shelf
-    |> order_by(:code)
+    shelves_query =
+      from(s in Shelf,
+        order_by: [
+          asc: fragment("length(?) - length(replace(?, '_', ''))", s.code, s.code),
+          asc: s.code
+        ]
+      )
+
+    shelves_query
     |> Repo.all()
     |> Repo.preload(bins: {bins_query, cells: {cells_query, location: :item_types}})
   end
