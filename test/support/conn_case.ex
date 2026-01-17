@@ -33,6 +33,10 @@ defmodule InventoryLocatorWeb.ConnCase do
 
   setup tags do
     InventoryLocator.DataCase.setup_sandbox(tags)
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    inventory = InventoryLocator.DataCase.create_test_inventory()
+
+    conn = Plug.Test.init_test_session(Phoenix.ConnTest.build_conn(), %{inventory_id: inventory.id})
+
+    {:ok, conn: conn, inventory: inventory}
   end
 end

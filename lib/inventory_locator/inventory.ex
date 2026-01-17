@@ -4,6 +4,7 @@ defmodule InventoryLocator.Inventory do
 
   alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
@@ -11,23 +12,95 @@ defmodule InventoryLocator.Inventory do
   alias InventoryLocator.Inventory.Shelf
   alias InventoryLocator.Repo
 
+  # Inventories
+
+  @spec list_inventories() :: [Inv.t()]
+  def list_inventories do
+    Repo.all(from(i in Inv, order_by: i.name))
+  end
+
+  @spec get_inventory!(integer()) :: Inv.t()
+  def get_inventory!(id), do: Repo.get!(Inv, id)
+
+  @spec get_inventory(integer() | nil) :: Inv.t() | nil
+  def get_inventory(nil), do: nil
+  def get_inventory(id), do: Repo.get(Inv, id)
+
+  @spec get_inventory_by_name(String.t()) :: Inv.t() | nil
+  def get_inventory_by_name(name) do
+    Repo.get_by(Inv, name: name)
+  end
+
+  @spec get_first_inventory!() :: Inv.t()
+  def get_first_inventory! do
+    Repo.one!(from(i in Inv, order_by: i.name, limit: 1))
+  end
+
+  @spec create_inventory(map()) :: {:ok, Inv.t()} | {:error, Ecto.Changeset.t()}
+  def create_inventory(attrs) do
+    %Inv{}
+    |> Inv.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @spec update_inventory(Inv.t(), map()) :: {:ok, Inv.t()} | {:error, Ecto.Changeset.t()}
+  def update_inventory(%Inv{} = inv, attrs) do
+    inv
+    |> Inv.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @spec list_inventories_with_counts() :: [{Inv.t(), non_neg_integer(), non_neg_integer()}]
+  def list_inventories_with_counts do
+    Repo.all(
+      from(i in Inv,
+        left_join: s in Shelf,
+        on: s.inventory_id == i.id,
+        left_join: it in ItemType,
+        on: it.inventory_id == i.id and it.archived == false,
+        group_by: i.id,
+        select: {i, count(s.id, :distinct), count(it.id, :distinct)},
+        order_by: i.name
+      )
+    )
+  end
+
+  @spec count_inventories() :: non_neg_integer()
+  def count_inventories do
+    Repo.aggregate(Inv, :count)
+  end
+
+  @spec delete_inventory(Inv.t()) :: {:ok, Inv.t()} | {:error, :last_inventory | Ecto.Changeset.t()}
+  def delete_inventory(%Inv{} = inv) do
+    Repo.transaction(fn ->
+      if count_inventories() <= 1 do
+        Repo.rollback(:last_inventory)
+      else
+        case Repo.delete(inv) do
+          {:ok, deleted} -> deleted
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end
+    end)
+  end
+
   # Shelves
 
-  @spec create_shelf(map()) :: {:ok, Shelf.t()} | {:error, Ecto.Changeset.t()}
-  defp create_shelf(attrs) do
+  @spec create_shelf(integer(), map()) :: {:ok, Shelf.t()} | {:error, Ecto.Changeset.t()}
+  defp create_shelf(inventory_id, attrs) do
     %Shelf{}
-    |> Shelf.changeset(attrs)
+    |> Shelf.changeset(Map.put(attrs, :inventory_id, inventory_id))
     |> Repo.insert()
   end
 
   @spec get_shelf!(integer()) :: Shelf.t()
   def get_shelf!(id), do: Repo.get!(Shelf, id)
 
-  @spec create_shelf_with_bins(map(), pos_integer()) ::
+  @spec create_shelf_with_bins(integer(), map(), pos_integer()) ::
           {:ok, Shelf.t()} | {:error, Ecto.Changeset.t()}
-  def create_shelf_with_bins(shelf_attrs, bin_count) when bin_count >= 1 do
+  def create_shelf_with_bins(inventory_id, shelf_attrs, bin_count) when bin_count >= 1 do
     Repo.transaction(fn ->
-      case create_shelf(shelf_attrs) do
+      case create_shelf(inventory_id, shelf_attrs) do
         {:ok, shelf} ->
           Enum.each(1..bin_count, fn bin_num ->
             create_bin_with_cell_1(shelf, "#{bin_num}")
@@ -77,9 +150,9 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec rename_shelf(Shelf.t(), String.t()) ::
+  @spec rename_shelf(integer(), Shelf.t(), String.t()) ::
           {:ok, Shelf.t()} | {:error, :invalid_code | :code_exists | Ecto.Changeset.t()}
-  def rename_shelf(%Shelf{} = shelf, new_code) do
+  def rename_shelf(inventory_id, %Shelf{} = shelf, new_code) do
     new_code = String.upcase(new_code)
 
     cond do
@@ -89,7 +162,7 @@ defmodule InventoryLocator.Inventory do
       shelf.code == new_code ->
         {:ok, shelf}
 
-      Repo.exists?(from(s in Shelf, where: s.code == ^new_code)) ->
+      Repo.exists?(from(s in Shelf, where: s.inventory_id == ^inventory_id and s.code == ^new_code)) ->
         {:error, :code_exists}
 
       true ->
@@ -236,9 +309,21 @@ defmodule InventoryLocator.Inventory do
   @spec get_location!(integer()) :: Location.t()
   def get_location!(id), do: Repo.get!(Location, id)
 
-  @spec list_location_codes() :: [String.t()]
-  def list_location_codes do
-    Repo.all(from(l in Location, select: l.full_code, order_by: l.full_code))
+  @spec list_location_codes(integer()) :: [String.t()]
+  def list_location_codes(inventory_id) do
+    Repo.all(
+      from(l in Location,
+        join: c in Cell,
+        on: l.cell_id == c.id,
+        join: b in Bin,
+        on: c.bin_id == b.id,
+        join: s in Shelf,
+        on: b.shelf_id == s.id,
+        where: s.inventory_id == ^inventory_id,
+        select: l.full_code,
+        order_by: l.full_code
+      )
+    )
   end
 
   @spec create_location(map()) :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
@@ -248,16 +333,16 @@ defmodule InventoryLocator.Inventory do
     |> Repo.insert()
   end
 
-  @spec ensure_location_with_code(String.t()) ::
+  @spec ensure_location_with_code(integer(), String.t()) ::
           {:ok, Location.t()}
           | {:ok, Location.t(), integer()}
           | {:error, :invalid_format | Ecto.Changeset.t()}
-  def ensure_location_with_code(location_code) do
+  def ensure_location_with_code(inventory_id, location_code) do
     with {:ok, parsed} <- LocationParser.parse(location_code),
-         {:ok, validation} <- LocationParser.validate(parsed) do
+         {:ok, validation} <- LocationParser.validate(inventory_id, parsed) do
       case validation.status do
         :needs_creation ->
-          create_hierarchy(parsed, validation.missing)
+          create_hierarchy(inventory_id, parsed, validation.missing)
 
         :exists_empty ->
           {:ok, validation.location}
@@ -277,21 +362,21 @@ defmodule InventoryLocator.Inventory do
           | {:error, :shelf_not_found, String.t()}
           | {:error, :bin_not_found, String.t(), String.t()}
 
-  @spec validate_location_code(String.t()) :: validate_location_result()
-  def validate_location_code(location_code) do
+  @spec validate_location_code(integer(), String.t()) :: validate_location_result()
+  def validate_location_code(inventory_id, location_code) do
     case LocationParser.parse(location_code) do
       {:error, :invalid_format} ->
         {:error, :invalid_format}
 
       {:ok, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}} ->
-        validate_location_hierarchy(shelf_code, bin_code, cell_code)
+        validate_location_hierarchy(inventory_id, shelf_code, bin_code, cell_code)
     end
   end
 
-  @spec validate_location_hierarchy(String.t(), String.t(), String.t()) ::
+  @spec validate_location_hierarchy(integer(), String.t(), String.t(), String.t()) ::
           validate_location_result()
-  defp validate_location_hierarchy(shelf_code, bin_code, cell_code) do
-    shelf = Repo.get_by(Shelf, code: shelf_code)
+  defp validate_location_hierarchy(inventory_id, shelf_code, bin_code, cell_code) do
+    shelf = Repo.get_by(Shelf, code: shelf_code, inventory_id: inventory_id)
 
     if is_nil(shelf) do
       {:error, :shelf_not_found, shelf_code}
@@ -337,24 +422,24 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec create_hierarchy(LocationParser.parsed(), [LocationParser.Missing.t()]) ::
+  @spec create_hierarchy(integer(), LocationParser.parsed(), [LocationParser.Missing.t()]) ::
           {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
-  defp create_hierarchy(%{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}, missing) do
+  defp create_hierarchy(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}, missing) do
     Repo.transaction(fn ->
-      shelf = ensure_shelf(shelf_code, missing)
+      shelf = ensure_shelf(inventory_id, shelf_code, missing)
       bin = ensure_bin(bin_code, shelf, missing)
       cell = ensure_cell_with_backfill(cell_code, bin, missing)
       ensure_location(shelf_code, bin_code, cell_code, cell, missing)
     end)
   end
 
-  @spec ensure_shelf(String.t(), [LocationParser.Missing.t()]) :: Shelf.t()
-  defp ensure_shelf(shelf_code, missing) do
+  @spec ensure_shelf(integer(), String.t(), [LocationParser.Missing.t()]) :: Shelf.t()
+  defp ensure_shelf(inventory_id, shelf_code, missing) do
     if :shelf in missing do
-      {:ok, shelf} = create_shelf(%{code: shelf_code})
+      {:ok, shelf} = create_shelf(inventory_id, %{code: shelf_code})
       shelf
     else
-      Repo.get_by!(Shelf, code: shelf_code)
+      Repo.get_by!(Shelf, code: shelf_code, inventory_id: inventory_id)
     end
   end
 
@@ -398,13 +483,14 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec list_shelves_with_hierarchy() :: [Shelf.t()]
-  def list_shelves_with_hierarchy do
+  @spec list_shelves_with_hierarchy(integer()) :: [Shelf.t()]
+  def list_shelves_with_hierarchy(inventory_id) do
     bins_query = from(b in Bin, order_by: b.code)
     cells_query = from(c in Cell, order_by: [desc: c.code])
 
     shelves_query =
       from(s in Shelf,
+        where: s.inventory_id == ^inventory_id,
         order_by: [
           asc: fragment("length(?) - length(replace(?, '_', ''))", s.code, s.code),
           asc: s.code
@@ -486,18 +572,25 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec count_locations_by_occupancy() :: %{occupied: integer(), empty: integer()}
-  def count_locations_by_occupancy do
+  @spec count_locations_by_occupancy(integer()) :: %{occupied: integer(), empty: integer()}
+  def count_locations_by_occupancy(inventory_id) do
     Repo.one(
       from(l in Location,
+        join: c in Cell,
+        on: l.cell_id == c.id,
+        join: b in Bin,
+        on: c.bin_id == b.id,
+        join: s in Shelf,
+        on: b.shelf_id == s.id,
         left_join: i in assoc(l, :item_types),
+        where: s.inventory_id == ^inventory_id,
         where: is_nil(i.archived) or i.archived == false,
         select: %{
           occupied: fragment("COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", i.id, l.id),
           empty: fragment("COUNT(DISTINCT ?) - COUNT(DISTINCT CASE WHEN ? IS NOT NULL THEN ? END)", l.id, i.id, l.id)
         }
       )
-    )
+    ) || %{occupied: 0, empty: 0}
   end
 
   # ItemTypes
@@ -527,9 +620,10 @@ defmodule InventoryLocator.Inventory do
     |> Repo.update()
   end
 
-  @spec list_incomplete_items([atom()]) :: [ItemType.t()]
-  def list_incomplete_items(missing_fields) when is_list(missing_fields) do
+  @spec list_incomplete_items(integer(), [atom()]) :: [ItemType.t()]
+  def list_incomplete_items(inventory_id, missing_fields) when is_list(missing_fields) do
     ItemType
+    |> where([i], i.inventory_id == ^inventory_id)
     |> filter_by_archived(false)
     |> filter_by_missing_fields(missing_fields)
     |> order_by([i], asc: i.name)
@@ -537,14 +631,15 @@ defmodule InventoryLocator.Inventory do
     |> Repo.preload(location: [cell: [bin: :shelf]])
   end
 
-  @spec get_next_incomplete_item(integer(), [atom()]) :: ItemType.t() | nil
-  def get_next_incomplete_item(current_id, missing_fields) when is_list(missing_fields) do
+  @spec get_next_incomplete_item(integer(), integer(), [atom()]) :: ItemType.t() | nil
+  def get_next_incomplete_item(inventory_id, current_id, missing_fields) when is_list(missing_fields) do
     current_item = Repo.get(ItemType, current_id)
 
     if is_nil(current_item) do
       nil
     else
       ItemType
+      |> where([i], i.inventory_id == ^inventory_id)
       |> filter_by_archived(false)
       |> filter_by_missing_fields(missing_fields)
       |> where([i], i.name > ^current_item.name or (i.name == ^current_item.name and i.id > ^current_id))
@@ -582,16 +677,17 @@ defmodule InventoryLocator.Inventory do
     |> Repo.update()
   end
 
-  @spec create_item_with_location(String.t(), String.t(), integer(), String.t()) ::
+  @spec create_item_with_location(integer(), String.t(), String.t(), integer(), String.t()) ::
           {:ok, ItemType.t()} | {:error, :invalid_format | Ecto.Changeset.t()}
-  def create_item_with_location(location_code, name, quantity, description) do
-    case ensure_location_with_code(location_code) do
+  def create_item_with_location(inventory_id, location_code, name, quantity, description) do
+    case ensure_location_with_code(inventory_id, location_code) do
       {:ok, location} ->
         create_item_type(%{
           name: name,
           quantity: quantity,
           description: description,
           archived: false,
+          inventory_id: inventory_id,
           location_id: location.id
         })
 
@@ -601,6 +697,7 @@ defmodule InventoryLocator.Inventory do
           quantity: quantity,
           description: description,
           archived: false,
+          inventory_id: inventory_id,
           location_id: location.id
         })
 
@@ -609,16 +706,16 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec create_item_with_location!(String.t(), String.t(), integer(), String.t()) :: ItemType.t()
-  def create_item_with_location!(location_code, name, quantity, description) do
-    case create_item_with_location(location_code, name, quantity, description) do
+  @spec create_item_with_location!(integer(), String.t(), String.t(), integer(), String.t()) :: ItemType.t()
+  def create_item_with_location!(inventory_id, location_code, name, quantity, description) do
+    case create_item_with_location(inventory_id, location_code, name, quantity, description) do
       {:ok, item_type} -> item_type
       {:error, reason} -> raise "Could not create item with location: #{inspect(reason)}"
     end
   end
 
-  @spec search_items(String.t(), keyword()) :: [ItemType.t()]
-  def search_items(query, opts) do
+  @spec search_items(integer(), String.t(), keyword()) :: [ItemType.t()]
+  def search_items(inventory_id, query, opts) do
     show_archived =
       if Keyword.has_key?(opts, :show_archived) do
         Keyword.fetch!(opts, :show_archived)
@@ -637,6 +734,7 @@ defmodule InventoryLocator.Inventory do
       []
     else
       ItemType
+      |> where([i], i.inventory_id == ^inventory_id)
       |> filter_by_archived(show_archived)
       |> filter_by_missing_fields(filters)
       |> search_by_name(query)
@@ -646,13 +744,14 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec list_all_items(keyword()) :: [ItemType.t()]
-  def list_all_items(opts) do
+  @spec list_all_items(integer(), keyword()) :: [ItemType.t()]
+  def list_all_items(inventory_id, opts) do
     show_archived = Keyword.get(opts, :show_archived, false)
     sort_by = Keyword.get(opts, :sort_by, :name)
     sort_order = Keyword.get(opts, :sort_order, :asc)
 
     ItemType
+    |> where([i], i.inventory_id == ^inventory_id)
     |> filter_by_archived(show_archived)
     |> apply_sort(sort_by, sort_order)
     |> Repo.all()
@@ -729,29 +828,33 @@ defmodule InventoryLocator.Inventory do
   @spec list_installations_for_item(ItemType.t()) :: [ItemInstallation.t()]
   def list_installations_for_item(%ItemType{} = item) do
     Repo.all(
-      from(i in ItemInstallation,
-        where: i.item_type_id == ^item.id,
-        order_by: i.project_name
+      from(inst in ItemInstallation,
+        where: inst.item_type_id == ^item.id,
+        order_by: inst.project_name
       )
     )
   end
 
-  @spec list_project_names() :: [String.t()]
-  def list_project_names do
+  @spec list_project_names(integer()) :: [String.t()]
+  def list_project_names(inventory_id) do
     Repo.all(
-      from(i in ItemInstallation,
-        distinct: i.project_name,
-        select: i.project_name,
-        order_by: i.project_name
+      from(inst in ItemInstallation,
+        join: i in ItemType,
+        on: inst.item_type_id == i.id,
+        where: i.inventory_id == ^inventory_id,
+        distinct: inst.project_name,
+        select: inst.project_name,
+        order_by: inst.project_name
       )
     )
   end
 
-  @spec list_items_in_project(String.t()) :: [{ItemInstallation.t(), ItemType.t()}]
-  def list_items_in_project(project_name) do
-    from(i in ItemInstallation,
-      join: item in assoc(i, :item_type),
-      where: i.project_name == ^String.upcase(project_name),
+  @spec list_items_in_project(integer(), String.t()) :: [{ItemInstallation.t(), ItemType.t()}]
+  def list_items_in_project(inventory_id, project_name) do
+    from(inst in ItemInstallation,
+      join: item in assoc(inst, :item_type),
+      where: item.inventory_id == ^inventory_id,
+      where: inst.project_name == ^String.upcase(project_name),
       preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
       order_by: item.name
     )
@@ -852,23 +955,25 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec project_has_archived_items?(String.t()) :: boolean()
-  def project_has_archived_items?(project_name) do
+  @spec project_has_archived_items?(integer(), String.t()) :: boolean()
+  def project_has_archived_items?(inventory_id, project_name) do
     Repo.exists?(
-      from(i in ItemInstallation,
-        join: item in assoc(i, :item_type),
-        where: i.project_name == ^String.upcase(project_name),
+      from(inst in ItemInstallation,
+        join: item in assoc(inst, :item_type),
+        where: item.inventory_id == ^inventory_id,
+        where: inst.project_name == ^String.upcase(project_name),
         where: item.archived == true
       )
     )
   end
 
-  @spec list_archived_items_in_project(String.t()) :: [ItemInstallation.t()]
-  def list_archived_items_in_project(project_name) do
+  @spec list_archived_items_in_project(integer(), String.t()) :: [ItemInstallation.t()]
+  def list_archived_items_in_project(inventory_id, project_name) do
     Repo.all(
-      from(i in ItemInstallation,
-        join: item in assoc(i, :item_type),
-        where: i.project_name == ^String.upcase(project_name),
+      from(inst in ItemInstallation,
+        join: item in assoc(inst, :item_type),
+        where: item.inventory_id == ^inventory_id,
+        where: inst.project_name == ^String.upcase(project_name),
         where: item.archived == true,
         preload: [item_type: item],
         order_by: item.name
@@ -876,16 +981,18 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec uninstall_all_from_project(String.t()) ::
+  @spec uninstall_all_from_project(integer(), String.t()) ::
           {:ok, non_neg_integer()} | {:error, :has_archived_items | term()}
-  def uninstall_all_from_project(project_name) do
-    if project_has_archived_items?(project_name) do
+  def uninstall_all_from_project(inventory_id, project_name) do
+    if project_has_archived_items?(inventory_id, project_name) do
       {:error, :has_archived_items}
     else
       installations =
         Repo.all(
-          from(i in ItemInstallation,
-            where: i.project_name == ^String.upcase(project_name),
+          from(inst in ItemInstallation,
+            join: item in assoc(inst, :item_type),
+            where: item.inventory_id == ^inventory_id,
+            where: inst.project_name == ^String.upcase(project_name),
             preload: :item_type
           )
         )
@@ -901,12 +1008,13 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec list_all_projects_with_items() :: [{String.t(), [ItemInstallation.t()]}]
-  def list_all_projects_with_items do
-    from(i in ItemInstallation,
-      join: item in assoc(i, :item_type),
+  @spec list_all_projects_with_items(integer()) :: [{String.t(), [ItemInstallation.t()]}]
+  def list_all_projects_with_items(inventory_id) do
+    from(inst in ItemInstallation,
+      join: item in assoc(inst, :item_type),
+      where: item.inventory_id == ^inventory_id,
       preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
-      order_by: [i.project_name, item.name]
+      order_by: [inst.project_name, item.name]
     )
     |> Repo.all()
     |> Enum.group_by(& &1.project_name)

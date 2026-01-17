@@ -9,10 +9,12 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
+    inventory_id = socket.assigns.current_inventory.id
+
     socket =
       socket
       |> assign(:page_title, "Add Item")
-      |> assign(:location_codes, Inventory.list_location_codes())
+      |> assign(:location_codes, Inventory.list_location_codes(inventory_id))
       |> assign(:saved_items, [])
       |> assign(:form, to_form(%{"name" => "", "location" => "", "quantity" => "1"}))
       |> assign(:show_optional, false)
@@ -25,7 +27,8 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("validate", %{"name" => name, "location" => location} = params, socket) do
-    co_location_warning = check_co_location(location)
+    inventory_id = socket.assigns.current_inventory.id
+    co_location_warning = check_co_location(inventory_id, location)
 
     form = to_form(params)
 
@@ -122,7 +125,9 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
         ) ::
           {:ok, map(), Socket.t()} | {:error, term(), Socket.t()}
   defp create_item(socket, name, location, quantity, description, manufacturer, model, photo_path) do
-    case Inventory.ensure_location_with_code(location) do
+    inventory_id = socket.assigns.current_inventory.id
+
+    case Inventory.ensure_location_with_code(inventory_id, location) do
       {:ok, loc} ->
         do_create(socket, name, quantity, description, manufacturer, model, photo_path, loc.id)
 
@@ -169,11 +174,11 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
     end
   end
 
-  @spec check_co_location(String.t()) :: String.t() | nil
-  defp check_co_location(location) when location == "", do: nil
+  @spec check_co_location(integer(), String.t()) :: String.t() | nil
+  defp check_co_location(_inventory_id, location) when location == "", do: nil
 
-  defp check_co_location(location) do
-    case Inventory.ensure_location_with_code(location) do
+  defp check_co_location(inventory_id, location) do
+    case Inventory.ensure_location_with_code(inventory_id, location) do
       {:ok, _location, count} when count > 0 ->
         "#{count} item(s) already at this location"
 

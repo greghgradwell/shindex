@@ -20,10 +20,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:ok, assign(socket, :pending_photo, nil)}
   end
 
-  def update(%{item_id: item_id} = assigns, socket) do
+  def update(%{item_id: item_id, current_inventory: current_inventory} = assigns, socket) do
+    inventory_id = current_inventory.id
     item = Inventory.get_item_type_with_location!(item_id)
-    location_codes = Inventory.list_location_codes()
-    project_names = Inventory.list_project_names()
+    location_codes = Inventory.list_location_codes(inventory_id)
+    project_names = Inventory.list_project_names(inventory_id)
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
 
@@ -178,8 +179,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   def handle_event("restore", %{"location_code" => location_code, "quantity" => qty_str}, socket) do
     item = socket.assigns.item
     quantity = String.to_integer(qty_str)
+    inventory_id = socket.assigns.current_inventory.id
 
-    case Inventory.validate_location_code(location_code) do
+    case Inventory.validate_location_code(inventory_id, location_code) do
       {:ok, :exists, location} ->
         do_restore(socket, item, location, quantity, location_code)
 
@@ -222,7 +224,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
        |> assign(:location_warning, nil)
        |> assign(:location_error, nil)}
     else
-      case Inventory.validate_location_code(code) do
+      inventory_id = socket.assigns.current_inventory.id
+
+      case Inventory.validate_location_code(inventory_id, code) do
         {:ok, :exists, _location} ->
           {:noreply,
            socket
@@ -364,7 +368,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
        |> assign(:move_location_warning, nil)
        |> assign(:move_location_error, nil)}
     else
-      case Inventory.validate_location_code(code) do
+      inventory_id = socket.assigns.current_inventory.id
+
+      case Inventory.validate_location_code(inventory_id, code) do
         {:ok, :exists, _location} ->
           {:noreply,
            socket
@@ -409,8 +415,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   def handle_event("move_to_location", %{"location_code" => location_code}, socket) do
     item = socket.assigns.item
+    inventory_id = socket.assigns.current_inventory.id
 
-    case Inventory.validate_location_code(location_code) do
+    case Inventory.validate_location_code(inventory_id, location_code) do
       {:ok, :exists, location} ->
         do_move(socket, item, location, location_code)
 
@@ -663,10 +670,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @spec refresh_item_data(Socket.t()) :: Socket.t()
   defp refresh_item_data(socket) do
+    inventory_id = socket.assigns.current_inventory.id
     item = Inventory.get_item_type_with_location!(socket.assigns.item.id)
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
-    project_names = Inventory.list_project_names()
+    project_names = Inventory.list_project_names(inventory_id)
 
     socket
     |> assign(:item, item)

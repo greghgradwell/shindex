@@ -9,7 +9,8 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
-    projects = Inventory.list_all_projects_with_items()
+    inventory_id = socket.assigns.current_inventory.id
+    projects = Inventory.list_all_projects_with_items(inventory_id)
 
     {:ok,
      socket
@@ -24,9 +25,11 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("dismantle_project", %{"project" => project_name}, socket) do
-    case Inventory.uninstall_all_from_project(project_name) do
+    inventory_id = socket.assigns.current_inventory.id
+
+    case Inventory.uninstall_all_from_project(inventory_id, project_name) do
       {:ok, count} ->
-        projects = Inventory.list_all_projects_with_items()
+        projects = Inventory.list_all_projects_with_items(inventory_id)
 
         message =
           if count > 0,
@@ -39,7 +42,7 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
          |> put_flash(:info, message)}
 
       {:error, :has_archived_items} ->
-        archived_items = Inventory.list_archived_items_in_project(project_name)
+        archived_items = Inventory.list_archived_items_in_project(inventory_id, project_name)
 
         {:noreply,
          socket
@@ -67,7 +70,8 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @impl true
   @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_info({:close_item_modal}, socket) do
-    projects = Inventory.list_all_projects_with_items()
+    inventory_id = socket.assigns.current_inventory.id
+    projects = Inventory.list_all_projects_with_items(inventory_id)
 
     {:noreply,
      socket
@@ -76,7 +80,8 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   end
 
   def handle_info({:item_deleted, item_name}, socket) do
-    projects = Inventory.list_all_projects_with_items()
+    inventory_id = socket.assigns.current_inventory.id
+    projects = Inventory.list_all_projects_with_items(inventory_id)
 
     {:noreply,
      socket

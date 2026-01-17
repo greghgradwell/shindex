@@ -8,6 +8,7 @@ defmodule InventoryLocatorWeb.Router do
     plug :put_root_layout, html: {InventoryLocatorWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug InventoryLocatorWeb.Plugs.LoadInventory
   end
 
   pipeline :api do
@@ -17,10 +18,15 @@ defmodule InventoryLocatorWeb.Router do
   scope "/", InventoryLocatorWeb do
     pipe_through :browser
 
-    live "/", ItemLive.Index
-    live "/locations", LocationLive.Index
-    live "/projects", ProjectLive.Index
-    live "/camera", CameraLive.Index
+    post "/switch_inventory", InventoryController, :switch
+
+    live_session :default, on_mount: [InventoryLocatorWeb.Hooks.InventoryHook] do
+      live "/", ItemLive.Index
+      live "/locations", LocationLive.Index
+      live "/projects", ProjectLive.Index
+      live "/camera", CameraLive.Index
+      live "/inventories", InventoryLive.Index
+    end
   end
 
   # Other scopes may use custom stacks.

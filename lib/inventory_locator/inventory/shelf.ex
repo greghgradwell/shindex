@@ -5,12 +5,14 @@ defmodule InventoryLocator.Inventory.Shelf do
   import Ecto.Changeset
 
   alias InventoryLocator.Inventory.Bin
+  alias InventoryLocator.Inventory.Inv
 
   typed_schema "shelves" do
     field :code, :string
     field :name, :string
     field :description, :string
 
+    belongs_to :inventory, Inv
     has_many :bins, Bin
 
     timestamps()
@@ -19,10 +21,11 @@ defmodule InventoryLocator.Inventory.Shelf do
   @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(shelf, attrs) do
     shelf
-    |> cast(attrs, [:code, :name, :description])
-    |> validate_required([:code])
+    |> cast(attrs, [:code, :name, :description, :inventory_id])
+    |> validate_required([:code, :inventory_id])
     |> validate_code()
-    |> unique_constraint(:code)
+    |> unique_constraint(:code, name: :shelves_inventory_id_code_index)
+    |> foreign_key_constraint(:inventory_id)
   end
 
   @max_code_length 50

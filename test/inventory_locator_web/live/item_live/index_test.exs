@@ -14,15 +14,15 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "placeholder=\"Search by name...\""
     end
 
-    test "shows empty state message initially", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test", 1, "Desc")
+    test "shows empty state message initially", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Test", 1, "Desc")
 
       {:ok, _index_live, html} = live(conn, ~p"/")
       assert html =~ "Start typing to search for items or select filters"
     end
 
-    test "searches items on input", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "M3 Screws", 10, "Desc")
+    test "searches items on input", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "M3 Screws", 10, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -35,8 +35,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "1 results"
     end
 
-    test "displays item details in search results", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "M3 Screws", 10, "Test desc")
+    test "displays item details in search results", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "M3 Screws", 10, "Test desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -50,8 +50,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "10 in stock"
     end
 
-    test "handles typos with fuzzy search", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Screws", 5, "Desc")
+    test "handles typos with fuzzy search", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Screws", 5, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -63,8 +63,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "Screws"
     end
 
-    test "shows placeholder icon for items without photos", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Test Item", 1, "Desc")
+    test "shows placeholder icon for items without photos", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Test Item", 1, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -76,8 +76,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "hero-photo"
     end
 
-    test "toggles archived items visibility", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Active Item", 10, "Desc")
+    test "toggles archived items visibility", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Active Item", 10, "Desc")
 
       {:ok, index_live, html} = live(conn, ~p"/")
 
@@ -91,8 +91,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "checked"
     end
 
-    test "filters by missing manufacturer", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
+    test "filters by missing manufacturer", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Item 1", 10, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -105,8 +105,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "1 results"
     end
 
-    test "filters by missing model", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
+    test "filters by missing model", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Item 1", 10, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -118,13 +118,13 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "Item 1"
     end
 
-    test "filters by missing description", %{conn: conn} do
-      {:ok, item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
+    test "filters by missing description", %{conn: conn, inventory: inventory} do
+      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Item 1", 10, "Desc")
       item = Repo.preload(item, :location)
       Inventory.delete_item_type(item)
 
       {:ok, _item2} =
-        Inventory.create_item_with_location(item.location.full_code, "Item 2", 5, nil)
+        Inventory.create_item_with_location(inventory.id, item.location.full_code, "Item 2", 5, nil)
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -137,9 +137,9 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "1 results"
     end
 
-    test "multiple filters can be active simultaneously", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Item 2", 20, "Desc")
+    test "multiple filters can be active simultaneously", %{conn: conn, inventory: inventory} do
+      {:ok, _item1} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Item 1", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location(inventory.id, "B-1-1", "Item 2", 20, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -158,9 +158,9 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       assert html =~ "2 results"
     end
 
-    test "combines search with filters", %{conn: conn} do
-      {:ok, _item1} = Inventory.create_item_with_location("A-1-1", "Screws", 10, "Desc")
-      {:ok, _item2} = Inventory.create_item_with_location("B-1-1", "Nails", 20, "Desc")
+    test "combines search with filters", %{conn: conn, inventory: inventory} do
+      {:ok, _item1} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Screws", 10, "Desc")
+      {:ok, _item2} = Inventory.create_item_with_location(inventory.id, "B-1-1", "Nails", 20, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 
@@ -178,8 +178,8 @@ defmodule InventoryLocatorWeb.ItemLive.IndexTest do
       refute html =~ "Nails"
     end
 
-    test "unchecking filter removes it", %{conn: conn} do
-      {:ok, _item} = Inventory.create_item_with_location("A-1-1", "Item 1", 10, "Desc")
+    test "unchecking filter removes it", %{conn: conn, inventory: inventory} do
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Item 1", 10, "Desc")
 
       {:ok, index_live, _html} = live(conn, ~p"/")
 

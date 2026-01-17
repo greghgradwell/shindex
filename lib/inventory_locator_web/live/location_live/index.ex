@@ -12,8 +12,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
-    shelves = Inventory.list_shelves_with_hierarchy()
-    stats = Inventory.count_locations_by_occupancy()
+    inventory_id = socket.assigns.current_inventory.id
+    shelves = Inventory.list_shelves_with_hierarchy(inventory_id)
+    stats = Inventory.count_locations_by_occupancy(inventory_id)
 
     {:ok,
      socket
@@ -33,10 +34,12 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   @spec handle_event(String.t(), map(), Socket.t()) ::
           {:noreply, Socket.t()}
   def handle_event("delete_location", %{"id" => id}, socket) when is_integer(id) do
+    inventory_id = socket.assigns.current_inventory.id
+
     case Inventory.delete_empty_location(id) do
       {:ok, _location} ->
-        shelves = Inventory.list_shelves_with_hierarchy()
-        stats = Inventory.count_locations_by_occupancy()
+        shelves = Inventory.list_shelves_with_hierarchy(inventory_id)
+        stats = Inventory.count_locations_by_occupancy(inventory_id)
 
         {:noreply,
          socket
@@ -104,8 +107,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   def handle_event("create_shelf", %{"code" => code, "bin_count" => bin_count_str}, socket) do
     bin_count = String.to_integer(bin_count_str)
     shelf_code = String.upcase(code)
+    inventory_id = socket.assigns.current_inventory.id
 
-    case Inventory.create_shelf_with_bins(%{code: shelf_code}, bin_count) do
+    case Inventory.create_shelf_with_bins(inventory_id, %{code: shelf_code}, bin_count) do
       {:ok, _shelf} ->
         {:noreply,
          socket
@@ -148,6 +152,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   def handle_event("rename_shelf", %{"new_code" => new_code}, socket) do
     shelf = socket.assigns.rename_shelf
     new_code = String.upcase(new_code)
+    inventory_id = socket.assigns.current_inventory.id
 
     if shelf.code == new_code do
       {:noreply,
@@ -155,7 +160,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
        |> assign(:show_rename_shelf_modal, false)
        |> assign(:rename_shelf, nil)}
     else
-      case Inventory.rename_shelf(shelf, new_code) do
+      case Inventory.rename_shelf(inventory_id, shelf, new_code) do
         {:ok, _shelf} ->
           {:noreply,
            socket
@@ -225,8 +230,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   @impl true
   @spec handle_info(term(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_info({:close_item_modal}, socket) do
-    shelves = Inventory.list_shelves_with_hierarchy()
-    stats = Inventory.count_locations_by_occupancy()
+    inventory_id = socket.assigns.current_inventory.id
+    shelves = Inventory.list_shelves_with_hierarchy(inventory_id)
+    stats = Inventory.count_locations_by_occupancy(inventory_id)
 
     {:noreply,
      socket
@@ -236,8 +242,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_info({:item_deleted, item_name}, socket) do
-    shelves = Inventory.list_shelves_with_hierarchy()
-    stats = Inventory.count_locations_by_occupancy()
+    inventory_id = socket.assigns.current_inventory.id
+    shelves = Inventory.list_shelves_with_hierarchy(inventory_id)
+    stats = Inventory.count_locations_by_occupancy(inventory_id)
 
     {:noreply,
      socket
@@ -267,8 +274,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
 
   @spec refresh_data(Socket.t()) :: Socket.t()
   defp refresh_data(socket) do
-    shelves = Inventory.list_shelves_with_hierarchy()
-    stats = Inventory.count_locations_by_occupancy()
+    inventory_id = socket.assigns.current_inventory.id
+    shelves = Inventory.list_shelves_with_hierarchy(inventory_id)
+    stats = Inventory.count_locations_by_occupancy(inventory_id)
 
     socket
     |> assign(:shelves, shelves)

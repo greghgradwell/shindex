@@ -55,9 +55,9 @@ defmodule InventoryLocator.Inventory.LocationParser do
     LocationCode.parse(location_code)
   end
 
-  @spec validate(parsed()) :: {:ok, validation_result()}
-  def validate(%{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}) do
-    entities = fetch_hierarchy(shelf_code, bin_code, cell_code)
+  @spec validate(integer(), parsed()) :: {:ok, validation_result()}
+  def validate(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}) do
+    entities = fetch_hierarchy(inventory_id, shelf_code, bin_code, cell_code)
     missing = find_missing_from_hierarchy(entities)
 
     if Enum.empty?(missing) do
@@ -67,11 +67,11 @@ defmodule InventoryLocator.Inventory.LocationParser do
     end
   end
 
-  @spec parse_and_validate(String.t()) ::
+  @spec parse_and_validate(integer(), String.t()) ::
           {:ok, parse_and_validate_result()} | {:error, :invalid_format}
-  def parse_and_validate(location_code) do
+  def parse_and_validate(inventory_id, location_code) do
     with {:ok, parsed} <- parse(location_code),
-         {:ok, validation} <- validate(parsed) do
+         {:ok, validation} <- validate(inventory_id, parsed) do
       {:ok, Map.merge(parsed, validation)}
     end
   end
@@ -85,9 +85,9 @@ defmodule InventoryLocator.Inventory.LocationParser do
 
   # Sequential queries with early termination (stops at first nil)
   # Future optimization: Single join query if performance becomes critical
-  @spec fetch_hierarchy(String.t(), String.t(), String.t()) :: hierarchy()
-  defp fetch_hierarchy(shelf_code, bin_code, cell_code) do
-    shelf = Repo.get_by(Shelf, code: shelf_code)
+  @spec fetch_hierarchy(integer(), String.t(), String.t(), String.t()) :: hierarchy()
+  defp fetch_hierarchy(inventory_id, shelf_code, bin_code, cell_code) do
+    shelf = Repo.get_by(Shelf, code: shelf_code, inventory_id: inventory_id)
     bin = fetch_bin(bin_code, shelf)
     cell = fetch_cell(cell_code, bin)
     location = fetch_location(cell)

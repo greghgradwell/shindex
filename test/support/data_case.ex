@@ -57,4 +57,14 @@ defmodule InventoryLocator.DataCase do
       end)
     end)
   end
+
+  @spec create_test_inventory(map()) :: InventoryLocator.Inventory.Inv.t()
+  def create_test_inventory(attrs \\ %{}) do
+    {:ok, inv} =
+      InventoryLocator.Inventory.create_inventory(
+        Map.merge(%{name: "Test Inventory #{System.unique_integer([:positive])}"}, attrs)
+      )
+
+    inv
+  end
 end

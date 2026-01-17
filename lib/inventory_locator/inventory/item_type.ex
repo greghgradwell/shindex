@@ -4,6 +4,7 @@ defmodule InventoryLocator.Inventory.ItemType do
 
   import Ecto.Changeset
 
+  alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
 
@@ -16,6 +17,7 @@ defmodule InventoryLocator.Inventory.ItemType do
     field :photo_path, :string
     field :archived, :boolean
 
+    belongs_to :inventory, Inv
     belongs_to :location, Location
     has_many :installations, ItemInstallation
 
@@ -33,12 +35,14 @@ defmodule InventoryLocator.Inventory.ItemType do
       :quantity,
       :photo_path,
       :location_id,
+      :inventory_id,
       :archived
     ])
-    |> validate_required([:name, :quantity, :archived])
+    |> validate_required([:name, :quantity, :archived, :inventory_id])
     |> validate_number(:quantity, greater_than_or_equal_to: 0)
     |> validate_location_when_active()
     |> foreign_key_constraint(:location_id)
+    |> foreign_key_constraint(:inventory_id)
   end
 
   @spec validate_location_when_active(Ecto.Changeset.t()) :: Ecto.Changeset.t()

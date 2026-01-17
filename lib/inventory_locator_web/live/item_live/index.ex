@@ -150,7 +150,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       |> assign(:show_ai_modal, false)
       |> assign(:ai_loading, true)
 
-    all_items = Inventory.list_all_items(show_archived: socket.assigns.show_archived)
+    all_items = Inventory.list_all_items(socket.assigns.current_inventory.id, show_archived: socket.assigns.show_archived)
     send(self(), {:perform_ai_search, socket.assigns.query, all_items})
 
     {:noreply, socket}
@@ -296,6 +296,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   defp perform_search(socket) do
     results =
       Inventory.search_items(
+        socket.assigns.current_inventory.id,
         socket.assigns.query,
         show_archived: socket.assigns.show_archived,
         filters: socket.assigns.active_filters
@@ -317,6 +318,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   defp load_all_items(socket) do
     items =
       Inventory.list_all_items(
+        socket.assigns.current_inventory.id,
         show_archived: socket.assigns.show_archived,
         sort_by: socket.assigns.sort_by,
         sort_order: socket.assigns.sort_order

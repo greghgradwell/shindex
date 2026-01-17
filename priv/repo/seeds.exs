@@ -5,15 +5,24 @@ require Logger
 
 Logger.info("🌱 Seeding database...")
 
+Repo.delete_all(InventoryLocator.Inventory.Installation)
 Repo.delete_all(InventoryLocator.Inventory.ItemType)
 Repo.delete_all(InventoryLocator.Inventory.Location)
 Repo.delete_all(InventoryLocator.Inventory.Cell)
 Repo.delete_all(InventoryLocator.Inventory.Bin)
 Repo.delete_all(InventoryLocator.Inventory.Shelf)
+Repo.delete_all(InventoryLocator.Inventory.Inv)
 
-Logger.info("Creating items with locations...")
+Logger.info("Creating inventories...")
+
+{:ok, test_inv} = Inventory.create_inventory(%{name: "Test", description: "Test/development inventory"})
+{:ok, _workshop_inv} = Inventory.create_inventory(%{name: "Workshop", description: "Main workshop inventory"})
+{:ok, _kitchen_inv} = Inventory.create_inventory(%{name: "Kitchen", description: "Kitchen supplies inventory"})
+
+Logger.info("Creating items with locations in Test inventory...")
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-1-1",
   "M3 Screws",
   150,
@@ -21,6 +30,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-1-2",
   "M4 Screws",
   200,
@@ -28,6 +38,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-1-3",
   "M5 Screws",
   100,
@@ -35,6 +46,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-1-4",
   "Wood Screws",
   75,
@@ -42,6 +54,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-2-1",
   "Wire Nuts",
   50,
@@ -49,6 +62,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-2-2",
   "Electrical Tape",
   12,
@@ -56,6 +70,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-2-3",
   "Heat Shrink Tubing",
   30,
@@ -63,6 +78,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-3-1",
   "Zip Ties",
   200,
@@ -70,6 +86,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "A-3-2",
   "Cable Clamps",
   45,
@@ -77,6 +94,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "B-1-1",
   "AA Batteries",
   24,
@@ -84,6 +102,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "B-1-2",
   "AAA Batteries",
   16,
@@ -91,6 +110,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "B-1-3",
   "9V Batteries",
   8,
@@ -98,6 +118,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "B-2-1",
   "LED Bulbs",
   15,
@@ -105,6 +126,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "B-2-2",
   "LED Strip Lights",
   3,
@@ -112,6 +134,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "C-1-1",
   "Sandpaper Assortment",
   40,
@@ -119,6 +142,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "C-1-2",
   "Steel Wool",
   15,
@@ -126,6 +150,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "C-2-1",
   "Wood Glue",
   3,
@@ -133,6 +158,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "C-2-2",
   "Super Glue",
   10,
@@ -140,6 +166,7 @@ Inventory.create_item_with_location!(
 )
 
 Inventory.create_item_with_location!(
+  test_inv.id,
   "C-2-3",
   "Epoxy",
   5,

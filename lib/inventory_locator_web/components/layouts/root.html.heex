@@ -32,7 +32,7 @@
   </head>
   <body class="bg-base-100">
     <nav class="navbar bg-base-200 border-b border-base-300 px-4">
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-1">
         <!-- Always visible -->
         <.link navigate={~p"/"} class="btn btn-ghost btn-sm md:btn-md">Search</.link>
         <.link navigate={~p"/?view=table"} class="btn btn-ghost btn-sm md:btn-md">Browse</.link>
@@ -42,6 +42,22 @@
           Locations
         </.link>
         <.link navigate={~p"/projects"} class="btn btn-ghost btn-sm md:btn-md">Projects</.link>
+      </div>
+      <div class="flex-none">
+        <form action={~p"/switch_inventory"} method="post">
+          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+          <select
+            name="inventory_id"
+            class="select select-bordered select-sm"
+            onchange="this.form.submit()"
+          >
+            <%= for inv <- @inventories do %>
+              <option value={inv.id} selected={inv.id == @current_inventory.id}>
+                {inv.name}
+              </option>
+            <% end %>
+          </select>
+        </form>
       </div>
     </nav>
     <main class="container mx-auto px-4 py-8">
