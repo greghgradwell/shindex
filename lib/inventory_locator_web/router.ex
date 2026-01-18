@@ -19,6 +19,7 @@ defmodule InventoryLocatorWeb.Router do
     pipe_through :browser
 
     post "/switch_inventory", InventoryController, :switch
+    post "/admin/toggle", AdminController, :toggle
 
     live_session :default, on_mount: [InventoryLocatorWeb.Hooks.InventoryHook] do
       live "/", ItemLive.Index
@@ -26,6 +27,7 @@ defmodule InventoryLocatorWeb.Router do
       live "/projects", ProjectLive.Index
       live "/camera", CameraLive.Index
       live "/inventories", InventoryLive.Index
+      live "/backups", BackupLive.Index
     end
   end
 

@@ -25,6 +25,11 @@ config :inventory_locator, InventoryLocatorWeb.Endpoint, http: [port: String.to_
 # Gemini API for AI-powered search
 config :inventory_locator, gemini_api_key: System.get_env("GEMINI_API_KEY")
 
+# Local backup storage path (optional - defaults to priv/backups)
+if backup_path = System.get_env("BACKUP_PATH") do
+  config :inventory_locator, InventoryLocator.Backup.LocalStorage, path: backup_path
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

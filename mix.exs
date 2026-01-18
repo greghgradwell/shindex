@@ -80,6 +80,9 @@ defmodule InventoryLocator.MixProject do
       # Image processing (server-side photo downsampling)
       {:image, "~> 0.62"},
 
+      # Backup scheduling
+      {:quantum, "~> 3.5"},
+
       # Development tools
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

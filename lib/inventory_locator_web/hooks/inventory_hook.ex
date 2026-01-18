@@ -9,6 +9,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
   def on_mount(:default, _params, session, socket) do
     inventory_id = session["inventory_id"]
+    admin_mode = session["admin_mode"] || false
     inventories = Inventory.list_inventories()
 
     inventory = find_inventory(inventory_id, inventories)
@@ -17,6 +18,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
       socket
       |> assign(:current_inventory, inventory)
       |> assign(:inventories, inventories)
+      |> assign(:admin_mode, admin_mode)
       |> attach_hook(:inventory_refresh, :handle_info, &handle_inventory_refresh/2)
 
     {:cont, socket}

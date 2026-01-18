@@ -22,11 +22,13 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
 
       _ ->
         inventory = find_inventory(inventory_id, inventories)
+        admin_mode = get_session(conn, :admin_mode) || false
 
         conn
         |> put_session(:inventory_id, inventory.id)
         |> assign(:current_inventory, inventory)
         |> assign(:inventories, inventories)
+        |> assign(:admin_mode, admin_mode)
     end
   end
 
