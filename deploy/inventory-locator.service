@@ -1,0 +1,19 @@
+[Unit]
+Description=Inventory Locator Service
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/inventory-locator-service
+ExecStart=/home/pi/inventory-locator-service/bin/server
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

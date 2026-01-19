@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.." || exit 1
+
+if [[ ! -f .envrc ]]; then
+  echo "ERROR: .envrc not found. Copy .envrc.example and configure it." >&2
+  exit 1
+fi
+
+required_vars=(DB_USERNAME DB_PASSWORD DB_HOST DB_NAME SECRET_KEY_BASE)
+
+for var in "${required_vars[@]}"; do
+  unset "$var"
+done
+
+source .envrc
+
+for var in "${required_vars[@]}"; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "ERROR: Required variable $var is not set in .envrc" >&2
+    exit 1
+  fi
+done
+
+exec mix phx.server
