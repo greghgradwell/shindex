@@ -10,14 +10,16 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1 | ✅ Complete | Foundation - schema, context, parser |
-| 2 | ✅ Complete | Basic UI - locations, search, items, camera |
+| 1 | ✅ Complete | Foundation - schema, context, parser, tooling |
+| 2 | ✅ Complete | Basic UI - locations, search, items, camera, shelves |
 | 3.1 | ✅ Complete | Text search (done in Phase 2.2) |
 | 3.2 | Pending | Duplicate detection |
 | 4 | ✅ Complete | AI search (Gemini API) |
 | 4.5 | ✅ Complete | Projects feature |
+| 4.7 | ✅ Complete | Multi-inventory support |
+| 4.8 | ✅ Complete | Backup system |
 | 5 | Pending | Multi-device photo sync (PubSub) |
-| 6 | Pending | Polish and scale |
+| 6 | Partial | Polish and scale |
 | 7 | Pending | Full catalogue (1000+ items) |
 
 ## Phase 1: Foundation
@@ -61,6 +63,12 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Return status: :exists_empty, :exists_occupied, :needs_creation
 - [x] Write tests for parsing edge cases
 
+### 1.5 Code Quality Tooling ✅ COMPLETE
+- [x] Add Dialyzer for static type analysis
+- [x] Add Credo for code linting and consistency
+- [x] Add Styler for automatic code formatting
+- [x] Configure PLT caching for faster Dialyzer runs
+
 **Go/No-Go:** Can create locations and items via IEx console. Location parser handles "a-3-0" correctly.
 
 ## Phase 2: Basic UI
@@ -73,7 +81,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
   - When archiving: location_id → NULL (frees location for reuse)
   - When restoring: user must assign new location before saving
 
-**Phase 2 Complete.** See `docs/PHASE_2_PLAN.md` for historical reference.
+**Phase 2 Complete.**
 
 ### 2.0 Schema: Archive Support
 - [x] Add `archived` boolean field to item_types (indexed)
@@ -159,6 +167,18 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 - [x] Add inline error display (fixed LiveComponent flash issue)
 - [x] Add 22 SSRF protection tests
 
+### 2.8 Shelf Management ✅ COMPLETE
+Transform location system from auto-create to explicit management.
+
+- [x] Add shelf CRUD: create with bins, rename with cascading updates, delete empty
+- [x] Add bin/cell creation buttons with sequential numbering
+- [x] Add location validation requiring existing shelf+bin before item placement
+- [x] Add cell creation confirmation modal for new cells during move/restore
+- [x] Add "Show cells" toggle with localStorage persistence
+- [x] Sort shelves by underscore count (tier-based grouping)
+- [x] Allow numbers in shelf codes (e.g., SHELF_2)
+- [x] Security: Fix malformed nested HTML links, localStorage key whitelist
+
 **Go/No-Go:** ✅ Phone workflow sub-30s, batch completion efficient, search ordering correct, photos ~300KB. (Milestone A)
 
 ## Phase 3: Search
@@ -215,6 +235,68 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 
 **Go/No-Go:** ✅ Items track across projects.
 
+## Phase 4.7: Multi-Inventory Support ✅ COMPLETE
+
+Manage multiple inventories (e.g., workshop vs. household) with full CRUD operations.
+
+### 4.7.1 Schema
+- [x] Create Inv schema and inventories table
+- [x] Add inventory_id foreign keys to shelves and item_types
+- [x] Configure cascade delete for inventory removal
+
+### 4.7.2 Context Functions
+- [x] list_inventories_with_counts/0 (shelf and item counts)
+- [x] create_inventory/1, update_inventory/2, delete_inventory/1
+- [x] Prevent deletion of last inventory
+
+### 4.7.3 Infrastructure
+- [x] LoadInventory plug for session-based inventory selection
+- [x] InventoryHook for LiveView inventory context
+- [x] Resilient to stale session IDs (graceful fallback)
+- [x] Transaction-wrapped delete to prevent TOCTOU race conditions
+
+### 4.7.4 UI
+- [x] InventoryLive.Index page at `/inventories` with table view
+- [x] Create/edit/delete modals with typed confirmation for delete
+- [x] Current inventory badge in navigation
+- [x] Security: validated redirects, safe integer parsing
+
+**Go/No-Go:** ✅ Multiple inventories work. 14 new tests passing.
+
+## Phase 4.8: Backup System ✅ COMPLETE
+
+Automated database and photo backups with full management UI.
+
+### 4.8.1 Storage
+- [x] Local file storage in `priv/backups/` (Syncthing-friendly)
+- [x] Path traversal protection with safe_path/1 validation
+- [x] Backup manifest with metadata (type, created_at, sizes)
+
+### 4.8.2 Backup Operations
+- [x] Database backup via pg_dump (gzipped SQL)
+- [x] Photo backup (tar.gz of uploads directory)
+- [x] Combined backup with both database and photos
+- [x] Safe command execution (no shell injection)
+
+### 4.8.3 Restore Operations
+- [x] Full restore capability including database and photos
+- [x] Pre-restore safety backup created automatically
+- [x] Maintenance mode overlay during restore operations
+- [x] Application restart after database restore
+
+### 4.8.4 Scheduling
+- [x] Quantum-scheduled daily and weekly backups
+- [x] Configurable retention periods (daily: 7, weekly: 4)
+- [x] Automatic cleanup of old backups
+
+### 4.8.5 UI
+- [x] BackupLive.Index page at `/admin/backups`
+- [x] Admin toggle for accessing backup management
+- [x] Create/restore/delete operations with confirmation modals
+- [x] Backup list with size and date information
+
+**Go/No-Go:** ✅ Backups work. Full restore tested. Security reviewed.
+
 ## Phase 5: Multi-Device Photo Capture
 
 ### 5.1 Camera LiveView
@@ -248,7 +330,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 ### 6.3 Reliability
 - [ ] Error handling for AI service failures
 - [ ] Photo upload retry logic
-- [ ] Database backup strategy
+- [x] Database backup strategy (implemented in Phase 4.8)
 
 **Go/No-Go:** System performs well with 100+ items. Ready for full catalogue.
 
