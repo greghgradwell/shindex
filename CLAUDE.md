@@ -13,9 +13,9 @@ A personal inventory system for tracking workshop and household items with preci
 **Target:** Catalog 1000+ workshop items with sub-30-second add-item workflow.
 
 **Tech Stack:**
-- Phoenix 1.8.3 with LiveView for real-time UI
-- PostgreSQL 14 with full-text search and pg_trgm for fuzzy matching
-- Elixir 1.19.4 on Erlang/OTP 28.3
+- Phoenix with LiveView for real-time UI
+- PostgreSQL with full-text search and pg_trgm for fuzzy matching
+- Elixir on Erlang/OTP (see README.md for exact versions)
 - Python FastAPI service (future) for AI-powered search via LangChain + VertexAI
 
 **Key Design Decisions:**

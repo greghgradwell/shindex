@@ -22,6 +22,14 @@ Use this checklist to track progress. Each step has detailed instructions below.
 
 ---
 
+## Software Versions
+
+**Check [README.md](../README.md) for required Erlang and Elixir versions.** The project includes a `.tool-versions` file for asdf users—after installing the asdf plugins, you can run `asdf install` to get the correct versions automatically.
+
+This guide uses `<erlang-version>` and `<elixir-version>` placeholders—substitute the actual versions from README or `.tool-versions`.
+
+---
+
 ## Hardware Requirements
 
 | Component | Minimum | Recommended | Notes |
@@ -33,7 +41,7 @@ Use this checklist to track progress. Each step has detailed instructions below.
 
 **Why these requirements:**
 - **2GB RAM works**: Single user, database mostly cached in RAM, image processing is sequential
-- **ARM64**: Erlang/OTP 26+ with JIT compiler provides 2-3x performance boost over ARM32
+- **ARM64**: Modern Erlang/OTP with JIT compiler provides 2-3x performance boost over ARM32
 - **microSD is fine**: With ~1000 items and one user, I/O is not a bottleneck; use quality card for longevity
 - **No SSD needed**: PostgreSQL queries return in <50ms on microSD, imperceptible for single user
 
@@ -192,16 +200,16 @@ screen -S erlang-build
 **Install Erlang dependencies and compile:**
 ```bash
 KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac" \
-  asdf install erlang 27.2
+  asdf install erlang <erlang-version>
 ```
 
 **Verify:**
 ```bash
-asdf global erlang 27.2
+asdf global erlang <erlang-version>
 erl -version
 ```
 
-**Expected:** `Erlang (SMP,ASYNC_THREADS) (BEAM) emulator version 14.x`
+**Expected:** Erlang version output (BEAM emulator)
 
 **If it fails:**
 - "OpenSSL not found" → Run `sudo apt install -y libssl-dev`
@@ -214,8 +222,8 @@ erl -version
 
 **Command:**
 ```bash
-asdf install elixir 1.17.3-otp-27
-asdf global elixir 1.17.3-otp-27
+asdf install elixir <elixir-version>
+asdf global elixir <elixir-version>
 ```
 
 **Verify:**
@@ -223,11 +231,7 @@ asdf global elixir 1.17.3-otp-27
 elixir --version
 ```
 
-**Expected:**
-```
-Erlang/OTP 27 [erts-14.x.x] ...
-Elixir 1.17.3 (compiled with Erlang/OTP 27)
-```
+**Expected:** Elixir version output showing both Elixir and Erlang/OTP versions
 
 **Install Hex and rebar:**
 ```bash
@@ -535,9 +539,9 @@ sudo apt install -y libssl-dev
 # Missing ncurses
 sudo apt install -y libncurses5-dev
 
-# Clean and retry
-rm -rf ~/.asdf/installs/erlang/27.2
-asdf install erlang 27.2
+# Clean and retry (use your erlang version from README)
+rm -rf ~/.asdf/installs/erlang/<erlang-version>
+asdf install erlang <erlang-version>
 ```
 
 ### Database Migration Fails

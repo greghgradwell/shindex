@@ -10,13 +10,13 @@ Track 1000+ items with precise location codes (Shelf → Bin → Cell), find any
 
 - **Linux** (Ubuntu 22.04+ recommended)
 - **PostgreSQL 14+** with pg_trgm extension
-- **Erlang/OTP 27+** and **Elixir 1.17+**
+- **Erlang/OTP 28.3** and **Elixir 1.19.4** (see `.tool-versions` for asdf)
 - **libvips** (for image processing)
 
 **Check versions:**
 ```bash
 psql --version      # PostgreSQL 14+
-elixir --version    # Elixir 1.17+, OTP 27+
+elixir --version    # Elixir 1.19.4, OTP 28
 vips --version      # libvips installed
 ```
 

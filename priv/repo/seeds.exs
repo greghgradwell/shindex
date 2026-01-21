@@ -5,7 +5,7 @@ require Logger
 
 Logger.info("🌱 Seeding database...")
 
-Repo.delete_all(InventoryLocator.Inventory.Installation)
+Repo.delete_all(InventoryLocator.Inventory.ItemInstallation)
 Repo.delete_all(InventoryLocator.Inventory.ItemType)
 Repo.delete_all(InventoryLocator.Inventory.Location)
 Repo.delete_all(InventoryLocator.Inventory.Cell)
