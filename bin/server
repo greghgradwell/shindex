@@ -3,6 +3,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
+# Load asdf for Elixir/Erlang
+if [[ -f "$HOME/.asdf/asdf.sh" ]]; then
+  source "$HOME/.asdf/asdf.sh"
+fi
+
 if [[ ! -f .envrc ]]; then
   echo "ERROR: .envrc not found. Copy .envrc.example and configure it." >&2
   exit 1

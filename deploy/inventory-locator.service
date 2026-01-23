@@ -5,10 +5,10 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/inventory-locator-service
-ExecStart=/home/pi/inventory-locator-service/bin/server
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Documents/Github/inventory-locator-service
+ExecStart=/home/ubuntu/Documents/Github/inventory-locator-service/bin/server
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=120

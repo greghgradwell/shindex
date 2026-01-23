@@ -55,3 +55,6 @@ priv/static/uploads/
 
 # Local backup data (synced via Syncthing, not git)
 /priv/backups/
+
+# IDE settings
+.vscode/
