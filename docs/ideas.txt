@@ -2,4 +2,3 @@ Ideas:
 
 AI create tags from inventory
 AI retrieve details from URL
-Upload datasheet to item details

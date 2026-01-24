@@ -3,13 +3,11 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
   use InventoryLocatorWeb, :html
 
   alias InventoryLocator.Inventory.Bin
-  alias InventoryLocator.Inventory.Cell
   alias InventoryLocator.Inventory.Location
   alias InventoryLocator.Inventory.Shelf
   alias Phoenix.LiveView.JS
 
   attr :shelf, Shelf, required: true
-  attr :show_cells, :boolean, required: true
 
   def shelf_row(assigns) do
     ~H"""
@@ -17,21 +15,20 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
       <!-- Shelf label (fixed width) -->
       <div class="w-32 flex-shrink-0">
         <div class="flex items-center gap-1">
-          <h3 class="font-semibold">{@shelf.code}</h3>
           <button
             phx-click="show_rename_shelf_modal"
             phx-value-id={@shelf.id}
-            class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
-            title="Rename shelf"
+            class="font-semibold hover:text-primary cursor-pointer transition-colors"
+            title="Click to rename shelf"
           >
-            <.icon name="hero-pencil" class="w-3 h-3" />
+            {@shelf.code}
           </button>
           <button
             phx-click="delete_shelf"
             phx-value-id={@shelf.id}
             class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
             title="Delete shelf"
-            data-confirm={"Delete shelf #{@shelf.code} and all its bins/cells?"}
+            data-confirm={"Delete shelf #{@shelf.code} and all its bins?"}
           >
             <.icon name="hero-trash" class="w-3 h-3" />
           </button>
@@ -40,7 +37,7 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
       <!-- Bins container -->
       <div class="flex-1 flex gap-2 flex-wrap items-start">
         <%= for bin <- @shelf.bins do %>
-          <.bin_segment bin={bin} show_cells={@show_cells} />
+          <.bin_segment bin={bin} shelf_id={@shelf.id} />
         <% end %>
         <!-- Add Bin button -->
         <button
@@ -57,43 +54,32 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
   end
 
   attr :bin, Bin, required: true
-  attr :show_cells, :boolean, required: true
+  attr :shelf_id, :integer, required: true
 
   def bin_segment(assigns) do
     ~H"""
     <div class="border border-base-300 rounded-lg p-2 min-w-[120px] max-w-[200px]">
       <!-- Bin header -->
-      <div class={[
-        !@show_cells && "mb-0 pb-0 border-b-0",
-        @show_cells && "mb-2 pb-1 border-b border-base-300"
-      ]}>
-        <span class="font-medium text-sm">Bin {@bin.code}</span>
-      </div>
-      <!-- Cells column (stacked vertically with dividers) -->
-      <div :if={@show_cells} class="flex flex-col divide-y-2 divide-base-content/20">
-        <%= for cell <- @bin.cells do %>
-          <%= if cell.location do %>
-            <.cell_box cell={cell} location={cell.location} />
-          <% end %>
-        <% end %>
-        <!-- Add Cell button -->
+      <div class="mb-2 pb-1 border-b border-base-300">
         <button
-          phx-click="add_cell"
-          phx-value-bin_id={@bin.id}
-          class="py-2 text-xs text-base-content/50 hover:text-primary transition-colors flex items-center justify-center gap-1"
-          title="Add cell"
+          phx-click="show_rename_bin_modal"
+          phx-value-id={@bin.id}
+          phx-value-shelf_id={@shelf_id}
+          class="font-medium text-sm hover:text-primary cursor-pointer transition-colors"
+          title="Click to rename bin"
         >
-          <.icon name="hero-plus" class="w-3 h-3" /> Cell
+          {@bin.code}
         </button>
       </div>
+      <!-- Location content -->
+      <.location_box :if={@bin.location} location={@bin.location} />
     </div>
     """
   end
 
-  attr :cell, Cell, required: true
   attr :location, Location, required: true
 
-  def cell_box(assigns) do
+  def location_box(assigns) do
     active_items = Enum.reject(assigns.location.item_types || [], & &1.archived)
     occupied = active_items != []
     assigns = assign(assigns, :occupied, occupied)
@@ -118,7 +104,7 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
         <% end %>
       <% else %>
         <div class="flex items-center justify-between w-full">
-          <span class="text-xs text-base-content/50">{@cell.code}</span>
+          <span class="text-xs text-base-content/50">Empty</span>
           <button
             phx-click={JS.push("delete_location", value: %{id: @location.id})}
             class="btn btn-xs btn-ghost"

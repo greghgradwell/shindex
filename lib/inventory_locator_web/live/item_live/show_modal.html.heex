@@ -204,7 +204,7 @@
                         id="move-location-input"
                         name={f[:location_code].name}
                         label="New Location Code"
-                        placeholder="e.g., A-1-1"
+                        placeholder="e.g., A-1"
                         value=""
                         suggestions={@location_codes}
                         required
@@ -646,7 +646,7 @@
           id="restore-location-input"
           name={f[:location_code].name}
           label="Location Code"
-          placeholder="e.g., A-1-1"
+          placeholder="e.g., A-1"
           suggestions={@location_codes}
           required
           autofocus
@@ -767,45 +767,6 @@
       </div>
     </div>
     <div class="modal-backdrop bg-black/50" phx-click="hide_delete_modal" phx-target={@myself}>
-    </div>
-  </div>
-
-  <%!-- Cell Creation Confirmation Modal (nested) --%>
-  <div
-    :if={@show_cell_confirm_modal}
-    class="modal modal-open"
-    style="z-index: 1000;"
-    phx-window-keydown="cancel_cell_creation"
-    phx-key="escape"
-    phx-target={@myself}
-  >
-    <div class="modal-box" phx-click-away="cancel_cell_creation" phx-target={@myself}>
-      <h3 class="font-bold text-lg">Create New Cell?</h3>
-      <p class="py-4 text-sm text-gray-600">
-        <%= if @pending_cell_creation do %>
-          Cell {@pending_cell_creation.cell_code} doesn't exist in Bin {@pending_cell_creation.bin.code}.
-          Would you like to create it?
-        <% end %>
-      </p>
-
-      <div class="modal-action">
-        <button
-          type="button"
-          class="btn btn-ghost"
-          phx-click="cancel_cell_creation"
-          phx-target={@myself}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          phx-click="confirm_cell_creation"
-          phx-target={@myself}
-        >
-          Create Cell
-        </button>
-      </div>
     </div>
   </div>
 </div>

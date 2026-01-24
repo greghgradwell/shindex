@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   import InventoryLocatorWeb.LocationLive.Components
 
   alias InventoryLocator.Inventory
+  alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.Shelf
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
@@ -22,12 +23,16 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      |> assign(:stats, stats)
      |> assign(:page_title, "Location Management")
      |> assign(:selected_item_id, nil)
-     |> assign(:show_cells, true)
      |> assign(:show_create_shelf_modal, false)
      |> assign(:show_rename_shelf_modal, false)
      |> assign(:rename_shelf, nil)
      |> assign(:rename_shelf_location_count, 0)
-     |> assign(:shelf_code_error, nil)}
+     |> assign(:shelf_code_error, nil)
+     |> assign(:show_rename_bin_modal, false)
+     |> assign(:rename_bin, nil)
+     |> assign(:rename_bin_shelf, nil)
+     |> assign(:all_shelves, [])
+     |> assign(:bin_code_error, nil)}
   end
 
   @impl true
@@ -57,19 +62,6 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
 
   def handle_event("open_item_modal", %{"id" => id}, socket) do
     {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
-  end
-
-  def handle_event("toggle_cells", _params, socket) do
-    new_value = !socket.assigns.show_cells
-
-    {:noreply,
-     socket
-     |> assign(:show_cells, new_value)
-     |> push_event("persist_toggle", %{key: "show_cells", value: new_value})}
-  end
-
-  def handle_event("restore_toggle", %{"key" => "show_cells", "value" => value}, socket) do
-    {:noreply, assign(socket, :show_cells, value)}
   end
 
   def handle_event("show_create_shelf_modal", _params, socket) do
@@ -212,18 +204,86 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
     end
   end
 
-  def handle_event("add_cell", %{"bin_id" => bin_id}, socket) do
-    bin = Inventory.get_bin!(String.to_integer(bin_id))
+  def handle_event("show_rename_bin_modal", %{"id" => id, "shelf_id" => shelf_id}, socket) do
+    inventory_id = socket.assigns.current_inventory.id
+    bin = Inventory.get_bin!(String.to_integer(id))
+    shelf = Inventory.get_shelf!(String.to_integer(shelf_id))
+    all_shelves = Inventory.list_shelves(inventory_id)
 
-    case Inventory.add_cell_to_bin(bin) do
-      {:ok, cell} ->
-        {:noreply,
-         socket
-         |> refresh_data()
-         |> put_flash(:info, "Cell #{cell.code} added")}
+    {:noreply,
+     socket
+     |> assign(:show_rename_bin_modal, true)
+     |> assign(:rename_bin, bin)
+     |> assign(:rename_bin_shelf, shelf)
+     |> assign(:all_shelves, all_shelves)
+     |> assign(:bin_code_error, nil)}
+  end
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to add cell")}
+  def handle_event("close_rename_bin_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_rename_bin_modal, false)
+     |> assign(:rename_bin, nil)
+     |> assign(:rename_bin_shelf, nil)
+     |> assign(:all_shelves, [])
+     |> assign(:bin_code_error, nil)}
+  end
+
+  def handle_event("validate_bin_move", %{"new_code" => code}, socket) do
+    error =
+      cond do
+        code == "" ->
+          nil
+
+        not Bin.valid_code?(code) ->
+          "Must be a number between #{Bin.min_code()} and #{Bin.max_code()}"
+
+        true ->
+          nil
+      end
+
+    {:noreply, assign(socket, :bin_code_error, error)}
+  end
+
+  def handle_event("move_bin", %{"new_code" => new_code, "target_shelf_id" => target_shelf_id_str}, socket) do
+    bin = socket.assigns.rename_bin
+    source_shelf = socket.assigns.rename_bin_shelf
+    target_shelf_id = String.to_integer(target_shelf_id_str)
+    target_shelf = Inventory.get_shelf!(target_shelf_id)
+
+    same_location = bin.code == new_code and source_shelf.id == target_shelf_id
+
+    if same_location do
+      {:noreply,
+       socket
+       |> assign(:show_rename_bin_modal, false)
+       |> assign(:rename_bin, nil)
+       |> assign(:rename_bin_shelf, nil)
+       |> assign(:all_shelves, [])}
+    else
+      case Inventory.move_bin(bin, target_shelf, new_code) do
+        {:ok, _bin} ->
+          new_location = "#{target_shelf.code}-#{new_code}"
+
+          {:noreply,
+           socket
+           |> refresh_data()
+           |> assign(:show_rename_bin_modal, false)
+           |> assign(:rename_bin, nil)
+           |> assign(:rename_bin_shelf, nil)
+           |> assign(:all_shelves, [])
+           |> assign(:bin_code_error, nil)
+           |> put_flash(:info, "Bin moved to #{new_location}")}
+
+        {:error, :invalid_code} ->
+          {:noreply, assign(socket, :bin_code_error, "Must be a number between #{Bin.min_code()} and #{Bin.max_code()}")}
+
+        {:error, :code_exists} ->
+          {:noreply, assign(socket, :bin_code_error, "A bin already exists at #{target_shelf.code}-#{new_code}")}
+
+        {:error, _changeset} ->
+          {:noreply, assign(socket, :bin_code_error, "Failed to move bin")}
+      end
     end
   end
 

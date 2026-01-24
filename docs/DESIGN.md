@@ -59,26 +59,25 @@
 ### Core Entities
 
 ```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│     Shelf       │       │      Bin        │       │      Cell       │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id              │──┐    │ id              │──┐    │ id              │
-│ code (e.g. "A") │  │    │ code (e.g. "3") │  │    │ code (e.g. "0") │
-│ name (optional) │  │    │ shelf_id        │◄─┘    │ bin_id          │◄─┘
-│ description     │  │    │ name (optional) │       │ name (optional) │
-└─────────────────┘  │    └─────────────────┘       └────────┬────────┘
-                     │                                       │
-                     └───────────────────────────────────────┘
+┌─────────────────┐       ┌─────────────────┐
+│     Shelf       │       │      Bin        │
+├─────────────────┤       ├─────────────────┤
+│ id              │──┐    │ id              │──┐
+│ code (e.g. "A") │  │    │ code (e.g. "3") │  │
+│ name (optional) │  │    │ shelf_id        │◄─┘
+│ description     │  │    │ name (optional) │
+│ inventory_id    │  │    └────────┬────────┘
+└─────────────────┘  │             │
+                     │             │
+                     └─────────────┘
                                       │
                                       ▼
                            ┌─────────────────────┐
                            │      Location       │
                            ├─────────────────────┤
                            │ id                  │
-                           │ full_code           │ ← "A-3-0" (computed)
-                           │ shelf_id            │
-                           │ bin_id              │
-                           │ cell_id             │
+                           │ full_code           │ ← "A-3" (computed)
+                           │ bin_id              │ ← 1:1 with bin
                            └──────────┬──────────┘
                                       │ N:1 (co-location allowed)
                                       ▼
@@ -114,9 +113,9 @@
 ### Key Constraints
 
 1. **Co-location allowed:** Multiple items can share a location (user warned but not blocked)
-2. **Location uniqueness:** Combination of (shelf_id, bin_id, cell_id) is unique
-3. **Full code generation:** Computed as "{shelf.code}-{bin.code}-{cell.code}"
-4. **Referential integrity:** Bins require a shelf, cells require a bin
+2. **Location uniqueness:** One location per bin (bin_id is unique in locations table)
+3. **Full code generation:** Computed as "{shelf.code}-{bin.code}"
+4. **Referential integrity:** Bins require a shelf, locations require a bin
 5. **Active items require location:** `CHECK ((archived = false AND location_id IS NOT NULL) OR (archived = true AND location_id IS NULL))`
    - Active items (archived=false) MUST have a location
    - Archived items (archived=true) MUST NOT have a location (frees location for reuse)
@@ -124,9 +123,9 @@
 7. **Quantity validation:** `CHECK (quantity >= 0)` - allows zero for archived items
 8. **Item installations:** (item_type_id, project_name) unique constraint, quantity > 0
 
-### Why Full Hierarchy from Day One
+### Why Two-Level Hierarchy
 
-Starting with the full Shelf → Bin → Cell model allows experimentation while data volume is low. Migrating from a flat structure to a hierarchy after 1000+ items would be costly. Early iteration is cheap; late migration is expensive.
+The Shelf → Bin model provides sufficient granularity for workshop organization without the complexity of a third level. Each bin maps to exactly one location, simplifying both the data model and the user experience. Location codes like "A-3" are intuitive and quick to type.
 
 ## Key Design Decisions
 
@@ -176,50 +175,48 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 ### 5. Location Code Format
 
-**Decision:** Fixed delimiter format: `shelf-bin-cell` (e.g., "A-3-1", "tall_workbench-12-5")
+**Decision:** Fixed delimiter format: `shelf-bin` (e.g., "A-3", "tall_workbench-12")
 
 **Format Rules:**
-- **Delimiter:** Fixed single dash (`-`) between all components
+- **Delimiter:** Fixed single dash (`-`) between components
 - **Shelf codes:**
-  - Letters (a-z, A-Z) and underscores only
+  - Letters (a-z, A-Z), underscores, and numbers (after first character)
+  - Must start with a letter
   - No leading or trailing underscores
   - 1-50 characters
   - Case-insensitive (normalized to uppercase)
-  - Examples: `A`, `TALL_WORKBENCH`, `shelf_a`
+  - Examples: `A`, `TALL_WORKBENCH`, `shelf_a`, `ABC_123`
 - **Bin codes:**
-  - Integers only (0-999)
+  - Integers only (1-999)
   - No leading zeros
-  - Examples: `0`, `3`, `12`, `999`
-- **Cell codes:**
-  - Integers only (0-999)
-  - No leading zeros
-  - Examples: `0`, `1`, `88`
+  - Examples: `1`, `3`, `12`, `999`
 
 **Examples:**
-- `a-3-1` → Shelf: "A", Bin: "3", Cell: "1"
-- `tall_workbench-12-5` → Shelf: "TALL_WORKBENCH", Bin: "12", Cell: "5"
-- `B-0-999` → Shelf: "B", Bin: "0", Cell: "999"
+- `a-3` → Shelf: "A", Bin: "3"
+- `tall_workbench-12` → Shelf: "TALL_WORKBENCH", Bin: "12"
+- `B-999` → Shelf: "B", Bin: "999"
 
 **Invalid Examples:**
-- `tall-workbench-3-1` ❌ (dash in shelf name)
-- `_shelf-3-1` ❌ (leading underscore)
-- `A-03-1` ❌ (leading zero in bin)
-- `A-1000-1` ❌ (bin out of range)
+- `tall-workbench-3` ❌ (dash in shelf name)
+- `_shelf-3` ❌ (leading underscore)
+- `A-03` ❌ (leading zero in bin)
+- `A-1000` ❌ (bin out of range)
+- `123-3` ❌ (shelf starts with number)
 
-**Why:** Fixed delimiter enables unambiguous parsing. Integer-only bin/cell codes ensure simple validation and prevent entry errors. Shelf name flexibility accommodates descriptive labels while maintaining parseability.
+**Why:** Fixed delimiter enables unambiguous parsing. Integer-only bin codes ensure simple validation and prevent entry errors. Shelf name flexibility accommodates descriptive labels while maintaining parseability.
 
 ### 6. String-Based Location Entry
 
 **Decision:** User types location as free-form string, system parses and validates.
 
 **Parsing Flow:**
-1. Split on `-` delimiter (must have exactly 3 parts)
-2. Validate each component against schema rules (Shelf, Bin, Cell modules)
+1. Split on `-` delimiter (must have exactly 2 parts)
+2. Validate each component against schema rules (Shelf, Bin modules)
 3. Normalize shelf code to uppercase
 4. Return parsed components or validation error
 
 **Validation Flow:**
-1. Walk database hierarchy (Shelf → Bin → Cell → Location)
+1. Walk database hierarchy (Shelf → Bin → Location)
 2. Determine which entities exist
 3. Return status:
    - `:needs_creation` with list of missing entities
@@ -278,7 +275,7 @@ inventory_locator/
 │   │   │   ├── item_type.ex
 │   │   │   ├── item_installation.ex  # Project tracking
 │   │   │   ├── location.ex
-│   │   │   ├── shelf.ex, bin.ex, cell.ex
+│   │   │   ├── shelf.ex, bin.ex
 │   │   │   └── location_parser.ex
 │   │   ├── search/
 │   │   │   └── ai.ex            # Gemini API integration

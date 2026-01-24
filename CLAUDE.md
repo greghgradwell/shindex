@@ -6,7 +6,7 @@ A personal inventory system for tracking workshop and household items with preci
 
 - **Fast item entry**: Add items quickly with photos and location codes
 - **Flexible search**: Find items via text search or AI-powered semantic queries
-- **Location hierarchy**: Shelf → Bin → Cell structure for organized storage
+- **Location hierarchy**: Shelf → Bin structure for organized storage
 - **Multi-device workflow**: Capture photos on phone, instantly sync to desktop
 - **Data integrity**: Enforces constraints to prevent orphaned items and location conflicts
 
@@ -21,7 +21,7 @@ A personal inventory system for tracking workshop and household items with preci
 **Key Design Decisions:**
 - Multiple items per location allowed (co-location with user warnings)
 - Active items must have locations; archived items keep location as "ghosts"
-- String-based location entry (type "A-3-0" → system validates and normalizes)
+- String-based location entry (type "A-3" → system validates and normalizes)
 - Phoenix PubSub for real-time photo sync between devices
 
 See `docs/SPEC.md`, `docs/DESIGN.md`, and `docs/PLAN.md` for complete specifications.

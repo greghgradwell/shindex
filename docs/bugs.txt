@@ -1,3 +1,0 @@
-Bugs:
-
-If you delete an item from a cell within a bin, the ordering of the bins becomes visually incorrect. For example, I deleted A-1-1, but it looked like A-1-2 was empty.

@@ -15,7 +15,7 @@ defmodule InventoryLocatorWeb.InventoryLive.IndexTest do
     end
 
     test "shows shelf and item counts", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1-1", "Test Item", 5, "Desc")
+      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test Item", 5, "Desc")
 
       {:ok, _view, html} = live(conn, ~p"/inventories")
 

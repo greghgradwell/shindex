@@ -227,8 +227,8 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
   defp blank_to_nil(str), do: str
 
   @spec format_error(term()) :: String.t()
-  defp format_error(:invalid_location), do: "Invalid location format (use A-1-1)"
-  defp format_error(:invalid_format), do: "Invalid location format (use A-1-1)"
+  defp format_error(:invalid_location), do: "Invalid location format (use A-1)"
+  defp format_error(:invalid_format), do: "Invalid location format (use A-1)"
   defp format_error(%Ecto.Changeset{} = cs), do: "Save failed: #{inspect(cs.errors)}"
   defp format_error(reason), do: "Error: #{inspect(reason)}"
 end

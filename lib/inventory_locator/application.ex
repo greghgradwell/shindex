@@ -43,6 +43,7 @@ defmodule InventoryLocator.Application do
         rescue
           e ->
             require Logger
+
             Logger.error("Failed to configure backup scheduler: #{Exception.message(e)}")
         end
       end)

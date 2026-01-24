@@ -12,10 +12,10 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "items are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
       {:ok, _workshop_item} =
-        Inventory.create_item_with_location(workshop.id, "A-1-1", "Workshop Screws", 10, "Desc")
+        Inventory.create_item_with_location(workshop.id, "A-1", "Workshop Screws", 10, "Desc")
 
       {:ok, _kitchen_item} =
-        Inventory.create_item_with_location(kitchen.id, "A-1-1", "Kitchen Utensils", 5, "Desc")
+        Inventory.create_item_with_location(kitchen.id, "A-1", "Kitchen Utensils", 5, "Desc")
 
       workshop_items = Inventory.list_all_items(workshop.id, show_archived: false)
       kitchen_items = Inventory.list_all_items(kitchen.id, show_archived: false)
@@ -29,10 +29,10 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "search only returns items from specified inventory", %{workshop: workshop, kitchen: kitchen} do
       {:ok, _item1} =
-        Inventory.create_item_with_location(workshop.id, "A-1-1", "Hammer", 1, "Workshop tool")
+        Inventory.create_item_with_location(workshop.id, "A-1", "Hammer", 1, "Workshop tool")
 
       {:ok, _item2} =
-        Inventory.create_item_with_location(kitchen.id, "A-1-1", "Meat Hammer", 1, "Kitchen tool")
+        Inventory.create_item_with_location(kitchen.id, "A-1", "Meat Hammer", 1, "Kitchen tool")
 
       workshop_results = Inventory.search_items(workshop.id, "hammer", [])
       kitchen_results = Inventory.search_items(kitchen.id, "hammer", [])
@@ -68,23 +68,23 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
     end
 
     test "location codes are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
-      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1-1", "Item 1", 1, nil)
-      {:ok, _item2} = Inventory.create_item_with_location(kitchen.id, "B-2-2", "Item 2", 1, nil)
+      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1", "Item 1", 1, nil)
+      {:ok, _item2} = Inventory.create_item_with_location(kitchen.id, "B-2", "Item 2", 1, nil)
 
       workshop_codes = Inventory.list_location_codes(workshop.id)
       kitchen_codes = Inventory.list_location_codes(kitchen.id)
 
-      assert "A-1-1" in workshop_codes
-      refute "B-2-2" in workshop_codes
+      assert "A-1" in workshop_codes
+      refute "B-2" in workshop_codes
 
-      assert "B-2-2" in kitchen_codes
-      refute "A-1-1" in kitchen_codes
+      assert "B-2" in kitchen_codes
+      refute "A-1" in kitchen_codes
     end
 
     test "occupancy stats are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
-      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1-1", "Item 1", 1, nil)
-      {:ok, _item2} = Inventory.create_item_with_location(workshop.id, "A-1-2", "Item 2", 1, nil)
-      {:ok, _item3} = Inventory.create_item_with_location(kitchen.id, "B-1-1", "Item 3", 1, nil)
+      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1", "Item 1", 1, nil)
+      {:ok, _item2} = Inventory.create_item_with_location(workshop.id, "A-2", "Item 2", 1, nil)
+      {:ok, _item3} = Inventory.create_item_with_location(kitchen.id, "B-1", "Item 3", 1, nil)
 
       workshop_stats = Inventory.count_locations_by_occupancy(workshop.id)
       kitchen_stats = Inventory.count_locations_by_occupancy(kitchen.id)
@@ -95,10 +95,10 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "projects are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
       {:ok, workshop_item} =
-        Inventory.create_item_with_location(workshop.id, "A-1-1", "Workshop Part", 10, nil)
+        Inventory.create_item_with_location(workshop.id, "A-1", "Workshop Part", 10, nil)
 
       {:ok, kitchen_item} =
-        Inventory.create_item_with_location(kitchen.id, "A-1-1", "Kitchen Part", 5, nil)
+        Inventory.create_item_with_location(kitchen.id, "A-1", "Kitchen Part", 5, nil)
 
       {:ok, _, _} = Inventory.install_item(workshop_item, "ROBOT", 2)
       {:ok, _, _} = Inventory.install_item(kitchen_item, "RENOVATION", 1)
@@ -121,8 +121,8 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
       {:ok, _shelf} = Inventory.create_shelf_with_bins(inv1.id, %{code: "A"}, 1)
 
-      assert {:ok, :exists, _location} = Inventory.validate_location_code(inv1.id, "A-1-1")
-      assert {:error, :shelf_not_found, "A"} = Inventory.validate_location_code(inv2.id, "A-1-1")
+      assert {:ok, :exists, _location} = Inventory.validate_location_code(inv1.id, "A-1")
+      assert {:error, :shelf_not_found, "A"} = Inventory.validate_location_code(inv2.id, "A-1")
     end
   end
 end

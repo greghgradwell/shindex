@@ -2,7 +2,7 @@
 
 Personal inventory system for tracking workshop items with photos and AI-powered search.
 
-Track 1000+ items with precise location codes (Shelf → Bin → Cell), find anything instantly via text search or semantic AI queries, and capture photos from your phone with instant sync to desktop.
+Track 1000+ items with precise location codes (Shelf → Bin), find anything instantly via text search or semantic AI queries, and capture photos from your phone with instant sync to desktop.
 
 ## Quick Start (Development)
 
@@ -117,7 +117,7 @@ Covers:
 ## Key Features
 
 - **Fast item entry**: Add items in under 30 seconds with photo capture
-- **Location hierarchy**: Shelf → Bin → Cell structure with string-based entry ("A-3-0")
+- **Location hierarchy**: Shelf → Bin structure with string-based entry ("A-3")
 - **Text search**: Full-text search with fuzzy matching via pg_trgm
 - **AI search**: Semantic queries via Gemini API ("where are my soldering tools?")
 - **Multi-inventory**: Separate inventories for workshop, household, etc.

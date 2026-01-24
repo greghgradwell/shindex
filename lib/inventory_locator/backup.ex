@@ -6,6 +6,8 @@ defmodule InventoryLocator.Backup do
   alias InventoryLocator.Backup.Worker
   alias InventoryLocator.Repo
 
+  require Logger
+
   @settings_id 1
 
   @spec configured?() :: boolean()
@@ -91,7 +93,8 @@ defmodule InventoryLocator.Backup do
         display_hour = if display_hour == 0, do: 12, else: display_hour
         "#{year}-#{month}-#{day} #{display_hour}:#{min} #{period}"
 
-      _ ->
+      no_match ->
+        Logger.debug("Timestamp format not recognized: #{inspect(no_match)}")
         timestamp
     end
   end

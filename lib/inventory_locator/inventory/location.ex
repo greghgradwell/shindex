@@ -4,14 +4,14 @@ defmodule InventoryLocator.Inventory.Location do
 
   import Ecto.Changeset
 
-  alias InventoryLocator.Inventory.Cell
+  alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.LocationCode
 
   typed_schema "locations" do
     field :full_code, :string
 
-    belongs_to :cell, Cell
+    belongs_to :bin, Bin
 
     has_many :item_types, ItemType
 
@@ -21,11 +21,11 @@ defmodule InventoryLocator.Inventory.Location do
   @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(location, attrs) do
     location
-    |> cast(attrs, [:full_code, :cell_id])
-    |> validate_required([:full_code, :cell_id])
+    |> cast(attrs, [:full_code, :bin_id])
+    |> validate_required([:full_code, :bin_id])
     |> validate_location_code_format()
-    |> foreign_key_constraint(:cell_id)
-    |> unique_constraint(:cell_id)
+    |> foreign_key_constraint(:bin_id)
+    |> unique_constraint(:bin_id)
   end
 
   @spec validate_location_code_format(Ecto.Changeset.t()) :: Ecto.Changeset.t()
@@ -34,7 +34,7 @@ defmodule InventoryLocator.Inventory.Location do
       if LocationCode.valid?(code) do
         []
       else
-        [full_code: "must be in format SHELF-BIN-CELL (e.g., A-1-0)"]
+        [full_code: "must be in format SHELF-BIN (e.g., A-1)"]
       end
     end)
   end

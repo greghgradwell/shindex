@@ -3,7 +3,6 @@ defmodule InventoryLocator.Inventory do
   import Ecto.Query, warn: false
 
   alias InventoryLocator.Inventory.Bin
-  alias InventoryLocator.Inventory.Cell
   alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.ItemType
@@ -11,6 +10,8 @@ defmodule InventoryLocator.Inventory do
   alias InventoryLocator.Inventory.LocationParser
   alias InventoryLocator.Inventory.Shelf
   alias InventoryLocator.Repo
+
+  @similarity_threshold 0.3
 
   # Inventories
 
@@ -103,10 +104,10 @@ defmodule InventoryLocator.Inventory do
       case create_shelf(inventory_id, shelf_attrs) do
         {:ok, shelf} ->
           Enum.each(1..bin_count, fn bin_num ->
-            create_bin_with_cell_1(shelf, "#{bin_num}")
+            create_bin_with_location(shelf, "#{bin_num}")
           end)
 
-          Repo.preload(shelf, bins: :cells)
+          Repo.preload(shelf, bins: :location)
 
         {:error, changeset} ->
           Repo.rollback(changeset)
@@ -119,7 +120,7 @@ defmodule InventoryLocator.Inventory do
     next_bin_code = get_next_bin_code(shelf.id)
 
     Repo.transaction(fn ->
-      case create_bin_with_cell_1(shelf, next_bin_code) do
+      case create_bin_with_location(shelf, next_bin_code) do
         {:ok, bin} -> bin
         {:error, changeset} -> Repo.rollback(changeset)
       end
@@ -128,25 +129,33 @@ defmodule InventoryLocator.Inventory do
 
   @spec get_next_bin_code(integer()) :: String.t()
   defp get_next_bin_code(shelf_id) do
-    max_code =
-      Repo.one(
-        from(b in Bin,
-          where: b.shelf_id == ^shelf_id,
-          select: max(fragment("CAST(? AS INTEGER)", b.code))
-        )
-      ) || 0
+    existing_codes =
+      from(b in Bin,
+        where: b.shelf_id == ^shelf_id,
+        select: fragment("CAST(? AS INTEGER)", b.code)
+      )
+      |> Repo.all()
+      |> MapSet.new()
 
-    "#{max_code + 1}"
+    first_gap(existing_codes, 1)
   end
 
-  @spec create_bin_with_cell_1(Shelf.t(), String.t()) ::
+  @spec first_gap(MapSet.t(integer()), integer()) :: String.t()
+  defp first_gap(existing_codes, candidate) do
+    if MapSet.member?(existing_codes, candidate) do
+      first_gap(existing_codes, candidate + 1)
+    else
+      "#{candidate}"
+    end
+  end
+
+  @spec create_bin_with_location(Shelf.t(), String.t()) ::
           {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
-  defp create_bin_with_cell_1(shelf, bin_code) do
+  defp create_bin_with_location(shelf, bin_code) do
     with {:ok, bin} <- create_bin(%{code: bin_code, shelf_id: shelf.id}),
-         {:ok, cell} <- create_cell(%{code: "1", bin_id: bin.id}),
-         full_code = "#{shelf.code}-#{bin_code}-1",
-         {:ok, _location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
-      {:ok, Repo.preload(bin, :cells)}
+         full_code = "#{shelf.code}-#{bin_code}",
+         {:ok, _location} <- create_location(%{full_code: full_code, bin_id: bin.id}) do
+      {:ok, Repo.preload(bin, :location)}
     end
   end
 
@@ -195,6 +204,54 @@ defmodule InventoryLocator.Inventory do
     end)
   end
 
+  @spec list_shelves(integer()) :: [Shelf.t()]
+  def list_shelves(inventory_id) do
+    Repo.all(
+      from(s in Shelf,
+        where: s.inventory_id == ^inventory_id,
+        order_by: s.code
+      )
+    )
+  end
+
+  @spec move_bin(Bin.t(), Shelf.t(), String.t()) ::
+          {:ok, Bin.t()} | {:error, :invalid_code | :code_exists | Ecto.Changeset.t()}
+  def move_bin(%Bin{} = bin, %Shelf{} = target_shelf, new_code) do
+    cond do
+      not Bin.valid_code?(new_code) ->
+        {:error, :invalid_code}
+
+      bin.shelf_id == target_shelf.id and bin.code == new_code ->
+        {:ok, bin}
+
+      Repo.exists?(from(b in Bin, where: b.shelf_id == ^target_shelf.id and b.code == ^new_code)) ->
+        {:error, :code_exists}
+
+      true ->
+        do_move_bin(bin, target_shelf, new_code)
+    end
+  end
+
+  @spec do_move_bin(Bin.t(), Shelf.t(), String.t()) ::
+          {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
+  defp do_move_bin(bin, target_shelf, new_code) do
+    new_full_code = "#{target_shelf.code}-#{new_code}"
+
+    Repo.transaction(fn ->
+      # Update the location full_code
+      Repo.update_all(
+        from(l in Location, where: l.bin_id == ^bin.id),
+        set: [full_code: new_full_code]
+      )
+
+      # Update the bin code and shelf_id
+      case Repo.update(Bin.changeset(bin, %{code: new_code, shelf_id: target_shelf.id})) do
+        {:ok, updated_bin} -> updated_bin
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
   @spec count_locations_for_shelf(Shelf.t()) :: non_neg_integer()
   def count_locations_for_shelf(%Shelf{} = shelf) do
     Repo.aggregate(
@@ -228,10 +285,7 @@ defmodule InventoryLocator.Inventory do
         )
 
         Repo.delete_all(from(l in Location, where: l.id in ^location_ids))
-
-        bin_ids = Repo.all(from(b in Bin, where: b.shelf_id == ^shelf.id, select: b.id))
-        Repo.delete_all(from(c in Cell, where: c.bin_id in ^bin_ids))
-        Repo.delete_all(from(b in Bin, where: b.id in ^bin_ids))
+        Repo.delete_all(from(b in Bin, where: b.shelf_id == ^shelf.id))
 
         Repo.delete!(shelf)
       end)
@@ -250,60 +304,6 @@ defmodule InventoryLocator.Inventory do
   @spec get_bin!(integer()) :: Bin.t()
   def get_bin!(id), do: Repo.get!(Bin, id)
 
-  # Cells
-
-  @spec create_cell(map()) :: {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
-  defp create_cell(attrs) do
-    %Cell{}
-    |> Cell.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  @spec add_cell_to_bin(Bin.t()) :: {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
-  def add_cell_to_bin(%Bin{} = bin) do
-    bin = Repo.preload(bin, :shelf)
-    next_cell_code = get_next_cell_code(bin.id)
-    full_code = "#{bin.shelf.code}-#{bin.code}-#{next_cell_code}"
-
-    Repo.transaction(fn ->
-      with {:ok, cell} <- create_cell(%{code: next_cell_code, bin_id: bin.id}),
-           {:ok, _location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
-        Repo.preload(cell, :location)
-      else
-        {:error, changeset} -> Repo.rollback(changeset)
-      end
-    end)
-  end
-
-  @spec get_next_cell_code(integer()) :: String.t()
-  defp get_next_cell_code(bin_id) do
-    max_code =
-      Repo.one(
-        from(c in Cell,
-          where: c.bin_id == ^bin_id,
-          select: max(fragment("CAST(? AS INTEGER)", c.code))
-        )
-      ) || 0
-
-    "#{max_code + 1}"
-  end
-
-  @spec create_cell_with_location(Bin.t(), String.t()) ::
-          {:ok, Cell.t()} | {:error, Ecto.Changeset.t()}
-  def create_cell_with_location(%Bin{} = bin, cell_code) do
-    bin = Repo.preload(bin, :shelf)
-    full_code = "#{bin.shelf.code}-#{bin.code}-#{cell_code}"
-
-    Repo.transaction(fn ->
-      with {:ok, cell} <- create_cell(%{code: cell_code, bin_id: bin.id}),
-           {:ok, location} <- create_location(%{full_code: full_code, cell_id: cell.id}) do
-        %{cell | location: location}
-      else
-        {:error, changeset} -> Repo.rollback(changeset)
-      end
-    end)
-  end
-
   # Locations
 
   @spec get_location!(integer()) :: Location.t()
@@ -313,10 +313,8 @@ defmodule InventoryLocator.Inventory do
   def list_location_codes(inventory_id) do
     Repo.all(
       from(l in Location,
-        join: c in Cell,
-        on: l.cell_id == c.id,
         join: b in Bin,
-        on: c.bin_id == b.id,
+        on: l.bin_id == b.id,
         join: s in Shelf,
         on: b.shelf_id == s.id,
         where: s.inventory_id == ^inventory_id,
@@ -357,7 +355,6 @@ defmodule InventoryLocator.Inventory do
   @type validate_location_result ::
           {:ok, :exists, Location.t()}
           | {:ok, :exists_occupied, Location.t(), non_neg_integer()}
-          | {:ok, :needs_cell, Bin.t(), String.t()}
           | {:error, :invalid_format}
           | {:error, :shelf_not_found, String.t()}
           | {:error, :bin_not_found, String.t(), String.t()}
@@ -368,42 +365,31 @@ defmodule InventoryLocator.Inventory do
       {:error, :invalid_format} ->
         {:error, :invalid_format}
 
-      {:ok, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}} ->
-        validate_location_hierarchy(inventory_id, shelf_code, bin_code, cell_code)
+      {:ok, %{shelf_code: shelf_code, bin_code: bin_code}} ->
+        validate_location_hierarchy(inventory_id, shelf_code, bin_code)
     end
   end
 
-  @spec validate_location_hierarchy(integer(), String.t(), String.t(), String.t()) ::
+  @spec validate_location_hierarchy(integer(), String.t(), String.t()) ::
           validate_location_result()
-  defp validate_location_hierarchy(inventory_id, shelf_code, bin_code, cell_code) do
+  defp validate_location_hierarchy(inventory_id, shelf_code, bin_code) do
     shelf = Repo.get_by(Shelf, code: shelf_code, inventory_id: inventory_id)
 
     if is_nil(shelf) do
       {:error, :shelf_not_found, shelf_code}
     else
-      validate_bin_and_cell(shelf, bin_code, cell_code)
+      validate_bin_and_location(shelf, bin_code)
     end
   end
 
-  @spec validate_bin_and_cell(Shelf.t(), String.t(), String.t()) :: validate_location_result()
-  defp validate_bin_and_cell(shelf, bin_code, cell_code) do
+  @spec validate_bin_and_location(Shelf.t(), String.t()) :: validate_location_result()
+  defp validate_bin_and_location(shelf, bin_code) do
     bin = Repo.get_by(Bin, code: bin_code, shelf_id: shelf.id)
 
     if is_nil(bin) do
       {:error, :bin_not_found, shelf.code, bin_code}
     else
-      validate_cell_and_location(bin, cell_code)
-    end
-  end
-
-  @spec validate_cell_and_location(Bin.t(), String.t()) :: validate_location_result()
-  defp validate_cell_and_location(bin, cell_code) do
-    cell = Repo.get_by(Cell, code: cell_code, bin_id: bin.id)
-
-    if is_nil(cell) do
-      {:ok, :needs_cell, bin, cell_code}
-    else
-      location = Repo.get_by!(Location, cell_id: cell.id)
+      location = Repo.get_by!(Location, bin_id: bin.id)
       active_count = count_active_items_at_location(location.id)
 
       if active_count > 0 do
@@ -424,12 +410,11 @@ defmodule InventoryLocator.Inventory do
 
   @spec create_hierarchy(integer(), LocationParser.parsed(), [LocationParser.Missing.t()]) ::
           {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
-  defp create_hierarchy(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}, missing) do
+  defp create_hierarchy(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code}, missing) do
     Repo.transaction(fn ->
       shelf = ensure_shelf(inventory_id, shelf_code, missing)
       bin = ensure_bin(bin_code, shelf, missing)
-      cell = ensure_cell_with_backfill(cell_code, bin, missing)
-      ensure_location(shelf_code, bin_code, cell_code, cell, missing)
+      ensure_location(shelf_code, bin_code, bin, missing)
     end)
   end
 
@@ -453,40 +438,20 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec ensure_cell_with_backfill(String.t(), Bin.t(), [LocationParser.Missing.t()]) :: Cell.t()
-  defp ensure_cell_with_backfill(cell_code, bin, missing) do
-    target_cell_num = String.to_integer(cell_code)
-
-    if :cell in missing do
-      Enum.each(1..target_cell_num, fn i ->
-        code = "#{i}"
-
-        if !Repo.get_by(Cell, code: code, bin_id: bin.id) do
-          create_cell(%{code: code, bin_id: bin.id})
-        end
-      end)
-    end
-
-    Repo.get_by!(Cell, code: cell_code, bin_id: bin.id)
-  end
-
-  @spec ensure_location(String.t(), String.t(), String.t(), Cell.t(), [
-          LocationParser.Missing.t()
-        ]) :: Location.t()
-  defp ensure_location(shelf_code, bin_code, cell_code, cell, missing) do
+  @spec ensure_location(String.t(), String.t(), Bin.t(), [LocationParser.Missing.t()]) :: Location.t()
+  defp ensure_location(shelf_code, bin_code, bin, missing) do
     if :location in missing do
-      full_code = "#{shelf_code}-#{bin_code}-#{cell_code}"
-      {:ok, location} = create_location(%{full_code: full_code, cell_id: cell.id})
+      full_code = "#{shelf_code}-#{bin_code}"
+      {:ok, location} = create_location(%{full_code: full_code, bin_id: bin.id})
       location
     else
-      Repo.get_by!(Location, cell_id: cell.id)
+      Repo.get_by!(Location, bin_id: bin.id)
     end
   end
 
   @spec list_shelves_with_hierarchy(integer()) :: [Shelf.t()]
   def list_shelves_with_hierarchy(inventory_id) do
-    bins_query = from(b in Bin, order_by: b.code)
-    cells_query = from(c in Cell, order_by: [desc: c.code])
+    bins_query = from(b in Bin, order_by: fragment("CAST(? AS INTEGER)", b.code))
 
     shelves_query =
       from(s in Shelf,
@@ -499,7 +464,7 @@ defmodule InventoryLocator.Inventory do
 
     shelves_query
     |> Repo.all()
-    |> Repo.preload(bins: {bins_query, cells: {cells_query, location: :item_types}})
+    |> Repo.preload(bins: {bins_query, location: :item_types})
   end
 
   @spec delete_empty_location(integer()) ::
@@ -519,51 +484,33 @@ defmodule InventoryLocator.Inventory do
           set: [location_id: nil]
         )
 
-        location = Location |> Repo.get!(location_id) |> Repo.preload(cell: [bin: :shelf])
-        cell = location.cell
-        bin = cell.bin
+        location = Location |> Repo.get!(location_id) |> Repo.preload(bin: :shelf)
+        bin = location.bin
         shelf = bin.shelf
 
         Repo.delete!(location)
 
-        # Check if cell is now empty (each cell has only one location)
-        cell_location_count =
-          Repo.aggregate(from(l in Location, where: l.cell_id == ^cell.id), :count)
+        # Check if bin has any locations (each bin has only one location)
+        bin_location_count =
+          Repo.aggregate(from(l in Location, where: l.bin_id == ^bin.id), :count)
 
-        if cell_location_count == 0 do
-          Repo.delete!(cell)
+        if bin_location_count == 0 do
+          Repo.delete!(bin)
 
-          # Check if bin has any cells with locations (not just empty orphaned cells)
-          bin_occupied_cell_count =
+          # Check if shelf has any bins with locations
+          shelf_bin_count =
             Repo.aggregate(
-              from(c in Cell,
-                join: l in assoc(c, :location),
-                where: c.bin_id == ^bin.id
+              from(b in Bin,
+                join: l in assoc(b, :location),
+                where: b.shelf_id == ^shelf.id
               ),
               :count
             )
 
-          if bin_occupied_cell_count == 0 do
-            # Delete all orphaned empty cells in the bin
-            Repo.delete_all(from(c in Cell, where: c.bin_id == ^bin.id))
-            Repo.delete!(bin)
-
-            # Check if shelf has any bins with locations
-            shelf_occupied_bin_count =
-              Repo.aggregate(
-                from(b in Bin,
-                  join: c in assoc(b, :cells),
-                  join: l in assoc(c, :location),
-                  where: b.shelf_id == ^shelf.id
-                ),
-                :count
-              )
-
-            if shelf_occupied_bin_count == 0 do
-              # Delete all orphaned empty bins in the shelf
-              Repo.delete_all(from(b in Bin, where: b.shelf_id == ^shelf.id))
-              Repo.delete!(shelf)
-            end
+          if shelf_bin_count == 0 do
+            # Delete all orphaned empty bins in the shelf
+            Repo.delete_all(from(b in Bin, where: b.shelf_id == ^shelf.id))
+            Repo.delete!(shelf)
           end
         end
 
@@ -576,10 +523,8 @@ defmodule InventoryLocator.Inventory do
   def count_locations_by_occupancy(inventory_id) do
     Repo.one(
       from(l in Location,
-        join: c in Cell,
-        on: l.cell_id == c.id,
         join: b in Bin,
-        on: c.bin_id == b.id,
+        on: l.bin_id == b.id,
         join: s in Shelf,
         on: b.shelf_id == s.id,
         left_join: i in assoc(l, :item_types),
@@ -602,7 +547,7 @@ defmodule InventoryLocator.Inventory do
   def get_item_type_with_location!(id) do
     ItemType
     |> Repo.get!(id)
-    |> Repo.preload(location: [cell: [bin: :shelf]])
+    |> Repo.preload(location: [bin: :shelf])
   end
 
   @spec create_item_type(map()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
@@ -628,7 +573,7 @@ defmodule InventoryLocator.Inventory do
     |> filter_by_missing_fields(missing_fields)
     |> order_by([i], asc: i.name)
     |> Repo.all()
-    |> Repo.preload(location: [cell: [bin: :shelf]])
+    |> Repo.preload(location: [bin: :shelf])
   end
 
   @spec get_next_incomplete_item(integer(), integer(), [atom()]) :: ItemType.t() | nil
@@ -652,7 +597,7 @@ defmodule InventoryLocator.Inventory do
 
   @spec maybe_preload_location(ItemType.t() | nil) :: ItemType.t() | nil
   defp maybe_preload_location(nil), do: nil
-  defp maybe_preload_location(item), do: Repo.preload(item, location: [cell: [bin: :shelf]])
+  defp maybe_preload_location(item), do: Repo.preload(item, location: [bin: :shelf])
 
   @spec delete_item_type(ItemType.t()) :: {:ok, ItemType.t()} | {:error, Ecto.Changeset.t()}
   def delete_item_type(%ItemType{} = item_type) do
@@ -664,7 +609,8 @@ defmodule InventoryLocator.Inventory do
     item
     |> ItemType.changeset(%{
       quantity: 0,
-      archived: true
+      archived: true,
+      location_id: nil
     })
     |> Repo.update()
   end
@@ -740,7 +686,7 @@ defmodule InventoryLocator.Inventory do
       |> search_by_name(query)
       |> apply_default_ordering(query)
       |> Repo.all()
-      |> Repo.preload(location: [cell: [bin: :shelf]])
+      |> Repo.preload(location: [bin: :shelf])
     end
   end
 
@@ -755,7 +701,7 @@ defmodule InventoryLocator.Inventory do
     |> filter_by_archived(show_archived)
     |> apply_sort(sort_by, sort_order)
     |> Repo.all()
-    |> Repo.preload(location: [cell: [bin: :shelf]])
+    |> Repo.preload(location: [bin: :shelf])
   end
 
   @spec filter_by_archived(Ecto.Queryable.t(), boolean()) :: Ecto.Queryable.t()
@@ -812,8 +758,10 @@ defmodule InventoryLocator.Inventory do
   defp search_by_name(query, ""), do: query
 
   defp search_by_name(query, search_query) do
+    threshold = @similarity_threshold
+
     query
-    |> where([i], fragment("similarity(?, ?) > 0.3", i.name, ^search_query))
+    |> where([i], fragment("similarity(?, ?) > ?", i.name, ^search_query, ^threshold))
     |> order_by([i],
       desc: fragment("similarity(?, ?)", i.name, ^search_query),
       asc: i.archived,
@@ -862,7 +810,7 @@ defmodule InventoryLocator.Inventory do
       join: item in assoc(inst, :item_type),
       where: item.inventory_id == ^inventory_id,
       where: inst.project_name == ^String.upcase(project_name),
-      preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+      preload: [item_type: {item, location: [bin: :shelf]}],
       order_by: item.name
     )
     |> Repo.all()
@@ -1020,7 +968,7 @@ defmodule InventoryLocator.Inventory do
     from(inst in ItemInstallation,
       join: item in assoc(inst, :item_type),
       where: item.inventory_id == ^inventory_id,
-      preload: [item_type: {item, location: [cell: [bin: :shelf]]}],
+      preload: [item_type: {item, location: [bin: :shelf]}],
       order_by: [inst.project_name, item.name]
     )
     |> Repo.all()

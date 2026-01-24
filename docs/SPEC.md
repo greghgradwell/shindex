@@ -32,14 +32,14 @@ Workshop and household items are difficult to locate, leading to:
 ## Core Requirements
 
 ### Location Management
-- **Hierarchy:** Shelf → Bin → Cell
-- **Naming:** Short codes preferred (e.g., "A-3-0" for Shelf A, Bin 3, Cell 0)
+- **Hierarchy:** Shelf → Bin
+- **Naming:** Short codes preferred (e.g., "A-3" for Shelf A, Bin 3)
 - **Co-location:** Multiple items can share a location (user warned but allowed)
 - **Flexibility:** Locations can be created on-the-fly during item entry
 
 ### Location Entry (String-Based)
-- User types location as string (e.g., "a-3-0")
-- System normalizes and validates (e.g., "a-3-0" → "A-3-0")
+- User types location as string (e.g., "a-3")
+- System normalizes and validates (e.g., "a-3" → "A-3")
 - If location exists and is empty: confirm and use
 - If location exists and is occupied: warn user, but allow co-location
 - If location does not exist: prompt to create (e.g., "Shelf A has 2 bins. Create bin 3?")

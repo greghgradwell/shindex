@@ -1,7 +1,6 @@
 defmodule InventoryLocator.Inventory.LocationParser do
   @moduledoc false
   alias InventoryLocator.Inventory.Bin
-  alias InventoryLocator.Inventory.Cell
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
   alias InventoryLocator.Inventory.LocationCode
@@ -19,18 +18,16 @@ defmodule InventoryLocator.Inventory.LocationParser do
 
   defmodule Missing do
     @moduledoc false
-    @type t :: :shelf | :bin | :cell | :location
+    @type t :: :shelf | :bin | :location
 
     def shelf, do: :shelf
     def bin, do: :bin
-    def cell, do: :cell
     def location, do: :location
   end
 
   @type parsed :: %{
           shelf_code: String.t(),
-          bin_code: String.t(),
-          cell_code: String.t()
+          bin_code: String.t()
         }
 
   @type validation_result :: %{
@@ -43,7 +40,6 @@ defmodule InventoryLocator.Inventory.LocationParser do
   @type parse_and_validate_result :: %{
           shelf_code: String.t(),
           bin_code: String.t(),
-          cell_code: String.t(),
           status: Status.t(),
           missing: [Missing.t()],
           location: Location.t() | nil,
@@ -56,8 +52,8 @@ defmodule InventoryLocator.Inventory.LocationParser do
   end
 
   @spec validate(integer(), parsed()) :: {:ok, validation_result()}
-  def validate(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code, cell_code: cell_code}) do
-    entities = fetch_hierarchy(inventory_id, shelf_code, bin_code, cell_code)
+  def validate(inventory_id, %{shelf_code: shelf_code, bin_code: bin_code}) do
+    entities = fetch_hierarchy(inventory_id, shelf_code, bin_code)
     missing = find_missing_from_hierarchy(entities)
 
     if Enum.empty?(missing) do
@@ -79,20 +75,16 @@ defmodule InventoryLocator.Inventory.LocationParser do
   @type hierarchy :: %{
           shelf: Shelf.t() | nil,
           bin: Bin.t() | nil,
-          cell: Cell.t() | nil,
           location: Location.t() | nil
         }
 
-  # Sequential queries with early termination (stops at first nil)
-  # Future optimization: Single join query if performance becomes critical
-  @spec fetch_hierarchy(integer(), String.t(), String.t(), String.t()) :: hierarchy()
-  defp fetch_hierarchy(inventory_id, shelf_code, bin_code, cell_code) do
+  @spec fetch_hierarchy(integer(), String.t(), String.t()) :: hierarchy()
+  defp fetch_hierarchy(inventory_id, shelf_code, bin_code) do
     shelf = Repo.get_by(Shelf, code: shelf_code, inventory_id: inventory_id)
     bin = fetch_bin(bin_code, shelf)
-    cell = fetch_cell(cell_code, bin)
-    location = fetch_location(cell)
+    location = fetch_location(bin)
 
-    %{shelf: shelf, bin: bin, cell: cell, location: location}
+    %{shelf: shelf, bin: bin, location: location}
   end
 
   @spec fetch_bin(String.t(), Shelf.t() | nil) :: Bin.t() | nil
@@ -102,26 +94,18 @@ defmodule InventoryLocator.Inventory.LocationParser do
     Repo.get_by(Bin, code: code, shelf_id: shelf.id)
   end
 
-  @spec fetch_cell(String.t(), Bin.t() | nil) :: Cell.t() | nil
-  defp fetch_cell(_code, nil), do: nil
-
-  defp fetch_cell(code, bin) do
-    Repo.get_by(Cell, code: code, bin_id: bin.id)
-  end
-
-  @spec fetch_location(Cell.t() | nil) :: Location.t() | nil
+  @spec fetch_location(Bin.t() | nil) :: Location.t() | nil
   defp fetch_location(nil), do: nil
 
-  defp fetch_location(cell) do
-    Repo.get_by(Location, cell_id: cell.id)
+  defp fetch_location(bin) do
+    Repo.get_by(Location, bin_id: bin.id)
   end
 
   @spec find_missing_from_hierarchy(hierarchy()) :: [Missing.t()]
-  defp find_missing_from_hierarchy(%{shelf: shelf, bin: bin, cell: cell, location: location}) do
+  defp find_missing_from_hierarchy(%{shelf: shelf, bin: bin, location: location}) do
     [
       {shelf, Missing.shelf()},
       {bin, Missing.bin()},
-      {cell, Missing.cell()},
       {location, Missing.location()}
     ]
     |> Enum.drop_while(fn {entity, _label} -> not is_nil(entity) end)

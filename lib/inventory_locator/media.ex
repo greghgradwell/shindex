@@ -1,10 +1,11 @@
 defmodule InventoryLocator.Media do
   @moduledoc false
-
   import Ecto.Query
 
   alias InventoryLocator.Inventory.Document
   alias InventoryLocator.Repo
+
+  require Logger
 
   @max_photo_width 1920
   @max_photo_height 1080
@@ -157,9 +158,15 @@ defmodule InventoryLocator.Media do
   @spec validate_url(String.t()) :: :ok | {:error, :invalid_url | :insecure_url}
   defp validate_url(url) do
     case URI.parse(url) do
-      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> :ok
-      %URI{scheme: "http"} -> {:error, :insecure_url}
-      _ -> {:error, :invalid_url}
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" ->
+        :ok
+
+      %URI{scheme: "http"} ->
+        {:error, :insecure_url}
+
+      invalid_uri ->
+        Logger.debug("Invalid URL structure: #{inspect(invalid_uri)}")
+        {:error, :invalid_url}
     end
   end
 
@@ -228,8 +235,12 @@ defmodule InventoryLocator.Media do
   @spec get_content_type(%{String.t() => [String.t()]}) :: String.t() | nil
   defp get_content_type(headers) do
     case Map.get(headers, "content-type") do
-      [value | _] -> value |> String.split(";") |> List.first() |> String.trim()
-      _ -> nil
+      [value | _] ->
+        value |> String.split(";") |> List.first() |> String.trim()
+
+      missing_or_empty ->
+        Logger.debug("Content-type header missing or empty: #{inspect(missing_or_empty)}")
+        nil
     end
   end
 
