@@ -46,6 +46,9 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
       <% end %>
 
       <h3 class="mt-2 font-semibold">{@item.name}</h3>
+      <p :if={@item.manufacturer || @item.model} class="text-xs text-base-content/70 truncate">
+        {[@item.manufacturer, @item.model] |> Enum.filter(& &1) |> Enum.join(" / ")}
+      </p>
       <p class="text-sm text-gray-600">
         {if @item.location, do: @item.location.full_code, else: "No location"}
       </p>
@@ -101,7 +104,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
               checked={:model in @active_filters}
               class="checkbox checkbox-sm"
             />
-            <span class="text-sm">Missing model</span>
+            <span class="text-sm">Missing model / part #</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input
@@ -161,6 +164,10 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
                 Manufacturer
                 <.sort_indicator column={:manufacturer} sort_by={@sort_by} sort_order={@sort_order} />
               </th>
+              <th phx-click="sort" phx-value-column="model" class="cursor-pointer hover:bg-base-200">
+                Model / Part #
+                <.sort_indicator column={:model} sort_by={@sort_by} sort_order={@sort_order} />
+              </th>
               <th
                 phx-click="sort"
                 phx-value-column="location"
@@ -193,6 +200,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
                 </td>
                 <td class="font-medium">{item.name}</td>
                 <td class="text-base-content/70">{item.manufacturer || "—"}</td>
+                <td class="text-base-content/70">{item.model || "—"}</td>
                 <td class="font-mono text-sm">
                   {if item.location, do: item.location.full_code, else: "—"}
                 </td>

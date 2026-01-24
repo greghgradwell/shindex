@@ -58,12 +58,19 @@ defmodule InventoryLocatorWeb.Endpoint do
 
   @spec secure_upload_headers(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   defp secure_upload_headers(conn, _opts) do
-    if String.starts_with?(conn.request_path, "/uploads/") do
-      conn
-      |> Plug.Conn.put_resp_header("content-disposition", "inline")
-      |> Plug.Conn.put_resp_header("x-content-type-options", "nosniff")
-    else
-      conn
+    cond do
+      String.starts_with?(conn.request_path, "/uploads/") ->
+        conn
+        |> Plug.Conn.put_resp_header("content-disposition", "inline")
+        |> Plug.Conn.put_resp_header("x-content-type-options", "nosniff")
+
+      String.starts_with?(conn.request_path, "/documents/") ->
+        conn
+        |> Plug.Conn.put_resp_header("content-disposition", "inline")
+        |> Plug.Conn.put_resp_header("x-content-type-options", "nosniff")
+
+      true ->
+        conn
     end
   end
 

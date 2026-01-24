@@ -774,6 +774,13 @@ defmodule InventoryLocator.Inventory do
     ])
   end
 
+  defp apply_sort(query, :model, order) do
+    order_by(query, [i], [
+      {^order, fragment("COALESCE(?, '')", i.model)},
+      {:asc, i.name}
+    ])
+  end
+
   defp apply_sort(query, :location, order) do
     query
     |> join(:left, [i], l in assoc(i, :location))

@@ -95,11 +95,12 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("sort", %{"column" => column}, socket) when column in ["name", "manufacturer", "location"] do
+  def handle_event("sort", %{"column" => column}, socket) when column in ["name", "manufacturer", "model", "location"] do
     column_atom =
       case column do
         "name" -> :name
         "manufacturer" -> :manufacturer
+        "model" -> :model
         "location" -> :location
       end
 

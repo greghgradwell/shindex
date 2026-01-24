@@ -10,6 +10,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   require Logger
 
+  @accepted_document_types ~w(.pdf .png .jpg .jpeg)
+
   @impl true
   @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
   def update(%{pending_photo: photo_data}, socket) do
@@ -27,16 +29,31 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     project_names = Inventory.list_project_names(inventory_id)
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
+    documents = Media.list_documents(item_id)
 
     # Batch mode: auto-enter edit mode for efficient completion
     batch_mode = Map.get(assigns, :batch_mode, false)
     editing = batch_mode
     edit_changeset = if editing, do: ItemType.changeset(item, %{})
 
+    # Configure document uploads only on initial mount
+    socket =
+      if Map.has_key?(socket.assigns, :uploads) do
+        socket
+      else
+        allow_upload(socket, :document,
+          accept: @accepted_document_types,
+          max_entries: 1,
+          max_file_size: Media.max_document_size(),
+          auto_upload: true
+        )
+      end
+
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:item, item)
+     |> assign(:documents, documents)
      |> assign(:show_restore_modal, false)
      |> assign(:show_archive_quantity_modal, false)
      |> assign(:show_delete_modal, false)
@@ -57,7 +74,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:pending_cell_creation, nil)
      |> assign(:batch_mode, batch_mode)
      |> assign(:batch_total, Map.get(assigns, :batch_total, 0))
-     |> assign_new(:pending_photo, fn -> nil end)}
+     |> assign_new(:pending_photo, fn -> nil end)
+     |> assign_new(:show_document_url_input, fn -> false end)
+     |> assign_new(:document_url, fn -> "" end)
+     |> assign_new(:fetching_document_url, fn -> false end)
+     |> assign_new(:max_document_size_mb, fn -> div(Media.max_document_size(), 1024 * 1024) end)}
   end
 
   @impl true
@@ -528,6 +549,171 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:noreply, assign(socket, :pending_photo, nil)}
   end
 
+  def handle_event("document_changed", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_document_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :document, ref)}
+  end
+
+  def handle_event("save_document", _params, socket) do
+    item = socket.assigns.item
+
+    case socket.assigns.uploads.document.entries do
+      [entry | _] when entry.done? ->
+        result =
+          consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
+            binary = File.read!(temp_path)
+            {:ok, {binary, entry.client_name}}
+          end)
+
+        case result do
+          {binary, filename} ->
+            case Media.save_document_file(binary, filename) do
+              {:ok, storage_path, content_type, size_bytes} ->
+                case Media.create_document(item.id, %{
+                       filename: filename,
+                       storage_path: storage_path,
+                       content_type: content_type,
+                       size_bytes: size_bytes
+                     }) do
+                  {:ok, _document} ->
+                    documents = Media.list_documents(item.id)
+
+                    {:noreply,
+                     socket
+                     |> assign(:documents, documents)
+                     |> put_flash(:info, "Document uploaded")}
+
+                  {:error, changeset} ->
+                    {:noreply, put_flash(socket, :error, format_changeset_errors(changeset))}
+                end
+
+              {:error, :invalid_type} ->
+                {:noreply, put_flash(socket, :error, "Invalid file type. Use PDF, PNG, or JPEG.")}
+
+              {:error, :file_too_large} ->
+                max_mb = div(Media.max_document_size(), 1024 * 1024)
+                {:noreply, put_flash(socket, :error, "File too large (max #{max_mb}MB)")}
+
+              {:error, _reason} ->
+                {:noreply, put_flash(socket, :error, "Failed to save document file")}
+            end
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Failed to process upload")}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("delete_document", %{"document_id" => document_id}, socket) do
+    document_id = if is_binary(document_id), do: String.to_integer(document_id), else: document_id
+    document = Media.get_document!(document_id)
+
+    case Media.delete_document(document) do
+      {:ok, _deleted} ->
+        documents = Media.list_documents(socket.assigns.item.id)
+
+        {:noreply,
+         socket
+         |> assign(:documents, documents)
+         |> put_flash(:info, "Document deleted")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete document")}
+    end
+  end
+
+  def handle_event("toggle_document_url_input", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_document_url_input, not socket.assigns.show_document_url_input)
+     |> assign(:document_url, "")}
+  end
+
+  def handle_event("cancel_document_url_input", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_document_url_input, false)
+     |> assign(:document_url, "")
+     |> assign(:fetching_document_url, false)}
+  end
+
+  def handle_event("update_document_url", %{"document_url" => url}, socket) do
+    {:noreply, assign(socket, :document_url, url)}
+  end
+
+  def handle_event("fetch_document_from_url", _params, socket) do
+    url = socket.assigns.document_url
+    item = socket.assigns.item
+
+    if url == "" do
+      {:noreply, put_flash(socket, :error, "Please enter a URL")}
+    else
+      socket = assign(socket, :fetching_document_url, true)
+
+      case Media.fetch_document_from_url(url) do
+        {:ok, binary, filename, content_type} ->
+          case Media.save_document_file(binary, filename) do
+            {:ok, storage_path, _content_type, size_bytes} ->
+              case Media.create_document(item.id, %{
+                     filename: filename,
+                     storage_path: storage_path,
+                     content_type: content_type,
+                     size_bytes: size_bytes
+                   }) do
+                {:ok, _document} ->
+                  documents = Media.list_documents(item.id)
+
+                  {:noreply,
+                   socket
+                   |> assign(:documents, documents)
+                   |> assign(:show_document_url_input, false)
+                   |> assign(:document_url, "")
+                   |> assign(:fetching_document_url, false)
+                   |> put_flash(:info, "Document uploaded from URL")}
+
+                {:error, changeset} ->
+                  {:noreply,
+                   socket
+                   |> assign(:fetching_document_url, false)
+                   |> put_flash(:error, format_changeset_errors(changeset))}
+              end
+
+            {:error, :invalid_type} ->
+              {:noreply,
+               socket
+               |> assign(:fetching_document_url, false)
+               |> put_flash(:error, "Invalid file type. Use PDF, PNG, or JPEG.")}
+
+            {:error, :file_too_large} ->
+              max_mb = div(Media.max_document_size(), 1024 * 1024)
+
+              {:noreply,
+               socket
+               |> assign(:fetching_document_url, false)
+               |> put_flash(:error, "File too large (max #{max_mb}MB)")}
+
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> assign(:fetching_document_url, false)
+               |> put_flash(:error, "Failed to save document file")}
+          end
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:fetching_document_url, false)
+           |> put_flash(:error, format_document_url_error(reason))}
+      end
+    end
+  end
+
   def handle_event("show_delete_modal", _params, socket) do
     {:noreply, assign(socket, :show_delete_modal, true)}
   end
@@ -728,5 +914,51 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
       {:ok, saved_filename} -> saved_filename
       {:error, _} -> nil
     end
+  end
+
+  @spec format_file_size(integer()) :: String.t()
+  defp format_file_size(bytes) when bytes < 1024, do: "#{bytes} B"
+  defp format_file_size(bytes) when bytes < 1024 * 1024, do: "#{div(bytes, 1024)} KB"
+  defp format_file_size(bytes), do: "#{Float.round(bytes / (1024 * 1024), 1)} MB"
+
+  @spec document_error_to_string(atom()) :: String.t()
+  defp document_error_to_string(:too_large) do
+    max_mb = div(Media.max_document_size(), 1024 * 1024)
+    "File too large (max #{max_mb}MB)"
+  end
+
+  defp document_error_to_string(:too_many_files), do: "Only one file at a time"
+  defp document_error_to_string(:not_accepted), do: "Invalid file type (use PDF, PNG, or JPEG)"
+  defp document_error_to_string(err), do: "Upload error: #{inspect(err)}"
+
+  @spec format_document_url_error(atom() | tuple()) :: String.t()
+  defp format_document_url_error(:invalid_url), do: "Invalid URL format"
+  defp format_document_url_error(:insecure_url), do: "URL must use HTTPS"
+  defp format_document_url_error(:forbidden_host), do: "Cannot fetch from internal or private addresses"
+  defp format_document_url_error(:not_a_document), do: "URL does not point to a supported document (PDF, PNG, JPEG)"
+  defp format_document_url_error(:content_type_mismatch), do: "File content type changed during download"
+
+  defp format_document_url_error(:file_too_large) do
+    max_mb = div(Media.max_document_size(), 1024 * 1024)
+    "Document too large (max #{max_mb}MB)"
+  end
+
+  defp format_document_url_error({:http_error, 404}), do: "Document not found (404)"
+  defp format_document_url_error({:http_error, status}), do: "Failed to fetch document (HTTP #{status})"
+  defp format_document_url_error({:fetch_failed, _}), do: "Network error - could not reach URL"
+  defp format_document_url_error(_), do: "Failed to fetch document"
+
+  @spec format_changeset_errors(Ecto.Changeset.t()) :: String.t()
+  defp format_changeset_errors(changeset) do
+    errors =
+      Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+
+    "Failed to save document: #{errors}"
+  end
+
+  @spec safe_document_path(InventoryLocator.Inventory.Document.t()) :: String.t()
+  defp safe_document_path(document) do
+    safe_path = Path.basename(document.storage_path)
+    "/documents/#{safe_path}"
   end
 end

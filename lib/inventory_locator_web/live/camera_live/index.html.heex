@@ -1,10 +1,14 @@
 <div class="max-w-lg mx-auto space-y-4">
+  <%!-- Photo capture component (outside form to avoid nested form issues) --%>
+  <.live_component
+    module={InventoryLocatorWeb.Components.PhotoCapture}
+    id="camera-photo-capture"
+  />
+
   <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-4">
-    <%!-- Photo capture component --%>
-    <.live_component
-      module={InventoryLocatorWeb.Components.PhotoCapture}
-      id="camera-photo-capture"
-    />
+    <div :if={@save_error} class="alert alert-error">
+      <span>{@save_error}</span>
+    </div>
 
     <%!-- Required fields --%>
     <div class="form-control">
@@ -51,53 +55,40 @@
       />
     </div>
 
-    <%!-- Optional fields toggle --%>
-    <button
-      type="button"
-      class="btn btn-ghost btn-sm w-full"
-      phx-click="toggle_optional"
-    >
-      {if @show_optional,
-        do: "▲ Hide optional fields",
-        else: "▼ More fields (manufacturer, model, description)"}
-    </button>
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Manufacturer</span>
+      </label>
+      <input
+        type="text"
+        name="manufacturer"
+        placeholder="Brand name"
+        class="input input-bordered w-full"
+      />
+    </div>
 
-    <div :if={@show_optional} class="space-y-3 animate-fade-in">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Manufacturer</span>
-        </label>
-        <input
-          type="text"
-          name="manufacturer"
-          placeholder="Brand name"
-          class="input input-bordered w-full"
-        />
-      </div>
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Model / Part #</span>
+      </label>
+      <input
+        type="text"
+        name="model"
+        placeholder="Model or part number"
+        class="input input-bordered w-full"
+      />
+    </div>
 
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Model</span>
-        </label>
-        <input
-          type="text"
-          name="model"
-          placeholder="Model number"
-          class="input input-bordered w-full"
-        />
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Description</span>
-        </label>
-        <textarea
-          name="description"
-          placeholder="Additional details..."
-          rows="2"
-          class="textarea textarea-bordered w-full"
-        />
-      </div>
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Description</span>
+      </label>
+      <textarea
+        name="description"
+        placeholder="Additional details..."
+        rows="2"
+        class="textarea textarea-bordered w-full"
+      />
     </div>
 
     <%!-- Save button --%>

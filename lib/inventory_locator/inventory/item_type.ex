@@ -4,6 +4,7 @@ defmodule InventoryLocator.Inventory.ItemType do
 
   import Ecto.Changeset
 
+  alias InventoryLocator.Inventory.Document
   alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
@@ -20,6 +21,7 @@ defmodule InventoryLocator.Inventory.ItemType do
     belongs_to :inventory, Inv
     belongs_to :location, Location
     has_many :installations, ItemInstallation
+    has_many :documents, Document, foreign_key: :item_id
 
     timestamps()
   end

@@ -23,8 +23,18 @@ vips --version      # libvips installed
 ### System Dependencies (Ubuntu/Debian)
 
 ```bash
-sudo apt install -y postgresql libvips-dev
+sudo apt install -y postgresql libvips-dev direnv
 ```
+
+Add direnv hook to your shell (add to `~/.zshrc` or `~/.bashrc`):
+
+```bash
+eval "$(direnv hook zsh)"   # for zsh
+# or
+eval "$(direnv hook bash)"  # for bash
+```
+
+Then reload your shell: `source ~/.zshrc` (or restart your terminal).
 
 ### Setup
 

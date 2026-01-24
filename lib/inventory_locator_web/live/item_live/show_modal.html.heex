@@ -131,7 +131,12 @@
                     label="Manufacturer"
                     value={@item.manufacturer}
                   />
-                  <.input field={f[:model]} type="text" label="Model" value={@item.model} />
+                  <.input
+                    field={f[:model]}
+                    type="text"
+                    label="Model / Part #"
+                    value={@item.model}
+                  />
                   <.input
                     field={f[:description]}
                     type="text"
@@ -176,11 +181,11 @@
                     </div>
                   </:item>
                   <:item title="Name">{@item.name}</:item>
-                  <:item :if={@item.manufacturer} title="Manufacturer">
-                    {@item.manufacturer}
+                  <:item title="Manufacturer">
+                    {@item.manufacturer || "—"}
                   </:item>
-                  <:item :if={@item.model} title="Model">{@item.model}</:item>
-                  <:item :if={@item.description} title="Description">{@item.description}</:item>
+                  <:item title="Model / Part #">{@item.model || "—"}</:item>
+                  <:item title="Description">{@item.description || "—"}</:item>
                 </.list>
 
                 <%= if @moving do %>
@@ -401,6 +406,178 @@
                 <% end %>
               </ul>
             <% end %>
+          </div>
+
+          <div class="border rounded-lg p-4">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold">Documents</h3>
+            </div>
+
+            <%= if @documents == [] do %>
+              <p class="text-sm text-base-content/60 mb-4">No documents attached</p>
+            <% else %>
+              <ul class="space-y-2 mb-4">
+                <%= for doc <- @documents do %>
+                  <li class="flex items-center justify-between p-2 bg-base-200 rounded">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="text-lg">
+                        {if doc.content_type == "application/pdf", do: "📄", else: "🖼️"}
+                      </span>
+                      <span class="text-sm truncate" title={doc.filename}>
+                        {doc.filename}
+                      </span>
+                      <span class="text-xs text-base-content/60 shrink-0">
+                        ({format_file_size(doc.size_bytes)})
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <a
+                        href={safe_document_path(doc)}
+                        target="_blank"
+                        class="btn btn-xs btn-ghost"
+                        title="Open in new tab"
+                      >
+                        Open
+                      </a>
+                      <button
+                        type="button"
+                        phx-click={
+                          JS.push("delete_document",
+                            value: %{document_id: doc.id},
+                            target: @myself
+                          )
+                        }
+                        class="btn btn-xs btn-ghost text-error"
+                        title="Delete document"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                <% end %>
+              </ul>
+            <% end %>
+
+            <div
+              class="border-2 border-dashed border-base-300 rounded-lg p-4 text-center bg-base-200 cursor-pointer hover:border-primary transition-colors"
+              phx-drop-target={@uploads.document.ref}
+            >
+              <form
+                id={"document-upload-form-#{@item.id}"}
+                phx-change="document_changed"
+                phx-submit="document_changed"
+                phx-target={@myself}
+              >
+                <.live_file_input upload={@uploads.document} class="hidden" />
+              </form>
+
+              <%= for entry <- @uploads.document.entries do %>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-center gap-2">
+                    <span class="text-sm font-medium">{entry.client_name}</span>
+                    <button
+                      type="button"
+                      phx-click="cancel_document_upload"
+                      phx-value-ref={entry.ref}
+                      phx-target={@myself}
+                      class="btn btn-circle btn-xs btn-ghost"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div :if={not entry.done?} class="space-y-1">
+                    <progress
+                      class="progress progress-primary w-full"
+                      value={entry.progress}
+                      max="100"
+                    />
+                    <p class="text-xs text-base-content/60">
+                      {if entry.progress == 0,
+                        do: "Starting upload...",
+                        else: "Uploading #{entry.progress}%"}
+                    </p>
+                  </div>
+                  <div :if={entry.done?} class="space-y-2">
+                    <p class="text-success text-sm">✓ Ready to save</p>
+                    <button
+                      type="button"
+                      phx-click="save_document"
+                      phx-target={@myself}
+                      class="btn btn-primary btn-sm"
+                    >
+                      Save Document
+                    </button>
+                  </div>
+                  <%= for err <- upload_errors(@uploads.document, entry) do %>
+                    <p class="text-error text-sm">{document_error_to_string(err)}</p>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <div
+                :if={@uploads.document.entries == [] && !@show_document_url_input}
+                class="space-y-2"
+              >
+                <div class="text-2xl">📎</div>
+                <div class="text-sm text-base-content/60">Drop file or click to upload</div>
+                <div class="flex flex-col items-center gap-2">
+                  <label for={@uploads.document.ref} class="btn btn-sm btn-outline cursor-pointer">
+                    Select File
+                  </label>
+                  <button
+                    type="button"
+                    phx-click="toggle_document_url_input"
+                    phx-target={@myself}
+                    class="btn btn-ghost btn-xs"
+                  >
+                    From URL
+                  </button>
+                </div>
+                <div class="text-xs text-base-content/40">
+                  PDF, PNG, JPEG (max {@max_document_size_mb}MB)
+                </div>
+              </div>
+
+              <div
+                :if={@show_document_url_input && @uploads.document.entries == []}
+                class="space-y-3"
+              >
+                <form
+                  id={"document-url-form-#{@item.id}"}
+                  phx-change="update_document_url"
+                  phx-submit="fetch_document_from_url"
+                  phx-target={@myself}
+                  class="space-y-2"
+                >
+                  <input
+                    type="url"
+                    name="document_url"
+                    value={@document_url}
+                    placeholder="https://example.com/datasheet.pdf"
+                    class="input input-bordered w-full input-sm"
+                    phx-debounce="100"
+                    autofocus
+                  />
+                  <div class="flex gap-2 justify-center">
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-sm"
+                      disabled={@fetching_document_url or @document_url == ""}
+                    >
+                      {if @fetching_document_url, do: "Fetching...", else: "Fetch"}
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_document_url_input"
+                      phx-target={@myself}
+                      class="btn btn-ghost btn-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
 
           <%= if not @item.archived do %>

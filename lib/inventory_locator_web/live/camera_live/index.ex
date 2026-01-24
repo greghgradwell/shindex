@@ -17,9 +17,9 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
       |> assign(:location_codes, Inventory.list_location_codes(inventory_id))
       |> assign(:saved_items, [])
       |> assign(:form, to_form(%{"name" => "", "location" => "", "quantity" => "1"}))
-      |> assign(:show_optional, false)
       |> assign(:co_location_warning, nil)
       |> assign(:pending_photo, nil)
+      |> assign(:save_error, nil)
 
     {:ok, socket}
   end
@@ -41,10 +41,6 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_optional", _params, socket) do
-    {:noreply, assign(socket, :show_optional, !socket.assigns.show_optional)}
-  end
-
   def handle_event("save", params, socket) do
     name = params["name"] || ""
     location = params["location"] || ""
@@ -57,19 +53,25 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
       {:noreply, put_flash(socket, :error, "Name and location are required")}
     else
       case save_item_with_photo(socket, name, location, quantity, description, manufacturer, model) do
-        {:ok, item, socket} ->
-          socket =
-            socket
-            |> assign(:saved_items, [item | socket.assigns.saved_items])
+        {:ok, item, updated_socket} ->
+          updated_socket =
+            updated_socket
+            |> assign(:saved_items, [item | updated_socket.assigns.saved_items])
             |> assign(:form, to_form(%{"name" => "", "location" => location, "quantity" => "1"}))
             |> assign(:co_location_warning, nil)
             |> assign(:pending_photo, nil)
+            |> assign(:save_error, nil)
             |> put_flash(:info, "Saved: #{item.name}")
 
-          {:noreply, socket}
+          {:noreply, updated_socket}
 
-        {:error, reason, socket} ->
-          {:noreply, put_flash(socket, :error, format_error(reason))}
+        {:error, reason, _} ->
+          error_msg = format_error(reason)
+
+          {:noreply,
+           socket
+           |> assign(:save_error, error_msg)
+           |> put_flash(:error, error_msg)}
       end
     end
   end
@@ -154,6 +156,8 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
         ) ::
           {:ok, map(), Socket.t()} | {:error, term(), Socket.t()}
   defp do_create(socket, name, quantity, description, manufacturer, model, photo_path, location_id) do
+    inventory_id = socket.assigns.current_inventory.id
+
     attrs = %{
       name: name,
       quantity: quantity,
@@ -162,7 +166,8 @@ defmodule InventoryLocatorWeb.CameraLive.Index do
       model: blank_to_nil(model),
       photo_path: photo_path,
       archived: false,
-      location_id: location_id
+      location_id: location_id,
+      inventory_id: inventory_id
     }
 
     case Inventory.create_item_type(attrs) do
