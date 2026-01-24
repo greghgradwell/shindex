@@ -52,6 +52,7 @@ npm-debug.log
 *.plt.hash
 
 priv/static/uploads/
+priv/static/documents/
 
 # Local backup data (synced via Syncthing, not git)
 /priv/backups/
