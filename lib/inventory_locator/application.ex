@@ -33,11 +33,19 @@ defmodule InventoryLocator.Application do
 
   @spec configure_backup_scheduler() :: :ok
   defp configure_backup_scheduler do
-    Task.start(fn ->
-      Process.sleep(1000)
-      settings = InventoryLocator.Backup.get_settings()
-      Scheduler.configure_from_settings(settings)
-    end)
+    _ =
+      Task.start(fn ->
+        Process.sleep(1000)
+
+        try do
+          settings = InventoryLocator.Backup.get_settings()
+          Scheduler.configure_from_settings(settings)
+        rescue
+          e ->
+            require Logger
+            Logger.error("Failed to configure backup scheduler: #{Exception.message(e)}")
+        end
+      end)
 
     :ok
   end

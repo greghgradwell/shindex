@@ -11,9 +11,10 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket) do
-      MaintenanceMode.subscribe()
-    end
+    _ =
+      if connected?(socket) do
+        MaintenanceMode.subscribe()
+      end
 
     socket =
       socket
@@ -376,17 +377,8 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   @spec load_backups(Socket.t()) :: Socket.t()
   defp load_backups(socket) do
     if socket.assigns.configured do
-      daily_backups =
-        case Backup.list_daily_backups() do
-          {:ok, backups} -> backups
-          {:error, _} -> []
-        end
-
-      weekly_backups =
-        case Backup.list_weekly_backups() do
-          {:ok, backups} -> backups
-          {:error, _} -> []
-        end
+      {:ok, daily_backups} = Backup.list_daily_backups()
+      {:ok, weekly_backups} = Backup.list_weekly_backups()
 
       socket
       |> assign(:daily_backups, daily_backups)

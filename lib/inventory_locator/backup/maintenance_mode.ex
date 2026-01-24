@@ -2,6 +2,8 @@ defmodule InventoryLocator.Backup.MaintenanceMode do
   @moduledoc false
   use Agent
 
+  require Logger
+
   @pubsub InventoryLocator.PubSub
   @topic "maintenance:state"
 
@@ -36,7 +38,7 @@ defmodule InventoryLocator.Backup.MaintenanceMode do
       }
     end)
 
-    broadcast_state()
+    log_broadcast_result(broadcast_state())
     :ok
   end
 
@@ -46,7 +48,7 @@ defmodule InventoryLocator.Backup.MaintenanceMode do
       initial_state()
     end)
 
-    broadcast_state()
+    log_broadcast_result(broadcast_state())
     :ok
   end
 
@@ -68,5 +70,13 @@ defmodule InventoryLocator.Backup.MaintenanceMode do
   defp broadcast_state do
     state = get_state()
     Phoenix.PubSub.broadcast(@pubsub, @topic, {:maintenance_state, state})
+  end
+
+  @spec log_broadcast_result(:ok | {:error, term()}) :: :ok
+  defp log_broadcast_result(:ok), do: :ok
+
+  defp log_broadcast_result({:error, reason}) do
+    Logger.warning("Failed to broadcast maintenance state: #{inspect(reason)}")
+    :ok
   end
 end

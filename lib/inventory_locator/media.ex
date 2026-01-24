@@ -54,10 +54,11 @@ defmodule InventoryLocator.Media do
 
   @spec process_and_save_photo(binary(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def process_and_save_photo(binary_data, original_filename) do
+    filename = generate_filename(original_filename, ".jpg")
+    path = Path.join([@uploads_dir, filename])
+
     with {:ok, image} <- Image.from_binary(binary_data),
          {:ok, resized} <- resize_to_bounds(image),
-         filename = generate_filename(original_filename, ".jpg"),
-         path = Path.join([@uploads_dir, filename]),
          :ok <- ensure_dir(@uploads_dir),
          {:ok, _} <- Image.write(resized, path, quality: @jpeg_quality) do
       {:ok, filename}
@@ -120,11 +121,10 @@ defmodule InventoryLocator.Media do
     ext = original_filename |> Path.extname() |> String.downcase()
 
     with {:ok, content_type} <- validate_document_extension(ext),
-         :ok <- validate_document_size(binary) do
+         :ok <- validate_document_size(binary),
+         :ok <- ensure_dir(@documents_dir) do
       storage_path = generate_filename(original_filename, ext)
       full_path = Path.join([@documents_dir, storage_path])
-
-      ensure_dir(@documents_dir)
 
       case File.write(full_path, binary) do
         :ok -> {:ok, storage_path, content_type, byte_size(binary)}
@@ -310,9 +310,11 @@ defmodule InventoryLocator.Media do
     "#{timestamp}_#{random}#{ext}"
   end
 
-  @spec ensure_dir(String.t()) :: :ok
+  @spec ensure_dir(String.t()) :: :ok | {:error, File.posix()}
   defp ensure_dir(dir) do
-    File.mkdir_p!(dir)
-    :ok
+    case File.mkdir_p(dir) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 end

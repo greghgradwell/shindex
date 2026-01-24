@@ -441,12 +441,9 @@
                       </a>
                       <button
                         type="button"
-                        phx-click={
-                          JS.push("delete_document",
-                            value: %{document_id: doc.id},
-                            target: @myself
-                          )
-                        }
+                        phx-click="delete_document"
+                        phx-value-document_id={doc.id}
+                        phx-target={@myself}
                         class="btn btn-xs btn-ghost text-error"
                         title="Delete document"
                       >

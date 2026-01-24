@@ -53,3 +53,4 @@ Follow the [Elixir Style Guide](https://github.com/christopheradams/elixir_style
 - Comments go above the code they describe, never inline explanations of *what*
 - **Every function must have a @spec** - Document argument types and return types for all public and private functions
 - Aliases belong at the module level
+- **Never use anonymous catch-all (`_`) in case/with statements** - Use a named variable and log it: `other -> Logger.warning("Unexpected: #{inspect(other)}")`

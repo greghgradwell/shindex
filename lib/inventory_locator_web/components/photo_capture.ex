@@ -304,12 +304,14 @@ defmodule InventoryLocatorWeb.Components.PhotoCapture do
       [entry | _] when entry.done? ->
         result =
           consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
-            binary = File.read!(temp_path)
-            {:ok, {binary, entry.client_name}}
+            case File.read(temp_path) do
+              {:ok, binary} -> {:ok, {binary, entry.client_name}}
+              {:error, reason} -> {:ok, {:file_error, reason}}
+            end
           end)
 
         case result do
-          {binary, filename} ->
+          {binary, filename} when is_binary(binary) ->
             case create_photo_data(binary, filename) do
               {:ok, photo_data} ->
                 notify_parent({:photo_pending, socket.assigns.id, photo_data})
@@ -322,6 +324,10 @@ defmodule InventoryLocatorWeb.Components.PhotoCapture do
                 Logger.warning("Upload too large for preview: #{byte_size(binary)} bytes")
                 assign(socket, :error_message, "Image too large for preview (max 5MB)")
             end
+
+          {:file_error, reason} ->
+            Logger.warning("Failed to read uploaded file: #{inspect(reason)}")
+            assign(socket, :error_message, "Failed to read uploaded file")
 
           error ->
             Logger.warning("Failed to consume upload: #{inspect(error)}")

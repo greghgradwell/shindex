@@ -55,7 +55,14 @@ defmodule InventoryLocator.Backup.Scheduler do
     settings = Backup.get_settings()
 
     if settings.enabled do
-      Worker.run_weekly()
+      case Worker.run_weekly() do
+        {:ok, _key} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.error("Scheduled weekly backup failed: #{inspect(reason)}")
+          :ok
+      end
     end
 
     :ok

@@ -84,12 +84,12 @@ defmodule InventoryLocator.Backup.Worker do
     :ok
   end
 
-  @spec list_daily_backups() :: {:ok, [LocalStorage.object_info()]} | {:error, term()}
+  @spec list_daily_backups() :: {:ok, [LocalStorage.object_info()]}
   def list_daily_backups do
     LocalStorage.list_objects(@daily_prefix)
   end
 
-  @spec list_weekly_backups() :: {:ok, [LocalStorage.object_info()]} | {:error, term()}
+  @spec list_weekly_backups() :: {:ok, [LocalStorage.object_info()]}
   def list_weekly_backups do
     LocalStorage.list_objects(@weekly_prefix)
   end
@@ -125,13 +125,13 @@ defmodule InventoryLocator.Backup.Worker do
             {:ok, gz_path}
 
           {output, exit_code} ->
-            File.rm(sql_path)
+            _ = File.rm(sql_path)
             Logger.error("gzip failed with exit code #{exit_code}: #{output}")
             {:error, {:gzip_failed, exit_code}}
         end
 
       {output, exit_code} ->
-        File.rm(sql_path)
+        _ = File.rm(sql_path)
         Logger.error("pg_dump failed with exit code #{exit_code}: #{output}")
         {:error, {:pg_dump_failed, exit_code}}
     end
@@ -178,11 +178,11 @@ defmodule InventoryLocator.Backup.Worker do
                 {output, code} -> {:error, {:psql_failed, code, output}}
               end
 
-            File.rm(sql_path)
+            _ = File.rm(sql_path)
             result
 
           {output, code} ->
-            File.rm(sql_path)
+            _ = File.rm(sql_path)
             {:error, {:createdb_failed, code, output}}
         end
 
@@ -255,6 +255,10 @@ defmodule InventoryLocator.Backup.Worker do
          {:ok, _count} <- backup_photos_for_pre_restore(timestamp) do
       Logger.info("Pre-restore backup created: #{backup_key}")
       {:ok, backup_key}
+    else
+      {:error, reason} = error ->
+        Logger.error("Pre-restore backup failed: #{inspect(reason)}")
+        error
     end
   end
 
@@ -270,47 +274,74 @@ defmodule InventoryLocator.Backup.Worker do
     end
   end
 
-  @spec restore_photos() :: :ok
+  @spec restore_photos() :: :ok | {:error, term()}
   defp restore_photos do
     Logger.info("Restoring photos from backup")
     uploads_dir = uploads_directory()
     backup_photos_dir = Path.join(LocalStorage.base_path(), @photos_prefix)
 
     if File.dir?(backup_photos_dir) do
-      File.mkdir_p!(uploads_dir)
+      case File.mkdir_p(uploads_dir) do
+        :ok ->
+          case File.ls(backup_photos_dir) do
+            {:ok, files} ->
+              errors =
+                files
+                |> Enum.filter(&File.regular?(Path.join(backup_photos_dir, &1)))
+                |> Enum.map(fn filename ->
+                  src = Path.join(backup_photos_dir, filename)
+                  dest = Path.join(uploads_dir, filename)
 
-      case File.ls(backup_photos_dir) do
-        {:ok, files} ->
-          files
-          |> Enum.filter(&File.regular?(Path.join(backup_photos_dir, &1)))
-          |> Enum.each(fn filename ->
-            src = Path.join(backup_photos_dir, filename)
-            dest = Path.join(uploads_dir, filename)
-            File.cp(src, dest)
-          end)
+                  case File.cp(src, dest) do
+                    :ok -> nil
+                    {:error, reason} -> {filename, reason}
+                  end
+                end)
+                |> Enum.reject(&is_nil/1)
 
-          Logger.info("Photos restored to #{uploads_dir}")
+              if errors == [] do
+                Logger.info("Photos restored to #{uploads_dir}")
+                :ok
+              else
+                Logger.warning("Some photos failed to restore: #{inspect(errors)}")
+                :ok
+              end
+
+            {:error, reason} ->
+              Logger.warning("Failed to list backup photos: #{inspect(reason)}")
+              {:error, {:list_failed, reason}}
+          end
 
         {:error, reason} ->
-          Logger.warning("Failed to list backup photos: #{inspect(reason)}")
+          Logger.error("Failed to create uploads directory: #{inspect(reason)}")
+          {:error, {:mkdir_failed, reason}}
       end
     else
       Logger.info("No backup photos to restore")
+      :ok
     end
-
-    :ok
   end
 
   @spec cleanup_prefix(String.t(), DateTime.t()) :: :ok
   defp cleanup_prefix(prefix, cutoff) do
     {:ok, objects} = LocalStorage.list_objects(prefix)
 
-    objects
-    |> Enum.filter(&DateTime.before?(&1.updated, cutoff))
-    |> Enum.each(fn obj ->
-      Logger.info("Deleting old backup: #{obj.key}")
-      LocalStorage.delete(obj.key)
-    end)
+    errors =
+      objects
+      |> Enum.filter(&DateTime.before?(&1.updated, cutoff))
+      |> Enum.map(fn obj ->
+        Logger.info("Deleting old backup: #{obj.key}")
+
+        case LocalStorage.delete(obj.key) do
+          :ok -> nil
+          {:error, reason} -> {obj.key, reason}
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    if errors != [] do
+      Logger.warning("Some cleanup deletions failed: #{inspect(errors)}")
+    end
 
     :ok
   end

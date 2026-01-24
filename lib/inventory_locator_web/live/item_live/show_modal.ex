@@ -340,33 +340,38 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     item_params = params["item_type"] || params
 
     # Process pending photo if present
-    photo_path = process_pending_photo(socket.assigns.pending_photo)
+    case process_pending_photo(socket.assigns.pending_photo) do
+      {:ok, photo_path} ->
+        attrs = %{
+          name: Map.get(item_params, "name", item.name),
+          manufacturer: Map.get(item_params, "manufacturer", ""),
+          model: Map.get(item_params, "model", ""),
+          description: Map.get(item_params, "description", "")
+        }
 
-    attrs = %{
-      name: Map.get(item_params, "name", item.name),
-      manufacturer: Map.get(item_params, "manufacturer", ""),
-      model: Map.get(item_params, "model", ""),
-      description: Map.get(item_params, "description", "")
-    }
+        # Add photo_path only if a new photo was uploaded
+        attrs = if photo_path, do: Map.put(attrs, :photo_path, photo_path), else: attrs
 
-    # Add photo_path only if a new photo was uploaded
-    attrs = if photo_path, do: Map.put(attrs, :photo_path, photo_path), else: attrs
+        case Inventory.update_item_type(item, attrs) do
+          {:ok, _updated_item} ->
+            # In batch mode, advance to next incomplete item
+            if socket.assigns.batch_mode do
+              send(self(), {:advance_to_next_incomplete})
+            end
 
-    case Inventory.update_item_type(item, attrs) do
-      {:ok, _updated_item} ->
-        # In batch mode, advance to next incomplete item
-        if socket.assigns.batch_mode do
-          send(self(), {:advance_to_next_incomplete})
+            {:noreply,
+             socket
+             |> assign(:pending_photo, nil)
+             |> put_flash(:info, "Item details updated")}
+
+          {:error, changeset} ->
+            Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
+            {:noreply, put_flash(socket, :error, "Failed to update item details")}
         end
 
-        {:noreply,
-         socket
-         |> assign(:pending_photo, nil)
-         |> put_flash(:info, "Item details updated")}
-
-      {:error, changeset} ->
-        Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
-        {:noreply, put_flash(socket, :error, "Failed to update item details")}
+      {:error, reason} ->
+        Logger.warning("Failed to process photo: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, "Failed to save photo")}
     end
   end
 
@@ -516,10 +521,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   def handle_event("save_photo_only", _params, socket) do
     case process_pending_photo(socket.assigns.pending_photo) do
-      nil ->
+      {:ok, nil} ->
         {:noreply, put_flash(socket, :error, "No photo to save")}
 
-      photo_path ->
+      {:ok, photo_path} ->
         item = socket.assigns.item
 
         case Inventory.update_item_type(item, %{photo_path: photo_path}) do
@@ -542,6 +547,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
             Logger.warning("Failed to save photo: #{inspect(changeset.errors)}")
             {:noreply, put_flash(socket, :error, "Failed to save photo")}
         end
+
+      {:error, reason} ->
+        Logger.warning("Failed to process photo: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, "Failed to save photo")}
     end
   end
 
@@ -564,12 +573,14 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
       [entry | _] when entry.done? ->
         result =
           consume_uploaded_entry(socket, entry, fn %{path: temp_path} ->
-            binary = File.read!(temp_path)
-            {:ok, {binary, entry.client_name}}
+            case File.read(temp_path) do
+              {:ok, binary} -> {:ok, {binary, entry.client_name}}
+              {:error, reason} -> {:ok, {:file_error, reason}}
+            end
           end)
 
         case result do
-          {binary, filename} ->
+          {binary, filename} when is_binary(binary) ->
             case Media.save_document_file(binary, filename) do
               {:ok, storage_path, content_type, size_bytes} ->
                 case Media.create_document(item.id, %{
@@ -601,7 +612,12 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
                 {:noreply, put_flash(socket, :error, "Failed to save document file")}
             end
 
-          _ ->
+          {:file_error, reason} ->
+            Logger.warning("Failed to read uploaded file: #{inspect(reason)}")
+            {:noreply, put_flash(socket, :error, "Failed to read uploaded file")}
+
+          other ->
+            Logger.warning("Unexpected upload result: #{inspect(other)}")
             {:noreply, put_flash(socket, :error, "Failed to process upload")}
         end
 
@@ -906,14 +922,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
-  @spec process_pending_photo(map() | nil) :: String.t() | nil
-  defp process_pending_photo(nil), do: nil
+  @spec process_pending_photo(map() | nil) :: {:ok, String.t()} | {:ok, nil} | {:error, term()}
+  defp process_pending_photo(nil), do: {:ok, nil}
 
   defp process_pending_photo(%{binary: binary, filename: filename}) do
-    case Media.process_and_save_photo(binary, filename) do
-      {:ok, saved_filename} -> saved_filename
-      {:error, _} -> nil
-    end
+    Media.process_and_save_photo(binary, filename)
   end
 
   @spec format_file_size(integer()) :: String.t()
