@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Update an item's fields
+# Usage: ./scripts/assist-update <item_id> <json_fields>
+# Example: ./scripts/assist-update 20 '{"manufacturer":"Bosch","model":"GKS 190"}'
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: assist-update <item_id> '<json_fields>'"
+  exit 1
+fi
+
+curl -s -X PATCH "http://localhost:4000/api/assist/items/$1" \
+  -H "Content-Type: application/json" \
+  -d "$2"

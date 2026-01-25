@@ -71,6 +71,10 @@ defmodule InventoryLocatorWeb.Router do
       post "/items/:id/show", AssistController, :show_item
       patch "/items/:id", AssistController, :update_item
       post "/items/:id/skip", AssistController, :skip_fields
+
+      post "/batch/start", AssistController, :start_batch
+      get "/batch/decisions", AssistController, :get_decisions
+      post "/batch/clear", AssistController, :clear_batch
     end
   end
 end

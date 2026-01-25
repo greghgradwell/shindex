@@ -47,6 +47,11 @@ defmodule InventoryLocator.Assist do
     PubSub.broadcast(@pubsub, @topic, {:show_item, item_id})
   end
 
+  @spec show_batch([item_summary()]) :: :ok | {:error, term()}
+  def show_batch(items) when is_list(items) do
+    PubSub.broadcast(@pubsub, @topic, {:show_batch, items})
+  end
+
   @spec get_item(integer()) :: {:ok, item_summary()} | {:error, :not_found}
   def get_item(item_id) do
     case Repo.get(ItemType, item_id) do

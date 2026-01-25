@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Show an item in the browser for review
+# Usage: ./scripts/assist-show <item_id>
+
+set -e
+
+if [ -z "$1" ]; then
+  echo "Usage: assist-show <item_id>"
+  exit 1
+fi
+
+curl -s -X POST "http://localhost:4000/api/assist/items/$1/show"

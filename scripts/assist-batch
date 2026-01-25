@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Start a batch of items for assist mode
+# Usage: ./scripts/assist-batch [limit]
+
+set -e
+
+LIMIT=${1:-5}
+
+# Get incomplete items
+items=$(curl -s "http://localhost:4000/api/assist/items?fields=manufacturer,model,description&limit=$LIMIT")
+count=$(echo "$items" | jq '.count')
+
+if [ "$count" -eq 0 ]; then
+  echo '{"status":"no_items"}'
+  exit 0
+fi
+
+# Extract item IDs
+item_ids=$(echo "$items" | jq '[.items[].id]')
+
+# Clear any existing batch and start new one
+curl -s -X POST "http://localhost:4000/api/assist/batch/clear" > /dev/null
+result=$(curl -s -X POST "http://localhost:4000/api/assist/batch/start" \
+  -H "Content-Type: application/json" \
+  -d "{\"item_ids\": $item_ids}")
+
+# Output the items for reference
+echo "$items"

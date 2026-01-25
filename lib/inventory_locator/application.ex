@@ -12,6 +12,7 @@ defmodule InventoryLocator.Application do
       InventoryLocator.Repo,
       {DNSCluster, query: Application.get_env(:inventory_locator, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: InventoryLocator.PubSub},
+      InventoryLocator.Assist.Decisions,
       InventoryLocator.Backup.MaintenanceMode,
       Scheduler,
       InventoryLocatorWeb.Endpoint

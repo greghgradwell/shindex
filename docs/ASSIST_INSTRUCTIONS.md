@@ -7,130 +7,120 @@ Instructions for Claude Code to assist with completing missing inventory item de
 - Phoenix server running (`mix phx.server`)
 - User has `/dev/assist` open in browser
 - This project directory is the working directory
+- Helper scripts pre-approved: `./scripts/assist-*`
 
-## Workflow
+## Helper Scripts
 
-### Step 1: Verify server is running
+Located in `scripts/`:
+
+| Script | Usage | Description |
+|--------|-------|-------------|
+| `assist-batch` | `./scripts/assist-batch [limit]` | Start batch of incomplete items (default: 5) |
+| `assist-poll` | `./scripts/assist-poll [timeout]` | Poll until user clicks "Start Research" (default: 300s) |
+| `assist-show` | `./scripts/assist-show <id>` | Display item in browser for review |
+| `assist-update` | `./scripts/assist-update <id> '<json>'` | Update item fields |
+
+## Batch Workflow
+
+### Step 1: Start a batch
 
 ```bash
-curl -s http://localhost:4000/api/assist/items?fields=manufacturer,model | head -c 100
+./scripts/assist-batch 5
 ```
 
-If this fails, server is not running.
+This clears any existing batch, fetches incomplete items, and sends them to the browser. Returns JSON with item details.
 
-### Step 2: Get incomplete items
+Tell user: "I've sent X items to your browser. Toggle which fields you want me to research, then click **Start Research**."
+
+### Step 2: Poll for decisions
 
 ```bash
-curl -s "http://localhost:4000/api/assist/items?fields=manufacturer,model,description"
+./scripts/assist-poll 300
 ```
 
-Response format:
+This blocks until user clicks "Start Research", then returns their decisions:
+
 ```json
 {
+  "status": "ready",
+  "batch_id": "abc123",
   "items": [
-    {
-      "id": 1,
-      "name": "Blue screwdriver",
-      "manufacturer": null,
-      "model": null,
-      "description": null,
-      "photo_path": "items/abc123.jpg",
-      "location_code": "A-1",
-      "missing_fields": ["manufacturer", "model", "description"]
-    }
-  ],
-  "count": 42
+    {"item_id": 20, "item_name": "M3 Screws", "find": ["manufacturer", "model"], "skip": []},
+    {"item_id": 21, "item_name": "Wire Nuts", "find": ["description"], "skip": []}
+  ]
 }
 ```
 
-Show the user a summary: "Found X items with missing information."
+### Step 3: Parallel research
 
-### Step 3: For each item, loop through this process:
+For each item with `find` fields, spawn parallel Task agents:
 
-#### 3a. Display in browser
+```
+Task 1: Search for "M3 Screws stainless steel" → manufacturer, model
+Task 2: Search for "3M T/R+ wire nuts" → description
+Task 3: Search for "Titebond Original wood glue" → description
+```
+
+Use the item's existing fields (name, manufacturer, model) to build search queries.
+
+### Step 4: Review results one-by-one
+
+For each item:
+
+#### 4a. Display in browser
 
 ```bash
-curl -X POST "http://localhost:4000/api/assist/items/42/show"
+./scripts/assist-show 20
 ```
 
-Tell user: "Displaying [item name] in browser. Check the photo."
+#### 4b. Present findings
 
-#### 3b. Build search query
-
-Construct a web search query from:
-- Item name (required)
-- Manufacturer (if present)
-- Model (if present)
-- Any identifying info visible in description
-
-Example: "Bosch circular saw GKS 190 specifications"
-
-#### 3c. Search the web
-
-Use WebSearch tool to find:
-- Manufacturer's product page
-- Retailer listings (Amazon, Home Depot, etc.)
-- Specification sheets
-
-#### 3d. Extract and present information
-
-From search results, extract:
-- **Manufacturer**: The brand/company name
-- **Model**: Model number, part number, or SKU
-- **Description**: Brief description of what the item is
-
-Present to user:
 ```
-Based on my search, I found:
-- Manufacturer: Bosch
-- Model: GKS 190
-- Description: 7-1/4" circular saw, 15 amp
+**Wire Nuts** (Item 2 of 3)
+
+| Field | Current | Suggested |
+|-------|---------|-----------|
+| Manufacturer | 3M | — |
+| Model | T/R+ | — |
+| Description | *Missing* | **Twist-on wire connectors for 22-8 AWG copper** |
 
 Options:
-1. Accept all
-2. Modify (tell me what to change)
-3. Skip this item
-4. Skip specific field(s)
+1. **Accept** — apply this description
+2. **Modify** — tell me what to change
+3. **Skip** — leave empty
 ```
 
-#### 3e. Apply user's choice
+#### 4c. Apply user's choice
 
-**If accept/modify:**
+**If accept (user says "1" or "accept"):**
 ```bash
-curl -X PATCH "http://localhost:4000/api/assist/items/42" \
-  -H "Content-Type: application/json" \
-  -d '{"manufacturer": "Bosch", "model": "GKS 190", "description": "7-1/4\" circular saw, 15 amp"}'
+./scripts/assist-update 21 '{"description":"Twist-on wire connectors for 22-8 AWG copper"}'
 ```
 
-**If skip entire item:**
+**If skip (user says "3" or "skip"):**
+Move to next item without updating.
+
+**If modify (user says "2" or provides new value):**
+Apply the modified value using `assist-update`.
+
+### Step 5: Continue or finish
+
+After processing all items, check for remaining incomplete items:
+
 ```bash
-curl -X POST "http://localhost:4000/api/assist/items/42/skip" \
-  -H "Content-Type: application/json" \
-  -d '{"fields": ["manufacturer", "model", "description"]}'
+curl -s "http://localhost:4000/api/assist/items?limit=1" | jq '.count'
 ```
 
-**If skip specific field:**
-```bash
-curl -X POST "http://localhost:4000/api/assist/items/42/skip" \
-  -H "Content-Type: application/json" \
-  -d '{"fields": ["model"]}'
-```
+If count > 0, ask user if they want another batch. Otherwise, workflow complete.
 
-### Step 4: Continue to next item
+---
 
-Repeat Step 3 for remaining items.
+## User Commands During Review
 
-### Step 5: Complete
-
-When no items remain, tell user: "All incomplete items have been processed!"
-
-## User Commands During Workflow
-
-- "skip" or "skip this item" → Skip all missing fields for current item
-- "skip [field]" → Skip just that field (e.g., "skip model")
-- "accept" → Accept all suggested values
-- "change [field] to [value]" → Modify a specific field
-- "stop" or "done" → End the workflow early
+- `1` or `accept` → Apply suggested values
+- `2` or `modify` → User will provide corrections
+- `3` or `skip` → Leave fields empty, move to next item
+- `stop` or `done` → End workflow early
 
 ## API Reference
 
@@ -140,18 +130,19 @@ When no items remain, tell user: "All incomplete items have been processed!"
 | `/api/assist/items/:id` | GET | Get single item details |
 | `/api/assist/items/:id/show` | POST | Display item in browser |
 | `/api/assist/items/:id` | PATCH | Update item fields |
-| `/api/assist/items/:id/skip` | POST | Skip field(s) |
+| `/api/assist/items/:id/skip` | POST | Mark field(s) as skipped |
+| `/api/assist/batch/start` | POST | Start batch with item IDs |
+| `/api/assist/batch/decisions` | GET | Get user's field selections |
+| `/api/assist/batch/clear` | POST | Clear current batch |
 
 ### Query Parameters for GET /api/assist/items
 
-- `fields` - Comma-separated list of fields to check (default: `manufacturer,model,description`)
+- `fields` - Comma-separated fields to check (default: `manufacturer,model,description`)
 - `limit` - Maximum items to return (default: 50)
-- `inventory_id` - Override current inventory (optional)
 
 ## Notes
 
-- Always show the item in browser before searching
-- Wait for user confirmation before making any changes
-- If search yields no results, offer to skip or let user provide manual input
-- Keep descriptions concise (under 100 characters ideally)
+- Keep descriptions concise (under 100 characters)
+- Use existing item fields to build better search queries
 - Skipped fields won't appear in future queries
+- The batch UI shows all item details so users can make informed toggle decisions
