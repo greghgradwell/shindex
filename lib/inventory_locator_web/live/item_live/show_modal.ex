@@ -102,11 +102,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply,
          socket
          |> refresh_item_data()
-         |> put_flash(:info, "Quantity updated")}
+         |> notify_flash(:info, "Quantity updated")}
 
       {:error, changeset} ->
         Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
-        {:noreply, put_flash(socket, :error, "Failed to update quantity")}
+        {:noreply, notify_flash(socket, :error, "Failed to update quantity")}
     end
   end
 
@@ -127,11 +127,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
             {:noreply,
              socket
              |> refresh_item_data()
-             |> put_flash(:info, "Quantity updated")}
+             |> notify_flash(:info, "Quantity updated")}
 
           {:error, changeset} ->
             Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
-            {:noreply, put_flash(socket, :error, "Failed to update quantity")}
+            {:noreply, notify_flash(socket, :error, "Failed to update quantity")}
         end
     end
   end
@@ -146,11 +146,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply,
          socket
          |> assign(:item, updated_item)
-         |> put_flash(:info, "Item archived. Location is now available for reuse.")}
+         |> notify_flash(:info, "Item archived. Location is now available for reuse.")}
 
       {:error, changeset} ->
         Logger.warning("Failed to archive item: #{inspect(changeset.errors)}")
-        {:noreply, put_flash(socket, :error, "Failed to archive item")}
+        {:noreply, notify_flash(socket, :error, "Failed to archive item")}
     end
   end
 
@@ -178,7 +178,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          socket
          |> assign(:item, updated_item)
          |> assign(:show_archive_quantity_modal, false)
-         |> put_flash(:info, "Item archived. Location is now available for reuse.")}
+         |> notify_flash(:info, "Item archived. Location is now available for reuse.")}
 
       {:error, changeset} ->
         Logger.warning("Failed to archive item: #{inspect(changeset.errors)}")
@@ -186,7 +186,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply,
          socket
          |> assign(:show_archive_quantity_modal, false)
-         |> put_flash(:error, "Failed to archive item")}
+         |> notify_flash(:error, "Failed to archive item")}
     end
   end
 
@@ -282,15 +282,16 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
             {:noreply,
              socket
              |> refresh_item_data()
-             |> put_flash(:info, "Quantity updated")}
+             |> notify_flash(:info, "Quantity updated")}
 
           {:error, changeset} ->
             Logger.warning("Failed to update quantity: #{inspect(changeset.errors)}")
-            {:noreply, put_flash(socket, :error, "Failed to update quantity")}
+            {:noreply, notify_flash(socket, :error, "Failed to update quantity")}
         end
 
-      _ ->
-        {:noreply, put_flash(socket, :error, "Invalid quantity")}
+      invalid_input ->
+        Logger.warning("Invalid quantity input: #{inspect(invalid_input)}")
+        {:noreply, notify_flash(socket, :error, "Invalid quantity")}
     end
   end
 
@@ -340,17 +341,20 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
             {:noreply,
              socket
+             |> refresh_item_data()
+             |> assign(:editing, false)
+             |> assign(:edit_changeset, nil)
              |> assign(:pending_photo, nil)
-             |> put_flash(:info, "Item details updated")}
+             |> notify_flash(:info, "Item details updated")}
 
           {:error, changeset} ->
             Logger.warning("Failed to update item details: #{inspect(changeset.errors)}")
-            {:noreply, put_flash(socket, :error, "Failed to update item details")}
+            {:noreply, notify_flash(socket, :error, "Failed to update item details")}
         end
 
       {:error, reason} ->
         Logger.warning("Failed to process photo: #{inspect(reason)}")
-        {:noreply, put_flash(socket, :error, "Failed to save photo")}
+        {:noreply, notify_flash(socket, :error, "Failed to save photo")}
     end
   end
 
@@ -447,7 +451,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   def handle_event("save_photo_only", _params, socket) do
     case process_pending_photo(socket.assigns.pending_photo) do
       {:ok, nil} ->
-        {:noreply, put_flash(socket, :error, "No photo to save")}
+        {:noreply, notify_flash(socket, :error, "No photo to save")}
 
       {:ok, photo_path} ->
         item = socket.assigns.item
@@ -466,16 +470,16 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
              socket
              |> assign(:item, updated_item)
              |> assign(:pending_photo, nil)
-             |> put_flash(:info, "Photo saved")}
+             |> notify_flash(:info, "Photo saved")}
 
           {:error, changeset} ->
             Logger.warning("Failed to save photo: #{inspect(changeset.errors)}")
-            {:noreply, put_flash(socket, :error, "Failed to save photo")}
+            {:noreply, notify_flash(socket, :error, "Failed to save photo")}
         end
 
       {:error, reason} ->
         Logger.warning("Failed to process photo: #{inspect(reason)}")
-        {:noreply, put_flash(socket, :error, "Failed to save photo")}
+        {:noreply, notify_flash(socket, :error, "Failed to save photo")}
     end
   end
 
@@ -520,33 +524,34 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
                     {:noreply,
                      socket
                      |> assign(:documents, documents)
-                     |> put_flash(:info, "Document uploaded")}
+                     |> notify_flash(:info, "Document uploaded")}
 
                   {:error, changeset} ->
-                    {:noreply, put_flash(socket, :error, format_changeset_errors(changeset))}
+                    {:noreply, notify_flash(socket, :error, format_changeset_errors(changeset))}
                 end
 
               {:error, :invalid_type} ->
-                {:noreply, put_flash(socket, :error, "Invalid file type. Use PDF, PNG, or JPEG.")}
+                {:noreply, notify_flash(socket, :error, "Invalid file type. Use PDF, PNG, or JPEG.")}
 
               {:error, :file_too_large} ->
                 max_mb = div(Media.max_document_size(), 1024 * 1024)
-                {:noreply, put_flash(socket, :error, "File too large (max #{max_mb}MB)")}
+                {:noreply, notify_flash(socket, :error, "File too large (max #{max_mb}MB)")}
 
               {:error, _reason} ->
-                {:noreply, put_flash(socket, :error, "Failed to save document file")}
+                {:noreply, notify_flash(socket, :error, "Failed to save document file")}
             end
 
           {:file_error, reason} ->
             Logger.warning("Failed to read uploaded file: #{inspect(reason)}")
-            {:noreply, put_flash(socket, :error, "Failed to read uploaded file")}
+            {:noreply, notify_flash(socket, :error, "Failed to read uploaded file")}
 
           other ->
             Logger.warning("Unexpected upload result: #{inspect(other)}")
-            {:noreply, put_flash(socket, :error, "Failed to process upload")}
+            {:noreply, notify_flash(socket, :error, "Failed to process upload")}
         end
 
-      _ ->
+      _no_completed_upload ->
+        # No action needed - upload may be empty or still in progress
         {:noreply, socket}
     end
   end
@@ -562,10 +567,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply,
          socket
          |> assign(:documents, documents)
-         |> put_flash(:info, "Document deleted")}
+         |> notify_flash(:info, "Document deleted")}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete document")}
+        {:noreply, notify_flash(socket, :error, "Failed to delete document")}
     end
   end
 
@@ -593,7 +598,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     item = socket.assigns.item
 
     if url == "" do
-      {:noreply, put_flash(socket, :error, "Please enter a URL")}
+      {:noreply, notify_flash(socket, :error, "Please enter a URL")}
     else
       socket = assign(socket, :fetching_document_url, true)
 
@@ -616,20 +621,20 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
                    |> assign(:show_document_url_input, false)
                    |> assign(:document_url, "")
                    |> assign(:fetching_document_url, false)
-                   |> put_flash(:info, "Document uploaded from URL")}
+                   |> notify_flash(:info, "Document uploaded from URL")}
 
                 {:error, changeset} ->
                   {:noreply,
                    socket
                    |> assign(:fetching_document_url, false)
-                   |> put_flash(:error, format_changeset_errors(changeset))}
+                   |> notify_flash(:error, format_changeset_errors(changeset))}
               end
 
             {:error, :invalid_type} ->
               {:noreply,
                socket
                |> assign(:fetching_document_url, false)
-               |> put_flash(:error, "Invalid file type. Use PDF, PNG, or JPEG.")}
+               |> notify_flash(:error, "Invalid file type. Use PDF, PNG, or JPEG.")}
 
             {:error, :file_too_large} ->
               max_mb = div(Media.max_document_size(), 1024 * 1024)
@@ -637,20 +642,20 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
               {:noreply,
                socket
                |> assign(:fetching_document_url, false)
-               |> put_flash(:error, "File too large (max #{max_mb}MB)")}
+               |> notify_flash(:error, "File too large (max #{max_mb}MB)")}
 
             {:error, _reason} ->
               {:noreply,
                socket
                |> assign(:fetching_document_url, false)
-               |> put_flash(:error, "Failed to save document file")}
+               |> notify_flash(:error, "Failed to save document file")}
           end
 
         {:error, reason} ->
           {:noreply,
            socket
            |> assign(:fetching_document_url, false)
-           |> put_flash(:error, format_document_url_error(reason))}
+           |> notify_flash(:error, format_document_url_error(reason))}
       end
     end
   end
@@ -672,7 +677,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
         {:noreply, socket}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete item")}
+        {:noreply, notify_flash(socket, :error, "Failed to delete item")}
     end
   end
 
@@ -702,20 +707,21 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
              socket
              |> refresh_item_data()
              |> assign(:installing, false)
-             |> put_flash(:info, message)}
+             |> notify_flash(:info, message)}
 
           {:error, :insufficient_quantity} ->
-            {:noreply, put_flash(socket, :error, "Not enough in stock")}
+            {:noreply, notify_flash(socket, :error, "Not enough in stock")}
 
           {:error, :archived} ->
-            {:noreply, put_flash(socket, :error, "Cannot install from archived item")}
+            {:noreply, notify_flash(socket, :error, "Cannot install from archived item")}
 
           {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Failed to install item")}
+            {:noreply, notify_flash(socket, :error, "Failed to install item")}
         end
 
-      _ ->
-        {:noreply, put_flash(socket, :error, "Invalid quantity")}
+      invalid_input ->
+        Logger.warning("Invalid install quantity input: #{inspect(invalid_input)}")
+        {:noreply, notify_flash(socket, :error, "Invalid quantity")}
     end
   end
 
@@ -726,13 +732,13 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
     cond do
       is_nil(installation) ->
-        {:noreply, put_flash(socket, :error, "Installation not found")}
+        {:noreply, notify_flash(socket, :error, "Installation not found")}
 
       item.archived ->
-        {:noreply, put_flash(socket, :error, "Cannot add to archived item")}
+        {:noreply, notify_flash(socket, :error, "Cannot add to archived item")}
 
       item.quantity < 1 ->
-        {:noreply, put_flash(socket, :error, "No stock available")}
+        {:noreply, notify_flash(socket, :error, "No stock available")}
 
       true ->
         case Inventory.install_item(item, installation.project_name, 1) do
@@ -740,10 +746,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
             {:noreply,
              socket
              |> refresh_item_data()
-             |> put_flash(:info, "Added 1 to #{installation.project_name}")}
+             |> notify_flash(:info, "Added 1 to #{installation.project_name}")}
 
           {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to add to installation")}
+            {:noreply, notify_flash(socket, :error, "Failed to add to installation")}
         end
     end
   end
@@ -759,7 +765,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     if installation do
       do_uninstall(socket, id_str, installation.quantity)
     else
-      {:noreply, put_flash(socket, :error, "Installation not found")}
+      {:noreply, notify_flash(socket, :error, "Installation not found")}
     end
   end
 
@@ -774,7 +780,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
           {:noreply,
            socket
            |> refresh_item_data()
-           |> put_flash(:info, "Returned #{quantity} to stock from #{installation.project_name}")}
+           |> notify_flash(:info, "Returned #{quantity} to stock from #{installation.project_name}")}
 
         {:ok, :needs_restore, restore_quantity} ->
           {:noreply,
@@ -782,16 +788,16 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
            |> assign(:pending_restore_quantity, restore_quantity)
            |> assign(:show_restore_modal, true)
            |> refresh_item_data()
-           |> put_flash(
+           |> notify_flash(
              :info,
              "#{restore_quantity} removed from #{installation.project_name}. Choose a location to restore."
            )}
 
         {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to remove installation")}
+          {:noreply, notify_flash(socket, :error, "Failed to remove installation")}
       end
     else
-      {:noreply, put_flash(socket, :error, "Installation not found")}
+      {:noreply, notify_flash(socket, :error, "Installation not found")}
     end
   end
 
@@ -822,10 +828,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> assign(:item, updated_item)
          |> assign(:moving, false)
          |> assign(:move_location_warning, nil)
-         |> put_flash(:info, "Item moved to location #{location_code}")}
+         |> notify_flash(:info, "Item moved to location #{location_code}")}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to move item")}
+        {:noreply, notify_flash(socket, :error, "Failed to move item")}
     end
   end
 
@@ -840,10 +846,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
          |> assign(:show_restore_modal, false)
          |> assign(:location_warning, nil)
          |> assign(:pending_restore_quantity, nil)
-         |> put_flash(:info, "Item restored to location #{location_code}")}
+         |> notify_flash(:info, "Item restored to location #{location_code}")}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to restore item")}
+        {:noreply, notify_flash(socket, :error, "Failed to restore item")}
     end
   end
 
@@ -898,5 +904,13 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   defp safe_document_path(document) do
     safe_path = Path.basename(document.storage_path)
     "/documents/#{safe_path}"
+  end
+
+  # LiveComponents can't use put_flash directly - flash must be set on the parent LiveView.
+  # This helper sends a message to the parent (which runs in the same process).
+  @spec notify_flash(Socket.t(), atom(), String.t()) :: Socket.t()
+  defp notify_flash(socket, kind, message) do
+    send(self(), {:flash, kind, message})
+    socket
   end
 end

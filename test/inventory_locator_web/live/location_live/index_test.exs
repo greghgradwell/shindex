@@ -8,7 +8,12 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
 
   describe "Index" do
     test "lists all shelves with hierarchy", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test Item", 1, "Test")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test Item"
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
@@ -16,14 +21,24 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "shows shelf code", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test", 1, "Test")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test"
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
     end
 
     test "shows bin code in hierarchy", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-3", "Test", 1, "Test")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-3",
+          name: "Test"
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "show_rename_bin_modal"
@@ -31,7 +46,13 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "deletes empty location on click", %{conn: conn, inventory: inventory} do
-      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test", 1, "Test")
+      {:ok, item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test"
+        })
+
       item = Repo.preload(item, :location)
       Inventory.delete_item_type(item)
 
@@ -45,7 +66,13 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "prevents deletion of occupied location", %{conn: conn, inventory: inventory} do
-      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test", 1, "Test")
+      {:ok, item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test"
+        })
+
       item = Repo.preload(item, :location)
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
@@ -55,8 +82,20 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "updates view after deleting location", %{conn: conn, inventory: inventory} do
-      {:ok, item1} = Inventory.create_item_with_location(inventory.id, "A-1", "Item 1", 1, "Test")
-      {:ok, item2} = Inventory.create_item_with_location(inventory.id, "A-2", "Item 2", 1, "Test")
+      {:ok, item1} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Item 1"
+        })
+
+      {:ok, item2} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-2",
+          name: "Item 2"
+        })
+
       item1 = Repo.preload(item1, :location)
       item2 = Repo.preload(item2, :location)
       Inventory.delete_item_type(item1)
@@ -72,14 +111,26 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "shows occupied indicator for locations with items", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test Item", 5, "Test")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test Item",
+          quantity: 5
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "Test Item"
     end
 
     test "shows delete button for empty locations", %{conn: conn, inventory: inventory} do
-      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test", 1, "Test")
+      {:ok, item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test"
+        })
+
       Inventory.delete_item_type(item)
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
@@ -88,8 +139,19 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "multiple shelves displayed correctly", %{conn: conn, inventory: inventory} do
-      {:ok, _item1} = Inventory.create_item_with_location(inventory.id, "A-1", "Item 1", 1, "Test")
-      {:ok, _item2} = Inventory.create_item_with_location(inventory.id, "B-1", "Item 2", 1, "Test")
+      {:ok, _item1} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Item 1"
+        })
+
+      {:ok, _item2} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "B-1",
+          name: "Item 2"
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
       assert html =~ "A"
@@ -97,8 +159,21 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "shows multiple items as clickable buttons in same location", %{conn: conn, inventory: inventory} do
-      {:ok, item1} = Inventory.create_item_with_location(inventory.id, "A-1", "Item 1", 5, "Desc")
-      {:ok, item2} = Inventory.create_item_with_location(inventory.id, "A-1", "Item 2", 3, "Desc")
+      {:ok, item1} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Item 1",
+          quantity: 5
+        })
+
+      {:ok, item2} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Item 2",
+          quantity: 3
+        })
 
       {:ok, _index_live, html} = live(conn, ~p"/locations")
 
@@ -109,7 +184,14 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "clicking item opens detail modal", %{conn: conn, inventory: inventory} do
-      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test Item", 5, "Test Description")
+      {:ok, item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test Item",
+          quantity: 5,
+          description: "Test Description"
+        })
 
       {:ok, view, _html} = live(conn, ~p"/locations")
 
@@ -222,7 +304,13 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "updates location codes when renaming", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "BEFORE-1", "Test", 1, "Desc")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "BEFORE-1",
+          name: "Test"
+        })
+
       {:ok, view, _html} = live(conn, ~p"/locations")
 
       view |> element("button[phx-click='show_rename_shelf_modal']") |> render_click()
@@ -264,17 +352,23 @@ defmodule InventoryLocatorWeb.LocationLive.IndexTest do
     end
 
     test "deletes empty shelf on confirm", %{conn: conn, inventory: inventory} do
-      {:ok, shelf} = Inventory.create_shelf_with_bins(inventory.id, %{code: "EMPTY"}, 1)
+      {:ok, shelf} = Inventory.create_shelf_with_bins(inventory.id, %{code: "TODELETE"}, 1)
       {:ok, view, _html} = live(conn, ~p"/locations")
 
       html = view |> element("button[phx-click='delete_shelf']") |> render_click()
 
-      refute html =~ "EMPTY"
+      assert html =~ "Shelf TODELETE deleted"
       assert Repo.get(Inventory.Shelf, shelf.id) == nil
     end
 
     test "refuses to delete shelf with items", %{conn: conn, inventory: inventory} do
-      {:ok, _item} = Inventory.create_item_with_location(inventory.id, "OCCUPIED-1", "Test", 1, "Desc")
+      {:ok, _item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "OCCUPIED-1",
+          name: "Test"
+        })
+
       shelf = Repo.get_by!(Inventory.Shelf, code: "OCCUPIED")
       {:ok, view, _html} = live(conn, ~p"/locations")
 

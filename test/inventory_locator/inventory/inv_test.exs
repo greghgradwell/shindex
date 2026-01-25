@@ -133,7 +133,13 @@ defmodule InventoryLocator.Inventory.InvTest do
 
     test "item_types are associated with inventory" do
       {:ok, inventory} = Inventory.create_inventory(%{name: "Test"})
-      {:ok, item} = Inventory.create_item_with_location(inventory.id, "A-1", "Test Item", 1, "Desc")
+
+      {:ok, item} =
+        Inventory.create_item_with_location(%{
+          inventory_id: inventory.id,
+          location_code: "A-1",
+          name: "Test Item"
+        })
 
       inventory = Repo.preload(inventory, :item_types)
       assert length(inventory.item_types) == 1

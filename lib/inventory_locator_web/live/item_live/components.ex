@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
 
   import InventoryLocatorWeb.CoreComponents
 
+  alias Phoenix.LiveView.JS
   alias Phoenix.LiveView.Rendered
 
   attr :items, :list, required: true
@@ -73,13 +74,14 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
     <div class="mt-4">
       <.form :let={f} for={%{}} phx-change="search" phx-submit="submit_search" autocomplete="off">
         <.input
+          id="search-input"
           field={f[:query]}
           type="text"
           label="Search"
           placeholder="Search by name..."
           value={@query}
           phx-debounce="300"
-          autofocus
+          phx-mounted={JS.focus()}
         />
       </.form>
 

@@ -1,6 +1,9 @@
 defmodule InventoryLocatorWeb.Router do
   use InventoryLocatorWeb, :router
 
+  alias InventoryLocatorWeb.Hooks.InventoryHook
+  alias InventoryLocatorWeb.Plugs.LoadInventory
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,7 +11,7 @@ defmodule InventoryLocatorWeb.Router do
     plug :put_root_layout, html: {InventoryLocatorWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
-    plug InventoryLocatorWeb.Plugs.LoadInventory
+    plug LoadInventory
   end
 
   pipeline :api do
@@ -21,7 +24,9 @@ defmodule InventoryLocatorWeb.Router do
     post "/switch_inventory", InventoryController, :switch
     post "/admin/toggle", AdminController, :toggle
 
-    live_session :default, on_mount: [InventoryLocatorWeb.Hooks.InventoryHook] do
+    live_session :default,
+      on_mount: [InventoryHook],
+      layout: {InventoryLocatorWeb.Layouts, :app} do
       live "/", ItemLive.Index
       live "/locations", LocationLive.Index
       live "/projects", ProjectLive.Index
@@ -50,6 +55,22 @@ defmodule InventoryLocatorWeb.Router do
 
       live_dashboard "/dashboard", metrics: InventoryLocatorWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+
+      live_session :dev,
+        on_mount: [InventoryHook],
+        layout: {InventoryLocatorWeb.Layouts, :app} do
+        live "/assist", InventoryLocatorWeb.AssistLive.Index
+      end
+    end
+
+    scope "/api/assist", InventoryLocatorWeb do
+      pipe_through [:api, :fetch_session, LoadInventory]
+
+      get "/items", AssistController, :list_items
+      get "/items/:id", AssistController, :get_item
+      post "/items/:id/show", AssistController, :show_item
+      patch "/items/:id", AssistController, :update_item
+      post "/items/:id/skip", AssistController, :skip_fields
     end
   end
 end

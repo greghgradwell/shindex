@@ -51,6 +51,9 @@
           <.link navigate={~p"/backups"} class="btn btn-ghost btn-sm md:btn-md text-warning">
             Backups
           </.link>
+          <.link navigate="/dev/assist" class="btn btn-ghost btn-sm md:btn-md text-warning">
+            Claude Assist
+          </.link>
         <% end %>
       </div>
       <div class="flex-none flex items-center gap-2">
@@ -100,7 +103,6 @@
       </div>
     </nav>
     <main class="container mx-auto px-4 py-8">
-      <InventoryLocatorWeb.Layouts.flash_group flash={@flash} />
       {@inner_content}
     </main>
   </body>

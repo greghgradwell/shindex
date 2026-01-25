@@ -265,6 +265,19 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     {:noreply, socket}
   end
 
+  @impl true
+  @spec handle_info({:flash, atom(), String.t()}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:flash, kind, message}, socket) do
+    Process.send_after(self(), {:clear_flash, kind}, 2000)
+    {:noreply, put_flash(socket, kind, message)}
+  end
+
+  @impl true
+  @spec handle_info({:clear_flash, atom()}, Socket.t()) :: {:noreply, Socket.t()}
+  def handle_info({:clear_flash, kind}, socket) do
+    {:noreply, clear_flash(socket, kind)}
+  end
+
   @spec assign_defaults(Socket.t()) :: Socket.t()
   defp assign_defaults(socket) do
     socket

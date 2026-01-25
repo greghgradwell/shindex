@@ -12,10 +12,20 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "items are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
       {:ok, _workshop_item} =
-        Inventory.create_item_with_location(workshop.id, "A-1", "Workshop Screws", 10, "Desc")
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-1",
+          name: "Workshop Screws",
+          quantity: 10
+        })
 
       {:ok, _kitchen_item} =
-        Inventory.create_item_with_location(kitchen.id, "A-1", "Kitchen Utensils", 5, "Desc")
+        Inventory.create_item_with_location(%{
+          inventory_id: kitchen.id,
+          location_code: "A-1",
+          name: "Kitchen Utensils",
+          quantity: 5
+        })
 
       workshop_items = Inventory.list_all_items(workshop.id, show_archived: false)
       kitchen_items = Inventory.list_all_items(kitchen.id, show_archived: false)
@@ -29,10 +39,20 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "search only returns items from specified inventory", %{workshop: workshop, kitchen: kitchen} do
       {:ok, _item1} =
-        Inventory.create_item_with_location(workshop.id, "A-1", "Hammer", 1, "Workshop tool")
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-1",
+          name: "Hammer",
+          description: "Workshop tool"
+        })
 
       {:ok, _item2} =
-        Inventory.create_item_with_location(kitchen.id, "A-1", "Meat Hammer", 1, "Kitchen tool")
+        Inventory.create_item_with_location(%{
+          inventory_id: kitchen.id,
+          location_code: "A-1",
+          name: "Meat Hammer",
+          description: "Kitchen tool"
+        })
 
       workshop_results = Inventory.search_items(workshop.id, "hammer", [])
       kitchen_results = Inventory.search_items(kitchen.id, "hammer", [])
@@ -68,8 +88,19 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
     end
 
     test "location codes are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
-      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1", "Item 1", 1, nil)
-      {:ok, _item2} = Inventory.create_item_with_location(kitchen.id, "B-2", "Item 2", 1, nil)
+      {:ok, _item1} =
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-1",
+          name: "Item 1"
+        })
+
+      {:ok, _item2} =
+        Inventory.create_item_with_location(%{
+          inventory_id: kitchen.id,
+          location_code: "B-2",
+          name: "Item 2"
+        })
 
       workshop_codes = Inventory.list_location_codes(workshop.id)
       kitchen_codes = Inventory.list_location_codes(kitchen.id)
@@ -82,9 +113,26 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
     end
 
     test "occupancy stats are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
-      {:ok, _item1} = Inventory.create_item_with_location(workshop.id, "A-1", "Item 1", 1, nil)
-      {:ok, _item2} = Inventory.create_item_with_location(workshop.id, "A-2", "Item 2", 1, nil)
-      {:ok, _item3} = Inventory.create_item_with_location(kitchen.id, "B-1", "Item 3", 1, nil)
+      {:ok, _item1} =
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-1",
+          name: "Item 1"
+        })
+
+      {:ok, _item2} =
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-2",
+          name: "Item 2"
+        })
+
+      {:ok, _item3} =
+        Inventory.create_item_with_location(%{
+          inventory_id: kitchen.id,
+          location_code: "B-1",
+          name: "Item 3"
+        })
 
       workshop_stats = Inventory.count_locations_by_occupancy(workshop.id)
       kitchen_stats = Inventory.count_locations_by_occupancy(kitchen.id)
@@ -95,10 +143,20 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
     test "projects are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
       {:ok, workshop_item} =
-        Inventory.create_item_with_location(workshop.id, "A-1", "Workshop Part", 10, nil)
+        Inventory.create_item_with_location(%{
+          inventory_id: workshop.id,
+          location_code: "A-1",
+          name: "Workshop Part",
+          quantity: 10
+        })
 
       {:ok, kitchen_item} =
-        Inventory.create_item_with_location(kitchen.id, "A-1", "Kitchen Part", 5, nil)
+        Inventory.create_item_with_location(%{
+          inventory_id: kitchen.id,
+          location_code: "A-1",
+          name: "Kitchen Part",
+          quantity: 5
+        })
 
       {:ok, _, _} = Inventory.install_item(workshop_item, "ROBOT", 2)
       {:ok, _, _} = Inventory.install_item(kitchen_item, "RENOVATION", 1)

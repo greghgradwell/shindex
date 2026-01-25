@@ -623,38 +623,48 @@ defmodule InventoryLocator.Inventory do
     |> Repo.update()
   end
 
-  @spec create_item_with_location(integer(), String.t(), String.t(), integer(), String.t()) ::
+  @type item_attrs :: %{
+          required(:inventory_id) => integer(),
+          required(:location_code) => String.t(),
+          required(:name) => String.t(),
+          optional(:quantity) => integer(),
+          optional(:description) => String.t() | nil,
+          optional(:manufacturer) => String.t() | nil,
+          optional(:model) => String.t() | nil,
+          optional(:photo_path) => String.t() | nil,
+          optional(:archived) => boolean(),
+          optional(:metadata) => map()
+        }
+
+  @spec create_item_with_location(item_attrs()) ::
           {:ok, ItemType.t()} | {:error, :invalid_format | Ecto.Changeset.t()}
-  def create_item_with_location(inventory_id, location_code, name, quantity, description) do
+  def create_item_with_location(attrs) when is_map(attrs) do
+    inventory_id = Map.fetch!(attrs, :inventory_id)
+    location_code = Map.fetch!(attrs, :location_code)
+    name = Map.fetch!(attrs, :name)
+
+    item_attrs =
+      attrs
+      |> Map.drop([:inventory_id, :location_code])
+      |> Map.put(:name, name)
+      |> Map.put_new(:quantity, 1)
+      |> Map.put_new(:archived, false)
+
     case ensure_location_with_code(inventory_id, location_code) do
       {:ok, location} ->
-        create_item_type(%{
-          name: name,
-          quantity: quantity,
-          description: description,
-          archived: false,
-          inventory_id: inventory_id,
-          location_id: location.id
-        })
+        create_item_type(Map.merge(item_attrs, %{inventory_id: inventory_id, location_id: location.id}))
 
       {:ok, location, _item_count} ->
-        create_item_type(%{
-          name: name,
-          quantity: quantity,
-          description: description,
-          archived: false,
-          inventory_id: inventory_id,
-          location_id: location.id
-        })
+        create_item_type(Map.merge(item_attrs, %{inventory_id: inventory_id, location_id: location.id}))
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  @spec create_item_with_location!(integer(), String.t(), String.t(), integer(), String.t()) :: ItemType.t()
-  def create_item_with_location!(inventory_id, location_code, name, quantity, description) do
-    case create_item_with_location(inventory_id, location_code, name, quantity, description) do
+  @spec create_item_with_location!(item_attrs()) :: ItemType.t()
+  def create_item_with_location!(attrs) when is_map(attrs) do
+    case create_item_with_location(attrs) do
       {:ok, item_type} -> item_type
       {:error, reason} -> raise "Could not create item with location: #{inspect(reason)}"
     end
