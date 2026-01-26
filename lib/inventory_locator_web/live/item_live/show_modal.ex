@@ -326,7 +326,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
           name: Map.get(item_params, "name", item.name),
           manufacturer: Map.get(item_params, "manufacturer", ""),
           model: Map.get(item_params, "model", ""),
-          description: Map.get(item_params, "description", "")
+          description: Map.get(item_params, "description", ""),
+          source_url: Map.get(item_params, "source_url", "")
         }
 
         # Add photo_path only if a new photo was uploaded

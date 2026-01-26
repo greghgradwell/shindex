@@ -25,7 +25,7 @@
         </div>
 
         <p class="text-base-content/70 mb-4">
-          Toggle which fields Claude Code should research for each item. Fields toggled ON will be searched.
+          Toggle which fields Claude Code should research for each item. Add a product URL for direct lookup.
         </p>
 
         <%= for item <- @batch_items do %>
@@ -108,6 +108,22 @@
                         </label>
                       <% end %>
                     </div>
+
+                    <div class="mt-3">
+                      <div class="flex gap-2 items-center">
+                        <input
+                          type="url"
+                          class="input input-bordered input-sm flex-1 font-mono text-xs"
+                          value={item.source_url || ""}
+                          placeholder="Product URL (optional - for direct lookup)"
+                          phx-blur="update_source_url"
+                          phx-value-item-id={item.id}
+                        />
+                        <%= if item.source_url do %>
+                          <a href={item.source_url} target="_blank" class="btn btn-sm btn-ghost">🔗</a>
+                        <% end %>
+                      </div>
+                    </div>
                   <% end %>
                 </div>
               </div>
@@ -140,85 +156,153 @@
     <% :review -> %>
       <%= if @current_item do %>
         <div class="card bg-base-100 shadow-xl">
-          <figure class="px-4 pt-4">
-            <%= if @current_item.photo_path do %>
-              <img
-                src={~p"/uploads/#{@current_item.photo_path}"}
-                alt={@current_item.name}
-                class="rounded-xl max-h-96 object-contain"
-              />
+          <div class="card-body">
+            <div class="flex gap-6">
+              <div class="flex-shrink-0">
+                <%= if @current_item.photo_path do %>
+                  <img
+                    src={~p"/uploads/#{@current_item.photo_path}"}
+                    alt={@current_item.name}
+                    class="rounded-xl w-48 h-48 object-cover"
+                  />
+                <% else %>
+                  <div class="w-48 h-48 bg-base-200 rounded-xl flex items-center justify-center">
+                    <span class="text-6xl">📦</span>
+                  </div>
+                <% end %>
+              </div>
+
+              <div class="flex-1">
+                <h2 class="card-title text-2xl mb-2">{@current_item.name}</h2>
+                <div class="flex gap-4 text-sm text-base-content/60">
+                  <%= if location_code = Map.get(@current_item, :location_code) || (Map.get(@current_item, :location) && @current_item.location.full_code) do %>
+                    <span class="font-mono">📍 {location_code}</span>
+                  <% end %>
+                  <%= if qty = Map.get(@current_item, :quantity) do %>
+                    <span>Qty: {qty}</span>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <label class="label">
+                <span class="label-text text-xs uppercase text-base-content/50">Source URL (for product lookup)</span>
+              </label>
+              <div class="flex gap-2">
+                <input
+                  type="url"
+                  name="source_url"
+                  class="input input-bordered input-sm flex-1 font-mono text-xs"
+                  value={Map.get(@current_item, :source_url) || ""}
+                  placeholder="https://manufacturer.com/product-page"
+                  phx-blur="update_source_url"
+                />
+                <%= if url = Map.get(@current_item, :source_url) do %>
+                  <a href={url} target="_blank" class="btn btn-sm btn-ghost">
+                    🔗
+                  </a>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="divider">Current Details</div>
+
+            <div class="grid grid-cols-3 gap-3 text-sm">
+              <div class={"p-3 rounded-lg #{if Map.get(@current_item, :manufacturer), do: "bg-base-200", else: "bg-warning/20 border border-warning"}"}>
+                <div class="text-xs text-base-content/50 uppercase">Manufacturer</div>
+                <div class="font-medium mt-1">{Map.get(@current_item, :manufacturer) || "—"}</div>
+              </div>
+              <div class={"p-3 rounded-lg #{if Map.get(@current_item, :model), do: "bg-base-200", else: "bg-warning/20 border border-warning"}"}>
+                <div class="text-xs text-base-content/50 uppercase">Model</div>
+                <div class="font-medium mt-1">{Map.get(@current_item, :model) || "—"}</div>
+              </div>
+              <div class={"p-3 rounded-lg #{if Map.get(@current_item, :description), do: "bg-base-200", else: "bg-warning/20 border border-warning"}"}>
+                <div class="text-xs text-base-content/50 uppercase">Description</div>
+                <div class="font-medium mt-1">{Map.get(@current_item, :description) || "—"}</div>
+              </div>
+            </div>
+
+            <%= if map_size(@suggestions) > 0 do %>
+              <div class="divider">Suggested Updates</div>
+
+              <form phx-submit="submit_review" class="space-y-4">
+                <%= for {field, suggestion} <- @suggestions do %>
+                  <% field_state = Map.get(@review_accepted, field, %{enabled: true, value: suggestion}) %>
+                  <div class={"p-4 rounded-lg border-2 transition-all #{if field_state.enabled, do: "bg-success/10 border-success", else: "bg-base-200 border-base-300 opacity-60"}"}>
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-success"
+                          name={"enabled_#{field}"}
+                          value="true"
+                          checked={field_state.enabled}
+                          phx-click="toggle_review_field"
+                          phx-value-field={field}
+                        />
+                        <span class="text-sm font-semibold uppercase tracking-wide">
+                          {field}
+                        </span>
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      name={"value_#{field}"}
+                      class={"input input-bordered w-full #{if not field_state.enabled, do: "opacity-50"}"}
+                      value={field_state.value}
+                      disabled={not field_state.enabled}
+                    />
+                  </div>
+                <% end %>
+
+                <div class="flex justify-end pt-4 mt-4 border-t border-base-300">
+                  <button type="submit" class="btn btn-primary btn-lg gap-2">
+                    <span>Done</span>
+                    <span class="text-lg">✓</span>
+                  </button>
+                </div>
+              </form>
             <% else %>
-              <div class="w-full h-64 bg-base-200 rounded-xl flex items-center justify-center">
-                <span class="text-6xl">📦</span>
+              <div class="divider">Current Details</div>
+
+              <div class="space-y-3">
+                <div class={"p-3 rounded-lg #{if is_nil(@current_item.manufacturer), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Manufacturer</div>
+                  <div class="font-medium mt-1">
+                    {if @current_item.manufacturer, do: @current_item.manufacturer, else: "⚠️ Missing"}
+                  </div>
+                </div>
+
+                <div class={"p-3 rounded-lg #{if is_nil(@current_item.model), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Model / Part #</div>
+                  <div class="font-medium mt-1">
+                    {if @current_item.model, do: @current_item.model, else: "⚠️ Missing"}
+                  </div>
+                </div>
+
+                <div class={"p-3 rounded-lg #{if is_nil(@current_item.description), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Description</div>
+                  <div class="font-medium mt-1">
+                    {if @current_item.description, do: @current_item.description, else: "⚠️ Missing"}
+                  </div>
+                </div>
               </div>
             <% end %>
-          </figure>
-
-          <div class="card-body">
-            <h2 class="card-title text-2xl">{@current_item.name}</h2>
-
-            <div class="grid grid-cols-2 gap-4 mt-4">
-              <div class="stat bg-base-200 rounded-lg p-4">
-                <div class="stat-title text-xs">Location</div>
-                <div class="stat-value text-lg font-mono">
-                  <%= if @current_item.location do %>
-                    {@current_item.location.full_code}
-                  <% else %>
-                    <span class="text-base-content/40">—</span>
-                  <% end %>
-                </div>
-              </div>
-
-              <div class="stat bg-base-200 rounded-lg p-4">
-                <div class="stat-title text-xs">Quantity</div>
-                <div class="stat-value text-lg">{@current_item.quantity}</div>
-              </div>
-            </div>
-
-            <div class="divider">Details</div>
-
-            <div class="space-y-3">
-              <div class={"p-3 rounded-lg #{if is_nil(@current_item.manufacturer), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                <div class="text-xs text-base-content/60 uppercase tracking-wide">
-                  Manufacturer
-                </div>
-                <div class="font-medium mt-1">
-                  <%= if @current_item.manufacturer do %>
-                    {@current_item.manufacturer}
-                  <% else %>
-                    <span class="text-warning">⚠️ Missing</span>
-                  <% end %>
-                </div>
-              </div>
-
-              <div class={"p-3 rounded-lg #{if is_nil(@current_item.model), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                <div class="text-xs text-base-content/60 uppercase tracking-wide">
-                  Model / Part #
-                </div>
-                <div class="font-medium mt-1">
-                  <%= if @current_item.model do %>
-                    {@current_item.model}
-                  <% else %>
-                    <span class="text-warning">⚠️ Missing</span>
-                  <% end %>
-                </div>
-              </div>
-
-              <div class={"p-3 rounded-lg #{if is_nil(@current_item.description), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                <div class="text-xs text-base-content/60 uppercase tracking-wide">
-                  Description
-                </div>
-                <div class="font-medium mt-1">
-                  <%= if @current_item.description do %>
-                    {@current_item.description}
-                  <% else %>
-                    <span class="text-warning">⚠️ Missing</span>
-                  <% end %>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       <% end %>
+    <% :review_submitted -> %>
+      <div class="hero min-h-[60vh]">
+        <div class="hero-content text-center">
+          <div class="max-w-md">
+            <div class="text-8xl mb-8">✅</div>
+            <h1 class="text-3xl font-bold">Review Submitted</h1>
+            <p class="py-6 text-base-content/70">
+              Claude Code will apply your changes and continue with the next item...
+            </p>
+          </div>
+        </div>
+      </div>
   <% end %>
 </div>

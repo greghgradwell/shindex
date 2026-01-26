@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Mark fields as skipped for an item (persists to database)
+# Usage: ./scripts/assist-skip <item_id> '<fields_json>'
+# Example: ./scripts/assist-skip 45 '["manufacturer","model"]'
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: ./scripts/assist-skip <item_id> '<fields_json>'"
+  echo "Example: ./scripts/assist-skip 45 '[\"manufacturer\",\"model\"]'"
+  exit 1
+fi
+
+ITEM_ID=$1
+FIELDS=$2
+
+curl -s -X POST "http://localhost:4000/api/assist/items/${ITEM_ID}/skip" \
+  -H "Content-Type: application/json" \
+  -d "{\"fields\": $FIELDS}"

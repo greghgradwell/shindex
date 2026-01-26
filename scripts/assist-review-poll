@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Poll until user clicks "Done" on the review page
+# Usage: ./scripts/assist-review-poll [timeout_seconds]
+
+set -e
+
+TIMEOUT=${1:-300}
+ELAPSED=0
+
+while [ $ELAPSED -lt $TIMEOUT ]; do
+  result=$(curl -s "http://localhost:4000/api/assist/review/decision")
+  rstatus=$(echo "$result" | jq -r '.status')
+
+  if [ "$rstatus" = "ready" ]; then
+    echo "$result"
+    exit 0
+  fi
+
+  sleep 2
+  ELAPSED=$((ELAPSED + 2))
+done
+
+echo '{"status":"timeout"}'
+exit 1

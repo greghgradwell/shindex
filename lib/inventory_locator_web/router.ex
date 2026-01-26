@@ -75,6 +75,10 @@ defmodule InventoryLocatorWeb.Router do
       post "/batch/start", AssistController, :start_batch
       get "/batch/decisions", AssistController, :get_decisions
       post "/batch/clear", AssistController, :clear_batch
+
+      post "/items/:id/review", AssistController, :start_review
+      get "/review/decision", AssistController, :get_review_decision
+      post "/review/clear", AssistController, :clear_review
     end
   end
 end

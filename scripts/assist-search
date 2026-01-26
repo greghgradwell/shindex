@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Background Tavily search wrapper
+# Usage: ./scripts/assist-search <item_id> "<query>"
+# Searches via Tavily and writes result to tmp/assist-search-<item_id>.json
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: ./scripts/assist-search <item_id> '<query>'"
+  echo "Example: ./scripts/assist-search 29 'M3 stainless steel screws manufacturer'"
+  exit 1
+fi
+
+ITEM_ID=$1
+QUERY=$2
+
+# Use project-local tmp/ directory (already in .gitignore)
+mkdir -p tmp
+OUTPUT_FILE="tmp/assist-search-${ITEM_ID}.json"
+
+if [ -z "$TAVILY_API_KEY" ]; then
+  echo '{"status":"error","error":"TAVILY_API_KEY not set"}' > "$OUTPUT_FILE"
+  echo '{"status":"error","item_id":'"$ITEM_ID"',"error":"TAVILY_API_KEY not set"}'
+  exit 1
+fi
+
+curl -s -X POST "https://api.tavily.com/search" \
+  -H "Content-Type: application/json" \
+  -d "{\"api_key\":\"$TAVILY_API_KEY\",\"query\":\"$QUERY\",\"search_depth\":\"advanced\",\"max_results\":5}" \
+  > "$OUTPUT_FILE"
+
+echo '{"status":"complete","item_id":'"$ITEM_ID"',"output_file":"'"$OUTPUT_FILE"'"}'

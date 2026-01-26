@@ -29,14 +29,17 @@ Inventory.create_item_with_location!(%{
   location_code: "A-2",
   name: "Wire Nuts",
   quantity: 50,
-  manufacturer: "3M"
+  manufacturer: "3M",
+  model: "T/R+"
 })
 
 Inventory.create_item_with_location!(%{
   inventory_id: test_inv.id,
   location_code: "B-1",
   name: "AA Batteries",
-  quantity: 24
+  quantity: 24,
+  manufacturer: "Duracell",
+  model: "Powerboost"
 })
 
 Inventory.create_item_with_location!(%{
@@ -45,7 +48,6 @@ Inventory.create_item_with_location!(%{
   name: "LED Bulbs",
   quantity: 15,
   description: "60W equivalent, warm white",
-  manufacturer: "Philips",
   model: "LED-A19-60W"
 })
 
@@ -56,6 +58,14 @@ Inventory.create_item_with_location!(%{
   quantity: 3,
   manufacturer: "Titebond",
   model: "Original"
+})
+
+Inventory.create_item_with_location!(%{
+  inventory_id: test_inv.id,
+  location_code: "C-2",
+  name: "ICM-20948 breakout board",
+  quantity: 3,
+  manufacturer: "Sparkfun"
 })
 
 Logger.info("✅ Seeding complete!")

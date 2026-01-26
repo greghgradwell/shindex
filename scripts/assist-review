@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Send item for review with suggestions
+# Usage: ./scripts/assist-review <item_id> '<suggestions_json>'
+# Example: ./scripts/assist-review 29 '{"description":"Wood glue for interior use"}'
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: ./scripts/assist-review <item_id> '<suggestions_json>'"
+  echo "Example: ./scripts/assist-review 29 '{\"description\":\"Wood glue\"}'"
+  exit 1
+fi
+
+ITEM_ID=$1
+SUGGESTIONS=$2
+
+curl -s -X POST "http://localhost:4000/api/assist/items/${ITEM_ID}/review" \
+  -H "Content-Type: application/json" \
+  -d "{\"suggestions\": $SUGGESTIONS}"

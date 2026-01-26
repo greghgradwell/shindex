@@ -18,6 +18,7 @@ defmodule InventoryLocator.Assist do
           description: String.t() | nil,
           photo_path: String.t() | nil,
           location_code: String.t() | nil,
+          source_url: String.t() | nil,
           missing_fields: [atom()]
         }
 
@@ -52,6 +53,11 @@ defmodule InventoryLocator.Assist do
     PubSub.broadcast(@pubsub, @topic, {:show_batch, items})
   end
 
+  @spec show_review(item_summary(), %{atom() => String.t()}) :: :ok | {:error, term()}
+  def show_review(item, suggestions) when is_map(suggestions) do
+    PubSub.broadcast(@pubsub, @topic, {:show_review, item, suggestions})
+  end
+
   @spec get_item(integer()) :: {:ok, item_summary()} | {:error, :not_found}
   def get_item(item_id) do
     case Repo.get(ItemType, item_id) do
@@ -62,6 +68,15 @@ defmodule InventoryLocator.Assist do
         item = Repo.preload(item, location: [bin: :shelf])
         {:ok, to_summary(item, [:manufacturer, :model, :description])}
     end
+  end
+
+  @spec get_items_by_ids([integer()]) :: [item_summary()]
+  def get_items_by_ids(item_ids) when is_list(item_ids) do
+    ItemType
+    |> where([i], i.id in ^item_ids)
+    |> Repo.all()
+    |> Repo.preload(location: [bin: :shelf])
+    |> Enum.map(&to_summary(&1, [:manufacturer, :model, :description]))
   end
 
   @spec update_item(integer(), map()) :: {:ok, ItemType.t()} | {:error, :not_found | Ecto.Changeset.t()}
@@ -164,6 +179,7 @@ defmodule InventoryLocator.Assist do
       description: item.description,
       photo_path: item.photo_path,
       location_code: location_code,
+      source_url: item.source_url,
       missing_fields: missing
     }
   end

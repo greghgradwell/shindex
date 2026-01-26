@@ -9,7 +9,7 @@ defmodule InventoryLocator.Inventory.ItemType do
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
 
-  @castable_fields [:name, :description, :manufacturer, :model, :quantity, :photo_path, :archived, :metadata]
+  @castable_fields [:name, :description, :manufacturer, :model, :quantity, :photo_path, :archived, :metadata, :source_url]
 
   @spec castable_fields() :: [atom()]
   def castable_fields, do: @castable_fields
@@ -23,6 +23,7 @@ defmodule InventoryLocator.Inventory.ItemType do
     field :photo_path, :string
     field :archived, :boolean
     field :metadata, :map
+    field :source_url, :string
 
     belongs_to :inventory, Inv
     belongs_to :location, Location
@@ -45,7 +46,8 @@ defmodule InventoryLocator.Inventory.ItemType do
       :location_id,
       :inventory_id,
       :archived,
-      :metadata
+      :metadata,
+      :source_url
     ])
     |> validate_required([:name, :quantity, :archived, :inventory_id])
     |> validate_number(:quantity, greater_than_or_equal_to: 0)

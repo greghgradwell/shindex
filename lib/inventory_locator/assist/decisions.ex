@@ -15,10 +15,26 @@ defmodule InventoryLocator.Assist.Decisions do
           submitted_at: DateTime.t() | nil
         }
 
+  @type review :: %{
+          item_id: integer(),
+          suggestions: %{atom() => String.t()},
+          submitted_at: DateTime.t() | nil,
+          accepted: %{atom() => String.t()} | nil
+        }
+
+  @type state :: %{
+          batch: batch() | nil,
+          review: review() | nil
+        }
+
   @spec start_link(term()) :: Agent.on_start()
   def start_link(_opts) do
-    Agent.start_link(fn -> nil end, name: __MODULE__)
+    Agent.start_link(fn -> %{batch: nil, review: nil} end, name: __MODULE__)
   end
+
+  # ============================================================
+  # Batch functions
+  # ============================================================
 
   @spec start_batch([map()]) :: :ok
   def start_batch(items) when is_list(items) do
@@ -28,59 +44,119 @@ defmodule InventoryLocator.Assist.Decisions do
       submitted_at: nil
     }
 
-    Agent.update(__MODULE__, fn _ -> batch end)
+    Agent.update(__MODULE__, fn state -> %{state | batch: batch} end)
   end
 
   @spec update_item(integer(), [atom()], [atom()]) :: :ok | {:error, :no_batch | :item_not_found}
   def update_item(item_id, find_fields, skip_fields) do
-    Agent.get_and_update(__MODULE__, fn
-      nil ->
-        {{:error, :no_batch}, nil}
+    Agent.get_and_update(__MODULE__, fn state ->
+      case state.batch do
+        nil ->
+          {{:error, :no_batch}, state}
 
-      batch ->
-        case find_item_index(batch.items, item_id) do
-          nil ->
-            {{:error, :item_not_found}, batch}
+        batch ->
+          case find_item_index(batch.items, item_id) do
+            nil ->
+              {{:error, :item_not_found}, state}
 
-          index ->
-            updated_items =
-              List.update_at(batch.items, index, fn item ->
-                %{item | find: find_fields, skip: skip_fields}
-              end)
+            index ->
+              updated_items =
+                List.update_at(batch.items, index, fn item ->
+                  %{item | find: find_fields, skip: skip_fields}
+                end)
 
-            {:ok, %{batch | items: updated_items}}
-        end
+              {:ok, %{state | batch: %{batch | items: updated_items}}}
+          end
+      end
     end)
   end
 
   @spec submit_batch() :: :ok | {:error, :no_batch}
   def submit_batch do
-    Agent.get_and_update(__MODULE__, fn
-      nil ->
-        {{:error, :no_batch}, nil}
+    Agent.get_and_update(__MODULE__, fn state ->
+      case state.batch do
+        nil ->
+          {{:error, :no_batch}, state}
 
-      batch ->
-        {:ok, %{batch | submitted_at: DateTime.utc_now()}}
+        batch ->
+          {:ok, %{state | batch: %{batch | submitted_at: DateTime.utc_now()}}}
+      end
     end)
   end
 
   @spec get_batch() :: batch() | nil
   def get_batch do
-    Agent.get(__MODULE__, & &1)
+    Agent.get(__MODULE__, fn state -> state.batch end)
   end
 
   @spec get_decisions() :: batch() | nil
   def get_decisions do
-    case Agent.get(__MODULE__, & &1) do
-      %{submitted_at: nil} -> nil
-      batch -> batch
-    end
+    Agent.get(__MODULE__, fn state ->
+      case state.batch do
+        %{submitted_at: nil} -> nil
+        batch -> batch
+      end
+    end)
   end
 
   @spec clear() :: :ok
   def clear do
-    Agent.update(__MODULE__, fn _ -> nil end)
+    Agent.update(__MODULE__, fn state -> %{state | batch: nil} end)
   end
+
+  # ============================================================
+  # Review functions
+  # ============================================================
+
+  @spec start_review(integer(), %{atom() => String.t()}) :: :ok
+  def start_review(item_id, suggestions) when is_integer(item_id) and is_map(suggestions) do
+    review = %{
+      item_id: item_id,
+      suggestions: suggestions,
+      submitted_at: nil,
+      accepted: nil
+    }
+
+    Agent.update(__MODULE__, fn state -> %{state | review: review} end)
+  end
+
+  @spec submit_review(%{atom() => String.t()}) :: :ok | {:error, :no_review}
+  def submit_review(accepted) when is_map(accepted) do
+    Agent.get_and_update(__MODULE__, fn state ->
+      case state.review do
+        nil ->
+          {{:error, :no_review}, state}
+
+        review ->
+          updated_review = %{review | submitted_at: DateTime.utc_now(), accepted: accepted}
+          {:ok, %{state | review: updated_review}}
+      end
+    end)
+  end
+
+  @spec get_review() :: review() | nil
+  def get_review do
+    Agent.get(__MODULE__, fn state -> state.review end)
+  end
+
+  @spec get_review_decision() :: review() | nil
+  def get_review_decision do
+    Agent.get(__MODULE__, fn state ->
+      case state.review do
+        %{submitted_at: nil} -> nil
+        review -> review
+      end
+    end)
+  end
+
+  @spec clear_review() :: :ok
+  def clear_review do
+    Agent.update(__MODULE__, fn state -> %{state | review: nil} end)
+  end
+
+  # ============================================================
+  # Private helpers
+  # ============================================================
 
   @spec generate_batch_id() :: String.t()
   defp generate_batch_id do

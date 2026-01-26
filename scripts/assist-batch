@@ -4,7 +4,12 @@
 
 set -e
 
-LIMIT=${1:-5}
+if [ -z "$1" ]; then
+  echo "Usage: ./scripts/assist-batch <limit>"
+  exit 1
+fi
+
+LIMIT=$1
 
 # Get incomplete items
 items=$(curl -s "http://localhost:4000/api/assist/items?fields=manufacturer,model,description&limit=$LIMIT")

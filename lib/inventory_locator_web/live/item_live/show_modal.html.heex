@@ -143,6 +143,13 @@
                     label="Description"
                     value={@item.description}
                   />
+                  <.input
+                    field={f[:source_url]}
+                    type="url"
+                    label="Product URL"
+                    value={@item.source_url}
+                    placeholder="https://manufacturer.com/product"
+                  />
 
                   <div class="flex gap-2 mt-4">
                     <button type="submit" class="btn btn-primary btn-sm">
@@ -186,6 +193,15 @@
                   </:item>
                   <:item title="Model / Part #">{@item.model || "—"}</:item>
                   <:item title="Description">{@item.description || "—"}</:item>
+                  <:item title="Product URL">
+                    <%= if @item.source_url do %>
+                      <a href={@item.source_url} target="_blank" class="link link-primary text-sm truncate max-w-xs inline-block align-bottom" title={@item.source_url}>
+                        {@item.source_url}
+                      </a>
+                    <% else %>
+                      —
+                    <% end %>
+                  </:item>
                 </.list>
 
                 <%= if @moving do %>

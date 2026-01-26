@@ -199,6 +199,68 @@ defmodule InventoryLocatorWeb.AssistController do
     json(conn, %{status: "ok"})
   end
 
+  # ============================================================
+  # Review endpoints
+  # ============================================================
+
+  @spec start_review(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def start_review(conn, %{"id" => id, "suggestions" => suggestions}) when is_map(suggestions) do
+    case Integer.parse(id) do
+      {item_id, ""} ->
+        case Assist.get_item(item_id) do
+          {:ok, item} ->
+            suggestion_atoms = parse_suggestions(suggestions)
+            Decisions.clear_review()
+            Decisions.start_review(item_id, suggestion_atoms)
+            _ = Assist.show_review(item, suggestion_atoms)
+            json(conn, %{status: "ok", item_id: item_id})
+
+          {:error, :not_found} ->
+            conn
+            |> put_status(:not_found)
+            |> json(%{error: "Item not found"})
+        end
+
+      _invalid ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "Invalid item ID"})
+    end
+  end
+
+  def start_review(conn, %{"id" => _id}) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Missing 'suggestions' object in request body"})
+  end
+
+  @spec get_review_decision(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def get_review_decision(conn, _params) do
+    case Decisions.get_review_decision() do
+      nil ->
+        json(conn, %{status: "waiting"})
+
+      review ->
+        accepted =
+          Map.new(review.accepted, fn {k, v} -> {Atom.to_string(k), v} end)
+
+        json(conn, %{status: "ready", item_id: review.item_id, accepted: accepted})
+    end
+  end
+
+  @spec clear_review(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def clear_review(conn, _params) do
+    Decisions.clear_review()
+    json(conn, %{status: "ok"})
+  end
+
+  @spec parse_suggestions(map()) :: %{atom() => String.t()}
+  defp parse_suggestions(suggestions) do
+    suggestions
+    |> Enum.filter(fn {k, _v} -> k in ["manufacturer", "model", "description"] end)
+    |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+  end
+
   @spec get_inventory_id(Plug.Conn.t(), map()) :: integer()
   defp get_inventory_id(conn, params) do
     case Map.get(params, "inventory_id") do
