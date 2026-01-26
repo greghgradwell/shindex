@@ -195,7 +195,12 @@
                   <:item title="Description">{@item.description || "—"}</:item>
                   <:item title="Product URL">
                     <%= if @item.source_url do %>
-                      <a href={@item.source_url} target="_blank" class="link link-primary text-sm truncate max-w-xs inline-block align-bottom" title={@item.source_url}>
+                      <a
+                        href={@item.source_url}
+                        target="_blank"
+                        class="link link-primary text-sm truncate max-w-xs inline-block align-bottom"
+                        title={@item.source_url}
+                      >
                         {@item.source_url}
                       </a>
                     <% else %>

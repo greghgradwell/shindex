@@ -4,10 +4,9 @@ defmodule InventoryLocatorWeb.AssistController do
 
   alias InventoryLocator.Assist
   alias InventoryLocator.Assist.Decisions
+  alias InventoryLocatorWeb.AssistHelpers
 
   require Logger
-
-  @valid_fields [:manufacturer, :model, :description]
 
   @spec list_items(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def list_items(conn, params) do
@@ -17,7 +16,7 @@ defmodule InventoryLocatorWeb.AssistController do
       params
       |> Map.get("fields", "manufacturer,model,description")
       |> String.split(",")
-      |> Enum.map(&safe_to_field_atom/1)
+      |> Enum.map(&AssistHelpers.safe_to_field_atom/1)
 
     case Enum.find(field_results, &match?({:error, _}, &1)) do
       {:error, :invalid_field} ->
@@ -30,7 +29,8 @@ defmodule InventoryLocatorWeb.AssistController do
         limit = safe_to_positive_integer(Map.get(params, "limit", "50"), 50)
 
         items = Assist.list_incomplete_items(inventory_id, %{fields: fields, limit: limit})
-        json(conn, %{items: items, count: length(items)})
+        total_count = Assist.count_incomplete_items(inventory_id, fields)
+        json(conn, %{items: items, count: length(items), total_count: total_count})
     end
   end
 
@@ -77,13 +77,12 @@ defmodule InventoryLocatorWeb.AssistController do
           params
           |> Map.take(["manufacturer", "model", "description"])
           |> Map.new(fn {k, _v} = pair ->
-            {:ok, atom} = safe_to_field_atom(k)
+            {:ok, atom} = AssistHelpers.safe_to_field_atom(k)
             {atom, elem(pair, 1)}
           end)
 
         case Assist.update_item(item_id, attrs) do
           {:ok, item} ->
-            Assist.show_item(item_id)
             json(conn, %{status: "ok", item: summarize_item(item)})
 
           {:error, :not_found} ->
@@ -108,7 +107,7 @@ defmodule InventoryLocatorWeb.AssistController do
   def skip_fields(conn, %{"id" => id, "fields" => fields}) when is_list(fields) do
     case Integer.parse(id) do
       {item_id, ""} ->
-        field_results = Enum.map(fields, &safe_to_field_atom/1)
+        field_results = Enum.map(fields, &AssistHelpers.safe_to_field_atom/1)
 
         case Enum.find(field_results, &match?({:error, _}, &1)) do
           {:error, :invalid_field} ->
@@ -254,11 +253,113 @@ defmodule InventoryLocatorWeb.AssistController do
     json(conn, %{status: "ok"})
   end
 
+  # ============================================================
+  # Batch review endpoints
+  # ============================================================
+
+  @spec add_batch_suggestions(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def add_batch_suggestions(conn, %{"item_id" => item_id, "suggestions" => suggestions})
+      when is_integer(item_id) and is_map(suggestions) do
+    suggestion_atoms = parse_suggestions(suggestions)
+
+    case Decisions.add_suggestions(item_id, suggestion_atoms) do
+      :ok ->
+        json(conn, %{status: "ok", item_id: item_id})
+
+      {:error, :no_batch} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "No active batch"})
+    end
+  end
+
+  def add_batch_suggestions(conn, %{"item_id" => item_id_str, "suggestions" => suggestions})
+      when is_binary(item_id_str) and is_map(suggestions) do
+    case Integer.parse(item_id_str) do
+      {item_id, ""} ->
+        add_batch_suggestions(conn, %{"item_id" => item_id, "suggestions" => suggestions})
+
+      _invalid ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "Invalid item_id"})
+    end
+  end
+
+  def add_batch_suggestions(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Missing item_id or suggestions"})
+  end
+
+  @spec mark_review_ready(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def mark_review_ready(conn, _params) do
+    case Decisions.mark_review_ready() do
+      :ok ->
+        case Decisions.get_batch_suggestions() do
+          nil ->
+            json(conn, %{status: "ok"})
+
+          %{batch: batch} ->
+            items_with_suggestions =
+              Enum.flat_map(batch.suggestions, fn {item_id, suggestions} ->
+                case Assist.get_item(item_id) do
+                  {:ok, item} ->
+                    [{item, suggestions}]
+
+                  {:error, :not_found} ->
+                    Logger.warning("Item #{item_id} not found during batch review preparation")
+                    []
+                end
+              end)
+
+            _ = Assist.show_batch_review(items_with_suggestions)
+
+            json(conn, %{
+              status: "ok",
+              items_count: length(items_with_suggestions)
+            })
+        end
+
+      {:error, :no_batch} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "No active batch"})
+    end
+  end
+
+  @spec get_batch_review_decision(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def get_batch_review_decision(conn, _params) do
+    case Decisions.get_batch_review_decision() do
+      nil ->
+        json(conn, %{status: "waiting"})
+
+      %{batch_id: batch_id, accepted: accepted} ->
+        serialized_accepted =
+          Map.new(accepted, fn {item_id, fields} ->
+            field_strings = Map.new(fields, fn {k, v} -> {Atom.to_string(k), v} end)
+            {to_string(item_id), field_strings}
+          end)
+
+        json(conn, %{status: "ready", batch_id: batch_id, accepted: serialized_accepted})
+    end
+  end
+
   @spec parse_suggestions(map()) :: %{atom() => String.t()}
   defp parse_suggestions(suggestions) do
+    valid_fields = AssistHelpers.valid_fields()
+
     suggestions
     |> Enum.filter(fn {k, _v} -> k in ["manufacturer", "model", "description"] end)
-    |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+    |> Map.new(fn {k, v} ->
+      atom = String.to_existing_atom(k)
+
+      if atom in valid_fields do
+        {atom, v}
+      else
+        raise ArgumentError, "Invalid field: #{k}"
+      end
+    end)
   end
 
   @spec get_inventory_id(Plug.Conn.t(), map()) :: integer()
@@ -293,19 +394,6 @@ defmodule InventoryLocatorWeb.AssistController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
-  end
-
-  @spec safe_to_field_atom(String.t()) :: {:ok, atom()} | {:error, :invalid_field}
-  defp safe_to_field_atom(str) do
-    atom = String.to_existing_atom(str)
-
-    if atom in @valid_fields do
-      {:ok, atom}
-    else
-      {:error, :invalid_field}
-    end
-  rescue
-    ArgumentError -> {:error, :invalid_field}
   end
 
   @spec safe_to_positive_integer(String.t(), pos_integer()) :: pos_integer()

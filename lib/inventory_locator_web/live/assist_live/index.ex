@@ -5,11 +5,10 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
   alias InventoryLocator.Assist
   alias InventoryLocator.Assist.Decisions
   alias InventoryLocator.Inventory
+  alias InventoryLocatorWeb.AssistHelpers
   alias Phoenix.LiveView.Socket
 
   require Logger
-
-  @valid_fields [:manufacturer, :model, :description]
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
@@ -24,6 +23,8 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
       |> assign(:decisions, %{})
       |> assign(:suggestions, %{})
       |> assign(:review_accepted, %{})
+      |> assign(:batch_review_items, [])
+      |> assign(:batch_review_accepted, %{})
       |> restore_state_if_exists()
 
     {:ok, socket}
@@ -64,6 +65,9 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
       nil ->
         assign(socket, :mode, :waiting)
 
+      %{review_ready_at: ready_at} = batch when not is_nil(ready_at) ->
+        restore_batch_review_state(socket, batch)
+
       %{submitted_at: submitted_at} = batch when not is_nil(submitted_at) ->
         item_ids = Enum.map(batch.items, & &1.item_id)
         items = Assist.get_items_by_ids(item_ids)
@@ -84,6 +88,40 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
         |> assign(:decisions, decisions)
         |> assign(:mode, :batch)
     end
+  end
+
+  @spec restore_batch_review_state(Socket.t(), Decisions.batch()) :: Socket.t()
+  defp restore_batch_review_state(socket, batch) do
+    item_ids = Enum.map(batch.items, & &1.item_id)
+    items = Assist.get_items_by_ids(item_ids)
+    items_by_id = Map.new(items, fn item -> {item.id, item} end)
+
+    items_with_suggestions =
+      Enum.flat_map(batch.suggestions, fn {item_id, suggestions} ->
+        case Map.get(items_by_id, item_id) do
+          nil -> []
+          item -> [{item, suggestions}]
+        end
+      end)
+
+    batch_review_accepted = init_batch_review_accepted(items_with_suggestions)
+
+    socket
+    |> assign(:batch_review_items, items_with_suggestions)
+    |> assign(:batch_review_accepted, batch_review_accepted)
+    |> assign(:mode, :batch_reviewing)
+  end
+
+  @spec init_batch_review_accepted([{map(), map()}]) :: map()
+  defp init_batch_review_accepted(items_with_suggestions) do
+    Map.new(items_with_suggestions, fn {item, suggestions} ->
+      field_state =
+        Map.new(suggestions, fn {field, value} ->
+          {field, %{enabled: true, value: value}}
+        end)
+
+      {item.id, field_state}
+    end)
   end
 
   @spec restore_decisions([Decisions.item_decision()]) :: map()
@@ -108,15 +146,23 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("toggle_field", %{"item-id" => item_id_str, "field" => field_str}, socket) do
     with {item_id, ""} <- Integer.parse(item_id_str),
-         {:ok, field} <- safe_to_field_atom(field_str) do
+         {:ok, field} <- AssistHelpers.safe_to_field_atom(field_str) do
       decisions = socket.assigns.decisions
       item_decisions = Map.get(decisions, item_id, %{find: [], skip: []})
 
       updated_decisions =
         if field in item_decisions.find do
-          %{item_decisions | find: List.delete(item_decisions.find, field), skip: [field | item_decisions.skip]}
+          %{
+            item_decisions
+            | find: List.delete(item_decisions.find, field),
+              skip: [field | item_decisions.skip]
+          }
         else
-          %{item_decisions | find: [field | item_decisions.find], skip: List.delete(item_decisions.skip, field)}
+          %{
+            item_decisions
+            | find: [field | item_decisions.find],
+              skip: List.delete(item_decisions.skip, field)
+          }
         end
 
       new_decisions = Map.put(decisions, item_id, updated_decisions)
@@ -124,11 +170,8 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
 
       {:noreply, assign(socket, :decisions, new_decisions)}
     else
-      invalid ->
-        Logger.warning(
-          "Invalid toggle_field params: item_id=#{inspect(item_id_str)}, field=#{inspect(field_str)}, error=#{inspect(invalid)}"
-        )
-
+      invalid_input ->
+        Logger.warning("Invalid toggle_field event: #{inspect(invalid_input)}")
         {:noreply, socket}
     end
   end
@@ -139,7 +182,7 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
   end
 
   def handle_event("toggle_review_field", %{"field" => field_str}, socket) do
-    case safe_to_field_atom(field_str) do
+    case AssistHelpers.safe_to_field_atom(field_str) do
       {:ok, field} ->
         review_accepted = socket.assigns.review_accepted
 
@@ -153,6 +196,7 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
         end
 
       {:error, :invalid_field} ->
+        Logger.warning("Invalid field in toggle_review_field: #{inspect(field_str)}")
         {:noreply, socket}
     end
   end
@@ -164,24 +208,25 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
   end
 
   def handle_event("update_source_url", %{"value" => url, "item-id" => item_id_str}, socket) do
-    with {item_id, ""} <- Integer.parse(item_id_str) do
-      url_value = if url == "", do: nil, else: url
+    case Integer.parse(item_id_str) do
+      {item_id, ""} ->
+        url_value = if url == "", do: nil, else: url
 
-      case Assist.update_item(item_id, %{source_url: url_value}) do
-        {:ok, _item} ->
-          batch_items =
-            Enum.map(socket.assigns.batch_items, fn item ->
-              if item.id == item_id, do: %{item | source_url: url_value}, else: item
-            end)
+        case Assist.update_item(item_id, %{source_url: url_value}) do
+          {:ok, _item} ->
+            batch_items =
+              Enum.map(socket.assigns.batch_items, fn item ->
+                if item.id == item_id, do: %{item | source_url: url_value}, else: item
+              end)
 
-          {:noreply, assign(socket, :batch_items, batch_items)}
+            {:noreply, assign(socket, :batch_items, batch_items)}
 
-        {:error, _reason} ->
-          {:noreply, socket}
-      end
-    else
-      _invalid ->
-        Logger.warning("Invalid item_id in update_source_url: #{inspect(item_id_str)}")
+          {:error, _reason} ->
+            {:noreply, socket}
+        end
+
+      invalid_input ->
+        Logger.warning("Invalid update_source_url event: #{inspect(invalid_input)}")
         {:noreply, socket}
     end
   end
@@ -198,6 +243,33 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
       {:error, _reason} ->
         {:noreply, socket}
     end
+  end
+
+  def handle_event("toggle_batch_review_field", %{"item-id" => item_id_str, "field" => field_str}, socket) do
+    with {item_id, ""} <- Integer.parse(item_id_str),
+         {:ok, field} <- AssistHelpers.safe_to_field_atom(field_str) do
+      batch_review_accepted = socket.assigns.batch_review_accepted
+
+      case get_in(batch_review_accepted, [item_id, field]) do
+        nil ->
+          {:noreply, socket}
+
+        current ->
+          updated = %{current | enabled: not current.enabled}
+          new_accepted = put_in(batch_review_accepted, [item_id, field], updated)
+          {:noreply, assign(socket, :batch_review_accepted, new_accepted)}
+      end
+    else
+      invalid_input ->
+        Logger.warning("Invalid toggle_batch_review_field event: #{inspect(invalid_input)}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("submit_batch_review", params, socket) do
+    accepted = extract_batch_accepted_from_form(params, socket.assigns.batch_review_items)
+    _ = Decisions.submit_batch_review(accepted)
+    {:noreply, assign(socket, :mode, :batch_review_submitted)}
   end
 
   def handle_event(event, params, socket) do
@@ -252,6 +324,18 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info({:show_batch_review, items_with_suggestions}, socket) do
+    batch_review_accepted = init_batch_review_accepted(items_with_suggestions)
+
+    socket =
+      socket
+      |> assign(:batch_review_items, items_with_suggestions)
+      |> assign(:batch_review_accepted, batch_review_accepted)
+      |> assign(:mode, :batch_reviewing)
+
+    {:noreply, socket}
+  end
+
   def handle_info(message, socket) do
     Logger.warning("Unexpected message: #{inspect(message)}")
     {:noreply, socket}
@@ -261,19 +345,6 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
   # Private helpers
   # ============================================================
 
-  @spec safe_to_field_atom(String.t()) :: {:ok, atom()} | {:error, :invalid_field}
-  defp safe_to_field_atom(str) do
-    atom = String.to_existing_atom(str)
-
-    if atom in @valid_fields do
-      {:ok, atom}
-    else
-      {:error, :invalid_field}
-    end
-  rescue
-    ArgumentError -> {:error, :invalid_field}
-  end
-
   @spec extract_accepted_from_form(map(), map()) :: %{atom() => String.t()}
   defp extract_accepted_from_form(params, suggestions) do
     suggestions
@@ -282,6 +353,22 @@ defmodule InventoryLocatorWeb.AssistLive.Index do
     |> Map.new(fn field ->
       value = Map.get(params, "value_#{field}", "")
       {field, value}
+    end)
+  end
+
+  @spec extract_batch_accepted_from_form(map(), [{map(), map()}]) :: %{integer() => %{atom() => String.t()}}
+  defp extract_batch_accepted_from_form(params, items_with_suggestions) do
+    Map.new(items_with_suggestions, fn {item, suggestions} ->
+      accepted_fields =
+        suggestions
+        |> Map.keys()
+        |> Enum.filter(fn field -> Map.has_key?(params, "enabled_#{item.id}_#{field}") end)
+        |> Map.new(fn field ->
+          value = Map.get(params, "value_#{item.id}_#{field}", "")
+          {field, value}
+        end)
+
+      {item.id, accepted_fields}
     end)
   end
 end

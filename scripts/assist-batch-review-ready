@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Signal that all suggestions are ready and show the batch review page
+# Usage: ./scripts/assist-batch-review-ready
+
+set -e
+
+curl -s -X POST "http://localhost:4000/api/assist/batch/review-ready"

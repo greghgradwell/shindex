@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Send suggestions for an item in the batch review
+# Usage: ./scripts/assist-batch-review <item_id> '<suggestions_json>'
+# Example: ./scripts/assist-batch-review 29 '{"description":"Wood glue for interior use"}'
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: ./scripts/assist-batch-review <item_id> '<suggestions_json>'"
+  echo "Example: ./scripts/assist-batch-review 29 '{\"description\":\"Wood glue\"}'"
+  exit 1
+fi
+
+ITEM_ID=$1
+SUGGESTIONS=$2
+
+curl -s -X POST "http://localhost:4000/api/assist/batch/suggestions" \
+  -H "Content-Type: application/json" \
+  -d "{\"item_id\": $ITEM_ID, \"suggestions\": $SUGGESTIONS}"

@@ -43,6 +43,15 @@ defmodule InventoryLocator.Assist do
     |> Enum.map(&to_summary(&1, fields))
   end
 
+  @spec count_incomplete_items(integer(), [atom()]) :: non_neg_integer()
+  def count_incomplete_items(inventory_id, fields) do
+    ItemType
+    |> where([i], i.inventory_id == ^inventory_id)
+    |> where([i], i.archived == false)
+    |> filter_incomplete(fields)
+    |> Repo.aggregate(:count)
+  end
+
   @spec show_item(integer()) :: :ok
   def show_item(item_id) do
     PubSub.broadcast(@pubsub, @topic, {:show_item, item_id})
@@ -56,6 +65,11 @@ defmodule InventoryLocator.Assist do
   @spec show_review(item_summary(), %{atom() => String.t()}) :: :ok | {:error, term()}
   def show_review(item, suggestions) when is_map(suggestions) do
     PubSub.broadcast(@pubsub, @topic, {:show_review, item, suggestions})
+  end
+
+  @spec show_batch_review([{item_summary(), %{atom() => String.t()}}]) :: :ok | {:error, term()}
+  def show_batch_review(items_with_suggestions) when is_list(items_with_suggestions) do
+    PubSub.broadcast(@pubsub, @topic, {:show_batch_review, items_with_suggestions})
   end
 
   @spec get_item(integer()) :: {:ok, item_summary()} | {:error, :not_found}

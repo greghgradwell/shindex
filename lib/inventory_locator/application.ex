@@ -7,6 +7,8 @@ defmodule InventoryLocator.Application do
 
   @impl true
   def start(_type, _args) do
+    validate_required_env_vars()
+
     children = [
       InventoryLocatorWeb.Telemetry,
       InventoryLocator.Repo,
@@ -29,6 +31,37 @@ defmodule InventoryLocator.Application do
   @impl true
   def config_change(changed, _new, removed) do
     InventoryLocatorWeb.Endpoint.config_change(changed, removed)
+    :ok
+  end
+
+  @spec validate_required_env_vars() :: :ok
+  defp validate_required_env_vars do
+    require Logger
+
+    required_vars = [
+      {"GEMINI_API_KEY", "Gemini API for AI-powered features"},
+      {"TAVILY_API_KEY", "Tavily API for web search functionality"}
+    ]
+
+    missing =
+      Enum.filter(required_vars, fn {var, _desc} ->
+        case System.get_env(var) do
+          nil -> true
+          "" -> true
+          _value -> false
+        end
+      end)
+
+    if missing != [] do
+      Logger.warning("Missing required environment variables:")
+
+      Enum.each(missing, fn {var, desc} ->
+        Logger.warning("  - #{var}: #{desc}")
+      end)
+
+      Logger.warning("Some features may not work correctly. Set these in your .envrc or environment.")
+    end
+
     :ok
   end
 

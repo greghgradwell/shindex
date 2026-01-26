@@ -16,8 +16,8 @@ items=$(curl -s "http://localhost:4000/api/assist/items?fields=manufacturer,mode
 count=$(echo "$items" | jq '.count')
 
 if [ "$count" -eq 0 ]; then
-  echo '{"status":"no_items"}'
-  exit 0
+  echo '{"status":"no_items"}' >&2
+  exit 1
 fi
 
 # Extract item IDs

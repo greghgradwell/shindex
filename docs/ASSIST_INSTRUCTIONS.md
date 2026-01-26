@@ -2,56 +2,80 @@
 
 Instructions for Claude Code to assist with completing missing inventory item details.
 
+## IMPORTANT: Start Immediately
+
+**Do NOT ask the user questions before starting.** Assume:
+- Phoenix server is running at localhost:4000
+- User has /dev/assist open in browser
+- Default batch size is 20
+
+**Just run Step 1 immediately when the user asks to start assist mode.**
+
+**Minimize chat commentary.** The UI shows status. Only speak when:
+- Starting a new batch: "Sent X items to browser."
+- All complete: "✅ All items complete!"
+- Errors occur
+
+**Do NOT:**
+- Ask "want another batch?" (auto-loop if items remain)
+- Announce "research complete" (UI shows this)
+- Narrate each step (scripts handle flow)
+- Comment on or summarize update results (just run them)
+
 ## Quick Reference - Execute In Order
 
-**IMPORTANT: Follow these steps exactly.**
-**This is an outline of the process. You can find more detailed instructions in the Detailed Workflow section below.**
+**IMPORTANT: Follow these steps exactly. Do NOT ask for confirmation between steps.**
 
 ```
 STEP 1: ./scripts/assist-batch 20
-        → Tell user: "Toggle fields, add product URLs if you have them, click Start Research"
+        → Tell user: "Sent X items to browser."
+        → IMMEDIATELY run Step 2 (do NOT wait for user to confirm in chat)
 
 STEP 2: ./scripts/assist-poll 300
-        → BLOCKS until user clicks "Start Research"
+        → BLOCKS until user clicks "Start Research" in browser
+        → Do NOT ask user to confirm in chat - the script detects the button click
         → Returns JSON with items and which fields to find/skip
 
-STEP 2b: For items with ONLY skip fields (nothing to find):
+STEP 2b: For items where user unchecked ALL fields (nothing to find):
          ./scripts/assist-skip <id> '["field1","field2"]'
          → Persists skip to database, item won't appear in future batches
+         → IMPORTANT: Only use when item.find is empty AND item.skip has values
 
-STEP 3: For FIRST item needing research:
+STEP 3: For EACH item needing research:
         a) curl -s 'http://localhost:4000/api/assist/items/<id>'
            → Check if source_url is populated
         b) IF source_url exists:
               Use mcp__tavily__tavily_extract with the URL
            ELSE:
               Use mcp__tavily__tavily_search (synchronous)
-        c) ./scripts/assist-review <id> '{"field":"value"}'
-        d) Launch background searches for remaining items:
-           ./scripts/assist-search <id> "query" (run_in_background=true)
+        c) ./scripts/assist-batch-review <id> '{"field":"value"}'
+           → Send suggestions as each search completes
+        (Can run searches in parallel, send suggestions as they complete)
 
-STEP 4: ./scripts/assist-review-poll 300
-        → BLOCKS until user clicks "Done"
-        → Returns accepted values (may be edited by user)
+STEP 4: ./scripts/assist-batch-review-ready
+        → Browser shows ALL items with suggestions on one page
+        → IMMEDIATELY run Step 5 (do NOT wait for user to confirm in chat)
 
-STEP 5: ./scripts/assist-update <id> '<accepted_json>'
-        → Apply the ACCEPTED values from step 4
+STEP 5: ./scripts/assist-batch-review-poll 600
+        → BLOCKS until user clicks "Save All" in browser
+        → Do NOT ask user to confirm in chat - the script detects the button click
+        → Returns ALL accepted values at once
 
-STEP 6: Repeat steps 3c-5 for remaining items:
-        - Read tmp/assist-search-<id>.json for search results
-        - Send to browser with assist-review
-        - Poll with assist-review-poll
-        - Apply with assist-update
+STEP 6: For each item in accepted:
+        ./scripts/assist-update <id> '<accepted_json>'
+        → Apply the accepted values
+        → Do NOT show results to user - run silently and move to Step 7
 
-STEP 7: curl -s "http://localhost:4000/api/assist/items?limit=1" | jq '.count'
-        → If count > 0, ask user if they want another batch
+STEP 7: count=$(curl -s "http://localhost:4000/api/assist/items?limit=1" | jq '.total_count')
+        → If total_count > 0: IMMEDIATELY return to Step 1 (no asking)
+        → If total_count == 0: Tell user "✅ All items complete!" and stop
 ```
 
 ---
 
-## Prerequisites
+## Prerequisites (assume these are met - do NOT ask)
 
-- Phoenix server running (`mix phx.server`)
+- Phoenix server running at localhost:4000
 - User has `/dev/assist` open in browser
 - This project directory is the working directory
 - Helper scripts pre-approved: `./scripts/assist-*`
@@ -65,10 +89,18 @@ Located in `scripts/`:
 | `assist-batch` | `./scripts/assist-batch [limit]` | Start batch of incomplete items |
 | `assist-poll` | `./scripts/assist-poll [timeout]` | Poll until user clicks "Start Research" (default: 300s) |
 | `assist-skip` | `./scripts/assist-skip <id> '["fields"]'` | Mark fields as skipped (persists to database) |
-| `assist-search` | `./scripts/assist-search <id> '<query>'` | Background Tavily search, writes to `tmp/assist-search-<id>.json` |
-| `assist-review` | `./scripts/assist-review <id> '<json>'` | Send item with suggestions to browser |
-| `assist-review-poll` | `./scripts/assist-review-poll [timeout]` | Poll until user clicks "Done" (default: 300s) |
+| `assist-batch-review` | `./scripts/assist-batch-review <id> '<json>'` | Send suggestions for one item (call per item) |
+| `assist-batch-review-ready` | `./scripts/assist-batch-review-ready` | Signal all searches done, show review page |
+| `assist-batch-review-poll` | `./scripts/assist-batch-review-poll [timeout]` | Poll until user clicks "Save All" (default: 600s) |
 | `assist-update` | `./scripts/assist-update <id> '<json>'` | Update item fields |
+
+### Legacy Scripts (single-item review)
+
+| Script | Usage | Description |
+|--------|-------|-------------|
+| `assist-search` | `./scripts/assist-search <id> '<query>'` | Background Tavily search, writes to `tmp/assist-search-<id>.json` |
+| `assist-review` | `./scripts/assist-review <id> '<json>'` | Send single item with suggestions to browser |
+| `assist-review-poll` | `./scripts/assist-review-poll [timeout]` | Poll until user clicks "Done" (default: 300s) |
 
 ---
 
@@ -76,21 +108,27 @@ Located in `scripts/`:
 
 ### Step 1: Start a batch
 
+**Run this immediately when user asks to start assist mode. Do NOT ask questions first.**
+
 ```bash
 ./scripts/assist-batch 20
 ```
 
-This clears any existing batch, fetches incomplete items, and sends them to the browser. Returns JSON with item details.
+This clears any existing batch, fetches up to 20 incomplete items, and sends them to the browser.
 
-Tell user: "I've sent X items to your browser. Toggle which fields you want me to research. If you have a product URL (manufacturer page, Amazon, etc.), paste it in for direct lookup. Then click **Start Research**."
+Tell user briefly: "Sent X items to browser."
+
+Then immediately run Step 2 (the poll script).
 
 ### Step 2: Poll for decisions
+
+**IMPORTANT**: Run this immediately after Step 1. Do NOT wait for user to confirm in chat.
 
 ```bash
 ./scripts/assist-poll 300
 ```
 
-This blocks until user clicks "Start Research", then returns their decisions:
+This script blocks until user clicks "Start Research" in the browser, then returns their decisions. The script detects the button click automatically - no chat confirmation needed:
 
 ```json
 {
@@ -103,116 +141,115 @@ This blocks until user clicks "Start Research", then returns their decisions:
 }
 ```
 
-### Step 3: Pipelined Research and Review
+### Step 2b: Skip Persistent Fields
 
-This step pipelines search and review operations so the user can start reviewing immediately while remaining searches run in background.
-
-**Important:** Re-fetch fresh item data before searching. The user may have updated items after the batch was created:
+For items where the user unchecked ALL fields (nothing to find):
 
 ```bash
-curl -s 'http://localhost:4000/api/assist/items/<id>'
+./scripts/assist-skip <id> '["manufacturer","model"]'
 ```
 
-#### Pipeline Execution Flow
+This persists the skip to the database via `item.metadata`. These items won't appear in future batches.
 
+**When to use:** If `item.find` is empty but `item.skip` has values, run assist-skip before moving to Step 3.
+
+**Example:** If the response shows:
+```json
+{"item_id": 20, "item_name": "Generic M3 Screws", "find": [], "skip": ["model", "description"]}
 ```
-[Search 1] → [Review 1] ← user working
-   [Search 2, 3, 4 in background]
-             [Review 2] ← user working
-             [Review 3] ← user working
-             [Review 4] ← user working
+
+Then run:
+```bash
+./scripts/assist-skip 20 '["model","description"]'
 ```
 
-#### 3a. First Item (Synchronous)
+### Step 3: Research All Items
 
-For the first item requiring research:
+For each item requiring research:
 
-1. **Re-fetch current item data**
-2. Build search query using item's name + existing fields
-3. Use `mcp__tavily__tavily_search` with `search_depth: "advanced"` (synchronous)
-4. Extract requested fields and send to browser immediately:
+1. **Re-fetch current item data** (user may have added source_url)
+   ```bash
+   curl -s 'http://localhost:4000/api/assist/items/<id>'
+   ```
+
+2. **Search** using Tavily
+   - If `source_url` exists: Use `mcp__tavily__tavily_extract` with the URL
+   - Otherwise: Use `mcp__tavily__tavily_search` with item name + fields
+
+3. **Send suggestions** for this item:
+   ```bash
+   ./scripts/assist-batch-review 29 '{"description":"Aliphatic resin wood glue, 30 min clamp time"}'
+   ```
+
+**Parallelization**: You can run multiple searches in parallel and send suggestions as each completes. The order doesn't matter.
+
+### Step 4: Show Batch Review Page
+
+After ALL searches are complete and suggestions sent:
 
 ```bash
-./scripts/assist-review 29 '{"description":"Aliphatic resin wood glue, 30 min clamp time"}'
+./scripts/assist-batch-review-ready
 ```
 
-#### 3b. Launch Background Searches
+This tells the browser to display all items with their suggestions on a single scrollable page.
 
-For remaining items (2..N), launch searches in background using Bash `run_in_background`:
+### Step 5: Poll for Batch Review
+
+**IMPORTANT**: Run this immediately after Step 4. Do NOT wait for user to confirm in chat.
 
 ```bash
-./scripts/assist-search 30 "3M wire nuts specifications AWG range"
-./scripts/assist-search 31 "Titebond wood glue dry time specifications"
+./scripts/assist-batch-review-poll 600
 ```
 
-Each writes results to `tmp/assist-search-<item_id>.json`.
+This script blocks until user clicks "Save All" in the browser. The script detects the button click automatically - no chat confirmation needed. The user can:
+- Edit suggested values
+- Uncheck fields they don't want to accept
+- Review everything at once
 
-#### 3c. Poll for First Review
-
-Start polling for user's review decision (run in background):
-
-```bash
-./scripts/assist-review-poll 300
-```
-
-#### 3d. Process Pipeline
-
-Alternate between checking completed operations:
-
-1. **Check review poll** - If user clicked "Done":
-   - Apply accepted values: `./scripts/assist-update <id> '<json>'`
-   - Send next completed search result to browser
-   - Restart review poll
-
-2. **Check background searches** - Read completed search results:
-   - Parse `tmp/assist-search-<id>.json`
-   - Extract requested fields
-   - Queue for review (or send immediately if review slot available)
-
-3. **Repeat** until all items processed
-
-#### Example Pipeline for 3 Items
-
-```
-1. Item 29 (Wood Glue): tavily_search → send to browser → poll review
-2. Item 30 (Wire Nuts): ./scripts/assist-search 30 "..." (background)
-3. Item 31 (Screws): ./scripts/assist-search 31 "..." (background)
-4. User finishes Item 29 → apply update → read tmp/assist-search-30.json → send Item 30 to browser
-5. User finishes Item 30 → apply update → read tmp/assist-search-31.json → send Item 31 to browser
-6. User finishes Item 31 → apply update → done
-```
-
-#### Review UI
-
-The browser shows:
-- Current item details (name, location, manufacturer, model, description)
-- Suggested values in editable text boxes
-- Checkboxes to accept/reject each suggestion (default: checked)
-- "Done" button
-
-Review poll returns:
+Returns:
 
 ```json
 {
   "status": "ready",
-  "item_id": 29,
+  "batch_id": "abc123",
   "accepted": {
-    "description": "Aliphatic resin wood glue, 30 min clamp time"
+    "29": {"description": "Aliphatic resin wood glue, 30 min clamp time"},
+    "30": {"manufacturer": "3M", "model": "B/G Series"},
+    "31": {}
   }
 }
 ```
 
-The `accepted` object contains only the fields the user checked, with their (possibly edited) values.
+Note: Items with no checked fields have empty objects. Only accepted fields with their (possibly edited) values are included.
 
-### Step 4: Continue or finish
+### Step 6: Apply Updates
 
-After processing all items, check for remaining incomplete items:
+For each item in the accepted result, run the update script:
 
 ```bash
-curl -s "http://localhost:4000/api/assist/items?limit=1" | jq '.count'
+./scripts/assist-update 29 '{"description":"Aliphatic resin wood glue, 30 min clamp time"}'
+./scripts/assist-update 30 '{"manufacturer":"3M","model":"B/G Series"}'
 ```
 
-If count > 0, ask user if they want another batch. Otherwise, workflow complete.
+Skip items with empty accepted objects (user unchecked all fields).
+
+**IMPORTANT**: Do NOT show results to user. Do NOT comment on updates. Just run them and immediately proceed to Step 7.
+
+### Step 7: Auto-Loop or Complete
+
+After applying all updates, check for remaining items:
+
+```bash
+count=$(curl -s "http://localhost:4000/api/assist/items?limit=1" | jq '.total_count')
+```
+
+**If total_count > 0**: Immediately return to Step 1 (start new batch). Do NOT ask for confirmation.
+
+**If total_count == 0**: Tell user "✅ All items complete!" and stop. The browser will return to waiting mode.
+
+**Important**: The user can interrupt at any time if they need a break. Don't ask - just loop.
+
+**Note**: The API returns both `count` (items in response, capped by limit) and `total_count` (all matching items). Use `total_count` to know how many items remain.
 
 ---
 
@@ -224,10 +261,18 @@ If count > 0, ask user if they want another batch. Otherwise, workflow complete.
 | `/api/assist/items/:id` | GET | Get single item details |
 | `/api/assist/items/:id` | PATCH | Update item fields |
 | `/api/assist/items/:id/skip` | POST | Mark field(s) as skipped |
-| `/api/assist/items/:id/review` | POST | Send item with suggestions to browser |
 | `/api/assist/batch/start` | POST | Start batch with item IDs |
 | `/api/assist/batch/decisions` | GET | Get user's field selections |
 | `/api/assist/batch/clear` | POST | Clear current batch |
+| `/api/assist/batch/suggestions` | POST | Add suggestions for an item |
+| `/api/assist/batch/review-ready` | POST | Signal all suggestions ready |
+| `/api/assist/batch/review-decision` | GET | Get batch review result |
+
+### Legacy Endpoints (single-item review)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/assist/items/:id/review` | POST | Send item with suggestions to browser |
 | `/api/assist/review/decision` | GET | Get user's review decision |
 | `/api/assist/review/clear` | POST | Clear current review |
 
@@ -242,4 +287,5 @@ If count > 0, ask user if they want another batch. Otherwise, workflow complete.
 - Use existing item fields to build better search queries
 - Skipped fields won't appear in future queries
 - The batch UI shows all item details so users can make informed toggle decisions
-- The review UI allows users to edit suggestions before accepting
+- The batch review UI allows users to edit suggestions before accepting
+- User can walk away during research phase - review when ready

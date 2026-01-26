@@ -120,7 +120,9 @@
                           phx-value-item-id={item.id}
                         />
                         <%= if item.source_url do %>
-                          <a href={item.source_url} target="_blank" class="btn btn-sm btn-ghost">🔗</a>
+                          <a href={item.source_url} target="_blank" class="btn btn-sm btn-ghost">
+                            🔗
+                          </a>
                         <% end %>
                       </div>
                     </div>
@@ -187,7 +189,9 @@
 
             <div class="mt-4">
               <label class="label">
-                <span class="label-text text-xs uppercase text-base-content/50">Source URL (for product lookup)</span>
+                <span class="label-text text-xs uppercase text-base-content/50">
+                  Source URL (for product lookup)
+                </span>
               </label>
               <div class="flex gap-2">
                 <input
@@ -228,7 +232,8 @@
 
               <form phx-submit="submit_review" class="space-y-4">
                 <%= for {field, suggestion} <- @suggestions do %>
-                  <% field_state = Map.get(@review_accepted, field, %{enabled: true, value: suggestion}) %>
+                  <% field_state =
+                    Map.get(@review_accepted, field, %{enabled: true, value: suggestion}) %>
                   <div class={"p-4 rounded-lg border-2 transition-all #{if field_state.enabled, do: "bg-success/10 border-success", else: "bg-base-200 border-base-300 opacity-60"}"}>
                     <div class="flex items-center justify-between mb-2">
                       <label class="flex items-center gap-3 cursor-pointer">
@@ -268,23 +273,33 @@
 
               <div class="space-y-3">
                 <div class={"p-3 rounded-lg #{if is_nil(@current_item.manufacturer), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Manufacturer</div>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">
+                    Manufacturer
+                  </div>
                   <div class="font-medium mt-1">
-                    {if @current_item.manufacturer, do: @current_item.manufacturer, else: "⚠️ Missing"}
+                    {if @current_item.manufacturer,
+                      do: @current_item.manufacturer,
+                      else: "⚠️ Missing"}
                   </div>
                 </div>
 
                 <div class={"p-3 rounded-lg #{if is_nil(@current_item.model), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Model / Part #</div>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">
+                    Model / Part #
+                  </div>
                   <div class="font-medium mt-1">
                     {if @current_item.model, do: @current_item.model, else: "⚠️ Missing"}
                   </div>
                 </div>
 
                 <div class={"p-3 rounded-lg #{if is_nil(@current_item.description), do: "bg-warning/20 border border-warning", else: "bg-base-200"}"}>
-                  <div class="text-xs text-base-content/60 uppercase tracking-wide">Description</div>
+                  <div class="text-xs text-base-content/60 uppercase tracking-wide">
+                    Description
+                  </div>
                   <div class="font-medium mt-1">
-                    {if @current_item.description, do: @current_item.description, else: "⚠️ Missing"}
+                    {if @current_item.description,
+                      do: @current_item.description,
+                      else: "⚠️ Missing"}
                   </div>
                 </div>
               </div>
@@ -300,6 +315,128 @@
             <h1 class="text-3xl font-bold">Review Submitted</h1>
             <p class="py-6 text-base-content/70">
               Claude Code will apply your changes and continue with the next item...
+            </p>
+          </div>
+        </div>
+      </div>
+    <% :batch_reviewing -> %>
+      <div class="space-y-4">
+        <div class="pb-4 border-b border-base-300">
+          <h1 class="text-2xl font-bold">Review Suggestions</h1>
+          <p class="text-base-content/70 mt-2">
+            Review and edit Claude's suggestions, then click Save All.
+          </p>
+        </div>
+
+        <form phx-submit="submit_batch_review" class="space-y-4">
+          <%= for {item, suggestions} <- @batch_review_items do %>
+            <% item_accepted = Map.get(@batch_review_accepted, item.id, %{}) %>
+            <div class="card bg-base-100 shadow border border-base-300">
+              <div class="card-body p-4">
+                <div class="flex gap-4">
+                  <%= if item.photo_path do %>
+                    <img
+                      src={~p"/uploads/#{item.photo_path}"}
+                      alt={item.name}
+                      class="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                    />
+                  <% else %>
+                    <div class="w-24 h-24 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span class="text-3xl">📦</span>
+                    </div>
+                  <% end %>
+
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <h2 class="card-title text-lg">{item.name}</h2>
+                        <p class="text-sm text-base-content/60 font-mono">
+                          <%= if item.location_code do %>
+                            📍 {item.location_code}
+                          <% else %>
+                            No location
+                          <% end %>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 mt-3 text-sm">
+                      <div class={"p-2 rounded #{if item.manufacturer, do: "bg-base-200", else: "bg-warning/20 border border-warning/50"}"}>
+                        <div class="text-xs text-base-content/50 uppercase">Manufacturer</div>
+                        <div class="font-medium truncate" title={item.manufacturer || ""}>
+                          {item.manufacturer || "—"}
+                        </div>
+                      </div>
+                      <div class={"p-2 rounded #{if item.model, do: "bg-base-200", else: "bg-warning/20 border border-warning/50"}"}>
+                        <div class="text-xs text-base-content/50 uppercase">Model</div>
+                        <div class="font-medium truncate" title={item.model || ""}>
+                          {item.model || "—"}
+                        </div>
+                      </div>
+                      <div class={"p-2 rounded #{if item.description, do: "bg-base-200", else: "bg-warning/20 border border-warning/50"}"}>
+                        <div class="text-xs text-base-content/50 uppercase">Description</div>
+                        <div class="font-medium truncate" title={item.description || ""}>
+                          {item.description || "—"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <%= if map_size(suggestions) > 0 do %>
+                      <div class="divider my-2 text-xs text-base-content/50">
+                        Suggested Updates
+                      </div>
+                      <div class="space-y-2">
+                        <%= for {field, suggestion} <- suggestions do %>
+                          <% field_state =
+                            Map.get(item_accepted, field, %{enabled: true, value: suggestion}) %>
+                          <div class={"flex items-center gap-3 p-2 rounded-lg border transition-all #{if field_state.enabled, do: "bg-success/10 border-success/50", else: "bg-base-200 border-base-300 opacity-60"}"}>
+                            <label class="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                              <input
+                                type="checkbox"
+                                class="checkbox checkbox-success checkbox-sm"
+                                name={"enabled_#{item.id}_#{field}"}
+                                value="true"
+                                checked={field_state.enabled}
+                                phx-click="toggle_batch_review_field"
+                                phx-value-item-id={item.id}
+                                phx-value-field={field}
+                              />
+                              <span class="text-xs font-semibold uppercase tracking-wide w-24">
+                                {field}
+                              </span>
+                            </label>
+                            <input
+                              type="text"
+                              name={"value_#{item.id}_#{field}"}
+                              class={"input input-bordered input-sm flex-1 #{if not field_state.enabled, do: "opacity-50"}"}
+                              value={field_state.value}
+                              disabled={not field_state.enabled}
+                            />
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="sticky bottom-0 bg-base-100 p-4 border-t border-base-300 -mx-4 mt-6">
+            <button type="submit" class="btn btn-primary btn-lg w-full gap-2">
+              <span>💾 Save All ({length(@batch_review_items)} items)</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    <% :batch_review_submitted -> %>
+      <div class="hero min-h-[60vh]">
+        <div class="hero-content text-center">
+          <div class="max-w-md">
+            <div class="text-8xl mb-8">✅</div>
+            <h1 class="text-3xl font-bold">Batch Review Submitted</h1>
+            <p class="py-6 text-base-content/70">
+              Claude Code is applying your changes to all items...
             </p>
           </div>
         </div>

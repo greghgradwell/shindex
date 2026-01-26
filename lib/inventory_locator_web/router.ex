@@ -3,6 +3,7 @@ defmodule InventoryLocatorWeb.Router do
 
   alias InventoryLocatorWeb.Hooks.InventoryHook
   alias InventoryLocatorWeb.Plugs.LoadInventory
+  alias InventoryLocatorWeb.Plugs.RateLimiter
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -16,6 +17,14 @@ defmodule InventoryLocatorWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  pipeline :api_protected do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :protect_from_forgery
+    plug LoadInventory
+    plug RateLimiter, max_requests: 60, window_seconds: 60
   end
 
   scope "/", InventoryLocatorWeb do
@@ -64,7 +73,7 @@ defmodule InventoryLocatorWeb.Router do
     end
 
     scope "/api/assist", InventoryLocatorWeb do
-      pipe_through [:api, :fetch_session, LoadInventory]
+      pipe_through :api_protected
 
       get "/items", AssistController, :list_items
       get "/items/:id", AssistController, :get_item
@@ -75,6 +84,10 @@ defmodule InventoryLocatorWeb.Router do
       post "/batch/start", AssistController, :start_batch
       get "/batch/decisions", AssistController, :get_decisions
       post "/batch/clear", AssistController, :clear_batch
+
+      post "/batch/suggestions", AssistController, :add_batch_suggestions
+      post "/batch/review-ready", AssistController, :mark_review_ready
+      get "/batch/review-decision", AssistController, :get_batch_review_decision
 
       post "/items/:id/review", AssistController, :start_review
       get "/review/decision", AssistController, :get_review_decision
