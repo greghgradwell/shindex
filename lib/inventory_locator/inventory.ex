@@ -458,7 +458,8 @@ defmodule InventoryLocator.Inventory do
         where: s.inventory_id == ^inventory_id,
         order_by: [
           asc: fragment("length(?) - length(replace(?, '_', ''))", s.code, s.code),
-          asc: s.code
+          asc: fragment("regexp_replace(?, '[0-9]+$', '')", s.code),
+          asc: fragment("COALESCE(NULLIF(regexp_replace(?, '^[^0-9]*', ''), '')::INTEGER, 0)", s.code)
         ]
       )
 
