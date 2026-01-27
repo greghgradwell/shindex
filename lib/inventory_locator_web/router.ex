@@ -27,6 +27,14 @@ defmodule InventoryLocatorWeb.Router do
     plug RateLimiter, max_requests: 60, window_seconds: 60
   end
 
+  # Local dev API - no CSRF (for CLI scripts), rate-limited
+  pipeline :api_dev do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug LoadInventory
+    plug RateLimiter, max_requests: 60, window_seconds: 60
+  end
+
   scope "/", InventoryLocatorWeb do
     pipe_through :browser
 
@@ -73,7 +81,7 @@ defmodule InventoryLocatorWeb.Router do
     end
 
     scope "/api/assist", InventoryLocatorWeb do
-      pipe_through :api_protected
+      pipe_through :api_dev
 
       get "/items", AssistController, :list_items
       get "/items/:id", AssistController, :get_item
