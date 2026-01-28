@@ -31,9 +31,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
     documents = Media.list_documents(item_id)
 
-    # Batch mode: auto-enter edit mode for efficient completion
     batch_mode = Map.get(assigns, :batch_mode, false)
-    editing = batch_mode
+    start_editing = Map.get(assigns, :start_editing, false)
+    editing = batch_mode or start_editing
     edit_changeset = if editing, do: ItemType.changeset(item, %{})
 
     # Configure document uploads only on initial mount
@@ -324,10 +324,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
       {:ok, photo_path} ->
         attrs = %{
           name: Map.get(item_params, "name", item.name),
-          manufacturer: Map.get(item_params, "manufacturer", ""),
-          model: Map.get(item_params, "model", ""),
-          description: Map.get(item_params, "description", ""),
-          source_url: Map.get(item_params, "source_url", "")
+          manufacturer: blank_to_nil(Map.get(item_params, "manufacturer", "")),
+          model: blank_to_nil(Map.get(item_params, "model", "")),
+          description: blank_to_nil(Map.get(item_params, "description", "")),
+          source_url: blank_to_nil(Map.get(item_params, "source_url", ""))
         }
 
         # Add photo_path only if a new photo was uploaded
@@ -768,6 +768,14 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     else
       {:noreply, notify_flash(socket, :error, "Installation not found")}
     end
+  end
+
+  @spec blank_to_nil(String.t() | nil) :: String.t() | nil
+  defp blank_to_nil(nil), do: nil
+
+  defp blank_to_nil(str) when is_binary(str) do
+    trimmed = String.trim(str)
+    if trimmed == "", do: nil, else: trimmed
   end
 
   @spec do_uninstall(Socket.t(), String.t(), pos_integer()) :: {:noreply, Socket.t()}

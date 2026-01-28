@@ -15,32 +15,36 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
       <!-- Shelf label (fixed width) -->
       <div class="w-32 flex-shrink-0">
         <div class="flex items-center gap-1">
-          <button
-            phx-click="show_rename_shelf_modal"
-            phx-value-id={@shelf.id}
-            class="font-semibold hover:text-primary cursor-pointer transition-colors"
-            title="Click to rename shelf"
-          >
-            {@shelf.code}
-          </button>
-          <button
-            phx-click="delete_shelf"
-            phx-value-id={@shelf.id}
-            class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
-            title="Delete shelf"
-            data-confirm={"Delete shelf #{@shelf.code} and all its bins?"}
-          >
-            <.icon name="hero-trash" class="w-3 h-3" />
-          </button>
+          <%= if @shelf.system do %>
+            <span class="font-semibold text-base-content/60">{@shelf.code}</span>
+          <% else %>
+            <button
+              phx-click="show_rename_shelf_modal"
+              phx-value-id={@shelf.id}
+              class="font-semibold hover:text-primary cursor-pointer transition-colors"
+              title="Click to rename shelf"
+            >
+              {@shelf.code}
+            </button>
+            <button
+              phx-click="delete_shelf"
+              phx-value-id={@shelf.id}
+              class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
+              title="Delete shelf"
+              data-confirm={"Delete shelf #{@shelf.code} and all its bins?"}
+            >
+              <.icon name="hero-trash" class="w-3 h-3" />
+            </button>
+          <% end %>
         </div>
       </div>
       <!-- Bins container -->
       <div class="flex-1 flex gap-2 flex-wrap items-start">
         <%= for bin <- @shelf.bins do %>
-          <.bin_segment bin={bin} shelf_id={@shelf.id} />
+          <.bin_segment bin={bin} shelf_id={@shelf.id} shelf_code={@shelf.code} />
         <% end %>
-        <!-- Add Bin button -->
         <button
+          :if={not @shelf.system}
           phx-click="add_bin"
           phx-value-shelf_id={@shelf.id}
           class="border border-dashed border-base-300 rounded-lg p-2 min-w-[80px] h-[80px] flex items-center justify-center text-base-content/50 hover:border-primary hover:text-primary transition-colors"
@@ -55,6 +59,7 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
 
   attr :bin, Bin, required: true
   attr :shelf_id, :integer, required: true
+  attr :shelf_code, :string, required: true
 
   def bin_segment(assigns) do
     ~H"""
@@ -72,12 +77,17 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
         </button>
       </div>
       <!-- Location content -->
-      <.location_box :if={@bin.location} location={@bin.location} />
+      <.location_box
+        :if={@bin.location}
+        location={@bin.location}
+        location_code={"#{@shelf_code}-#{@bin.code}"}
+      />
     </div>
     """
   end
 
   attr :location, Location, required: true
+  attr :location_code, :string, required: true
 
   def location_box(assigns) do
     active_items = Enum.reject(assigns.location.item_types || [], & &1.archived)
@@ -114,6 +124,14 @@ defmodule InventoryLocatorWeb.LocationLive.Components do
           </button>
         </div>
       <% end %>
+      <button
+        phx-click="show_add_item_modal"
+        phx-value-location_code={@location_code}
+        class="border border-dashed border-base-300 rounded px-2 py-1 flex items-center justify-center text-base-content/50 hover:border-primary hover:text-primary transition-colors mt-1 w-full"
+        title={"Add item to #{@location_code}"}
+      >
+        <.icon name="hero-plus" class="w-3 h-3" />
+      </button>
     </div>
     """
   end

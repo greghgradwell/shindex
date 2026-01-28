@@ -10,6 +10,8 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
@@ -23,6 +25,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      |> assign(:stats, stats)
      |> assign(:page_title, "Location Management")
      |> assign(:selected_item_id, nil)
+     |> assign(:start_editing, false)
      |> assign(:show_create_shelf_modal, false)
      |> assign(:show_rename_shelf_modal, false)
      |> assign(:rename_shelf, nil)
@@ -62,6 +65,26 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
 
   def handle_event("open_item_modal", %{"id" => id}, socket) do
     {:noreply, assign(socket, :selected_item_id, String.to_integer(id))}
+  end
+
+  def handle_event("show_add_item_modal", %{"location_code" => location_code}, socket) do
+    inventory_id = socket.assigns.current_inventory.id
+
+    case Inventory.create_item_with_location(%{
+           inventory_id: inventory_id,
+           location_code: location_code,
+           name: "New Item"
+         }) do
+      {:ok, item} ->
+        {:noreply,
+         socket
+         |> assign(:selected_item_id, item.id)
+         |> assign(:start_editing, true)}
+
+      {:error, reason} ->
+        Logger.warning("Failed to create item at #{location_code}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, "Failed to create item")}
+    end
   end
 
   def handle_event("show_create_shelf_modal", _params, socket) do
@@ -184,6 +207,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
          |> refresh_data()
          |> put_flash(:info, "Shelf #{shelf.code} deleted")}
 
+      {:error, :system_shelf} ->
+        {:noreply, put_flash(socket, :error, "Cannot delete system shelves")}
+
       {:error, :has_items} ->
         {:noreply, put_flash(socket, :error, "Cannot delete shelf with items")}
     end
@@ -198,6 +224,9 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
          socket
          |> refresh_data()
          |> put_flash(:info, "Bin #{bin.code} added to shelf #{shelf.code}")}
+
+      {:error, :system_shelf} ->
+        {:noreply, put_flash(socket, :error, "Cannot modify system shelves")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to add bin")}
@@ -297,6 +326,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
     {:noreply,
      socket
      |> assign(:selected_item_id, nil)
+     |> assign(:start_editing, false)
      |> assign(:shelves, shelves)
      |> assign(:stats, stats)}
   end

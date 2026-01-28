@@ -9,6 +9,11 @@
       {length(@items)} items
     <% end %>
   </:subtitle>
+  <:actions>
+    <.button phx-click="create_new_item">
+      <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Item
+    </.button>
+  </:actions>
 </.header>
 
 <div class="tabs tabs-boxed mt-6 w-fit">
@@ -69,6 +74,7 @@
   batch_mode={@batch_mode}
   batch_total={length(@batch_item_ids)}
   current_inventory={@current_inventory}
+  start_editing={@start_editing}
 />
 
 <div

@@ -11,6 +11,7 @@ defmodule InventoryLocator.Inventory.Shelf do
     field :code, :string
     field :name, :string
     field :description, :string
+    field :system, :boolean, default: false
 
     belongs_to :inventory, Inv
     has_many :bins, Bin
@@ -21,12 +22,20 @@ defmodule InventoryLocator.Inventory.Shelf do
   @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(shelf, attrs) do
     shelf
-    |> cast(attrs, [:code, :name, :description, :inventory_id])
+    |> cast(attrs, [:code, :name, :description, :inventory_id, :system])
     |> validate_required([:code, :inventory_id])
     |> validate_code()
     |> unique_constraint(:code, name: :shelves_inventory_id_code_index)
     |> foreign_key_constraint(:inventory_id)
   end
+
+  @unsorted_code "UNSORTED"
+
+  @spec unsorted_code() :: String.t()
+  def unsorted_code, do: @unsorted_code
+
+  @spec system?(t()) :: boolean()
+  def system?(%__MODULE__{system: system}), do: system == true
 
   @max_code_length 50
 

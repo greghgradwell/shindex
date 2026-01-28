@@ -115,7 +115,59 @@ defmodule InventoryLocator.Inventory do
     end)
   end
 
-  @spec add_bin_to_shelf(Shelf.t()) :: {:ok, Bin.t()} | {:error, Ecto.Changeset.t()}
+  @spec ensure_unsorted_shelf(integer()) :: {:ok, Shelf.t()} | {:error, term()}
+  def ensure_unsorted_shelf(inventory_id) do
+    unsorted_code = Shelf.unsorted_code()
+
+    Repo.transaction(fn ->
+      case Repo.get_by(Shelf, inventory_id: inventory_id, code: unsorted_code) do
+        nil ->
+          case %Shelf{}
+               |> Shelf.changeset(%{
+                 code: unsorted_code,
+                 inventory_id: inventory_id,
+                 system: true
+               })
+               |> Repo.insert(
+                 on_conflict: :nothing,
+                 conflict_target: [:inventory_id, :code]
+               ) do
+            {:ok, %Shelf{id: nil}} ->
+              Shelf
+              |> Repo.get_by!(inventory_id: inventory_id, code: unsorted_code)
+              |> Repo.preload(bins: :location)
+
+            {:ok, shelf} ->
+              {:ok, _bin} = create_bin_with_location(shelf, "1")
+              Repo.preload(shelf, bins: :location)
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+
+        shelf ->
+          Repo.preload(shelf, bins: :location)
+      end
+    end)
+  end
+
+  @spec get_unsorted_location(integer()) :: {:ok, Location.t()} | {:error, :no_bins}
+  def get_unsorted_location(inventory_id) do
+    case ensure_unsorted_shelf(inventory_id) do
+      {:ok, shelf} ->
+        case shelf.bins do
+          [bin | _] -> {:ok, bin.location}
+          [] -> {:error, :no_bins}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @spec add_bin_to_shelf(Shelf.t()) :: {:ok, Bin.t()} | {:error, :system_shelf} | {:error, Ecto.Changeset.t()}
+  def add_bin_to_shelf(%Shelf{system: true}), do: {:error, :system_shelf}
+
   def add_bin_to_shelf(%Shelf{} = shelf) do
     next_bin_code = get_next_bin_code(shelf.id)
 
@@ -261,7 +313,9 @@ defmodule InventoryLocator.Inventory do
   end
 
   @spec delete_empty_shelf(Shelf.t()) ::
-          {:ok, Shelf.t()} | {:error, :has_items}
+          {:ok, Shelf.t()} | {:error, :has_items} | {:error, :system_shelf}
+  def delete_empty_shelf(%Shelf{system: true}), do: {:error, :system_shelf}
+
   def delete_empty_shelf(%Shelf{} = shelf) do
     active_item_count =
       Repo.aggregate(

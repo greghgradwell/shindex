@@ -794,13 +794,32 @@ defmodule InventoryLocator.InventoryTest do
     test "deletes all bins and locations", %{inventory: inventory} do
       {:ok, shelf} = Inventory.create_shelf_with_bins(inventory.id, %{code: "EMPTY"}, 2)
 
-      location_count_before = Repo.aggregate(Inventory.Location, :count)
-      assert location_count_before == 2
+      shelf_location_count =
+        Repo.aggregate(
+          from(l in Inventory.Location,
+            join: b in Bin,
+            on: l.bin_id == b.id,
+            where: b.shelf_id == ^shelf.id
+          ),
+          :count
+        )
+
+      assert shelf_location_count == 2
 
       {:ok, _deleted} = Inventory.delete_empty_shelf(shelf)
 
-      assert Repo.aggregate(Inventory.Location, :count) == 0
-      assert Repo.aggregate(Bin, :count) == 0
+      shelf_location_count_after =
+        Repo.aggregate(
+          from(l in Inventory.Location,
+            join: b in Bin,
+            on: l.bin_id == b.id,
+            where: b.shelf_id == ^shelf.id
+          ),
+          :count
+        )
+
+      assert shelf_location_count_after == 0
+      assert Repo.aggregate(from(b in Bin, where: b.shelf_id == ^shelf.id), :count) == 0
     end
 
     test "returns error when shelf has active items", %{inventory: inventory} do
