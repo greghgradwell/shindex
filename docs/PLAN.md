@@ -2,9 +2,11 @@
 
 ## Overview
 
-This plan implements the Core MVP: add items, find items, AI-powered search.
+Core MVP (Phases 1-6): add items, find items, AI-powered search. **Complete.**
 
-**Target:** Working system capable of cataloguing 1000+ workshop items.
+Next: public deployment with authentication and a community marketplace for borrowing, leasing, and selling items.
+
+**Target:** Publicly accessible inventory with invite-only community and item request workflow.
 
 ## Phase Status
 
@@ -13,14 +15,18 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 | 1 | ✅ Complete | Foundation - schema, context, parser, tooling |
 | 2 | ✅ Complete | Basic UI - locations, search, items, camera, shelves |
 | 3.1 | ✅ Complete | Text search (done in Phase 2.2) |
-| 3.2 | Pending | Duplicate detection |
+| 3.2 | Deferred | Duplicate detection |
 | 4 | ✅ Complete | AI search (Gemini API) |
 | 4.5 | ✅ Complete | Projects feature |
 | 4.7 | ✅ Complete | Multi-inventory support |
 | 4.8 | ✅ Complete | Backup system |
 | 5 | ✅ Removed | ~~Multi-device photo sync~~ (workflow changed) |
-| 6 | Partial | Polish and scale |
-| 7 | Pending | Full catalogue (1000+ items) |
+| 6 | ✅ Complete | Polish and scale |
+| 7 | Ongoing | Full catalogue (1000+ items) |
+| 8 | Deferred | Image-based search |
+| 9 | Pending | Auth + public deployment |
+| 10 | Pending | Requests + marketplace |
+| 11 | Future | Multi-user inventories |
 
 ## Phase 1: Foundation
 
@@ -304,41 +310,122 @@ Workflow changed: photos are taken in batch on phone, synced to desktop via Sync
 ## Phase 6: Polish and Scale
 
 ### 6.1 Performance
-- [ ] Implement pagination for item list
-- [ ] Optimize photo storage (thumbnails, compression)
+- [x] Implement pagination for item list (page size 48, offset-based)
+- [x] Add location shelf filtering (multi-select checkbox chips)
+- [ ] ~~Optimize photo storage (thumbnails, compression)~~ Deferred: photos avg 109KB after existing resize pipeline (1920x1080 @ 85% JPEG). 103 photos = 12MB. Projected 1000 items = ~106MB. Revisit if page loads feel slow past 500 items.
 
 ### 6.2 Reliability
 - [x] Database backup strategy (implemented in Phase 4.8)
 
-**Go/No-Go:** System performs well with 100+ items. Ready for full catalogue.
+**Go/No-Go:** ✅ Pagination and filtering complete. Photo optimization deferred (not needed at current scale). Ready for full catalogue.
 
-## Phase 7: Full Catalogue (Milestone D)
+## Phase 7: Full Catalogue (Ongoing)
+
+Adding items periodically. Not a blocking development step.
 
 - [ ] Enter all workshop items (~1000)
 - [ ] Refine workflow based on friction points
-- [ ] Document lessons learned
-- [ ] Identify improvements for next iteration
 
 ---
 
-## Future Phases (Post-MVP)
+## Phase 8: ~~Image-Based Search~~ (Deferred)
 
-### Phase 8: Image-Based Search (Milestone E)
+Deferred in favor of public access and marketplace features. Can revisit after Phase 10.
+
 - Add image embedding generation (CLIP or similar)
 - Store embeddings in pgvector
 - Implement "search by photo" feature
 
-### Phase 9: Public Access (Milestone F)
-- Add user authentication (phx_gen_auth)
-- Implement access levels (admin, friend, public)
-- Deploy to public internet with HTTPS
-- Security audit
+## Phase 9: Auth + Public Deployment (Milestone F)
 
-### Phase 10: Sharing & Marketplace (Milestones G-I)
-- Invite link generation
-- Borrow request workflow
-- Purchase offer workflow
-- Notifications
+Deploy inventory to the public internet with OAuth authentication and invite-only registration.
+
+### 9.1 Infrastructure
+- [ ] Provision dedicated GCP Compute Engine VM
+- [ ] Install Erlang/OTP, Elixir, PostgreSQL on VM
+- [ ] Create unprivileged `inventory` user for running the application
+- [ ] Configure firewall: SSH (key-auth only) + HTTP/HTTPS
+- [ ] Install and configure Caddy as reverse proxy with automatic TLS
+- [ ] Set up custom domain with DNS pointing to VM
+- [ ] Configure Phoenix release (mix release) with systemd service
+- [ ] Set up deployment workflow (git pull → build release → restart service)
+
+### 9.2 Authentication
+- [ ] Add Ueberauth with GitHub and LinkedIn strategies
+- [ ] Create `users` migration (name, email, avatar_url, role)
+- [ ] Create `user_identities` migration (provider, provider_uid, user_id)
+- [ ] Create `invite_codes` migration (code, created_by, used_by, expires_at, used_at)
+- [ ] Implement User schema and Accounts context
+- [ ] Implement OAuth callback controller (create or match existing user)
+- [ ] Implement invite code validation on first sign-in
+- [ ] Implement session management (login/logout)
+- [ ] First user auto-promoted to admin role
+
+### 9.3 Authorization
+- [ ] Add authentication plug (require login for all routes except landing page)
+- [ ] Add role-based authorization (admin vs member)
+- [ ] Members: read-only access to inventory (browse, search, view items)
+- [ ] Admin: full access (current functionality unchanged)
+- [ ] Protect admin routes (backups, inventory management, shelf CRUD, item CRUD)
+
+### 9.4 Landing Page
+- [ ] Create public landing page (description of service, sign-in buttons)
+- [ ] LinkedIn and GitHub sign-in buttons
+- [ ] Redirect authenticated users to inventory
+
+### 9.5 Invite System
+- [ ] Admin UI to generate invite codes (with optional expiration)
+- [ ] Display active/used invite codes
+- [ ] Invite code entry form shown after first OAuth sign-in
+- [ ] Revoke unused invite codes
+
+### 9.6 Security Hardening
+- [ ] Content Security Policy headers
+- [ ] Rate limiting on OAuth and invite code endpoints
+- [ ] Audit logging for admin actions
+- [ ] Review all routes for proper authorization
+
+**Go/No-Go:** Site accessible on public URL. OAuth sign-in works. Invite-only registration enforced. Admin/member roles working.
+
+## Phase 10: Requests + Marketplace (Milestones G-I)
+
+Enable members to request items for borrow, lease, or sale. All transactions happen in person.
+
+### 10.1 Listings
+- [ ] Create `listings` migration (item_type_id, type, price, notes, active)
+- [ ] Implement Listing schema and context functions
+- [ ] Admin UI to mark items as available (borrow/lease/sale with optional price)
+- [ ] Display listing info on item detail view
+
+### 10.2 Requests
+- [ ] Create `requests` migration (listing_id, requester_id, status, message, admin_notes)
+- [ ] Implement Request schema and context functions
+- [ ] Member UI to request an available item (with message)
+- [ ] Admin UI to view, approve, deny, and complete requests
+- [ ] Request status workflow: pending → approved/denied, approved → completed
+
+### 10.3 Notifications
+- [ ] Add Swoosh for email delivery
+- [ ] Add Oban for async job processing
+- [ ] Email admin when new request received
+- [ ] Email member when request approved/denied
+- [ ] In-app notification indicators (Phoenix PubSub)
+
+### 10.4 Member Experience
+- [ ] Member browse view (read-only catalog with available items highlighted)
+- [ ] Member request history (my requests and their statuses)
+- [ ] Member profile page
+
+**Go/No-Go:** Members can browse inventory, request items, receive status updates. Admin can manage requests.
+
+## Phase 11: Multi-User Inventories (Future)
+
+Other users create and share their own inventories.
+
+- Inventory ownership (users own inventories, not just the admin)
+- Inventory sharing keys with configurable access levels
+- Cross-inventory browsing and discovery
+- Open registration (remove invite-code requirement)
 
 ---
 

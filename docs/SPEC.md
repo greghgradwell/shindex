@@ -25,9 +25,8 @@ Workshop and household items are difficult to locate, leading to:
 - Searches for items by name, description, or semantic meaning
 
 ### Secondary Users (Post-MVP)
-- **Household members** - Co-administrators who can add/remove/locate items
-- **Friends** - Read-only access to full or filtered inventory
-- **Public** - Browse items marked for sale/borrow
+- **Members** - Invited users who can browse inventory and request items for borrow/lease/sale
+- **Future: Inventory owners** - Other users who add and share their own inventories
 
 ## Core Requirements
 
@@ -111,10 +110,10 @@ Workshop and household items are difficult to locate, leading to:
 ### Public Release
 | ID | Criterion | Validation |
 |----|-----------|------------|
-| F | Inventory accessible on open web (securely) | HTTPS, auth working |
-| G | Invite friend with custom access link | Link grants correct access |
-| H | Receive borrow request through system | End-to-end flow works |
-| I | Receive purchase offer through system | End-to-end flow works |
+| F | Inventory accessible on open web (securely) | HTTPS, OAuth working, invite-only |
+| G | Invite a user with invite code | Code grants account creation |
+| H | Receive borrow/lease request through system | End-to-end request flow works |
+| I | Receive purchase inquiry through system | End-to-end request flow works |
 
 ## Non-Functional Requirements
 
@@ -128,15 +127,26 @@ Workshop and household items are difficult to locate, leading to:
 - 10,000+ items for household expansion
 - Multiple concurrent users for public release
 
-### Security (Post-MVP)
-- Authentication required for modifications
-- Access levels: Admin, Friend, Public
-- Secure invite links (time-limited, single-use option)
+### Authentication & Access
+- **OAuth only:** LinkedIn and GitHub (no email/password). Real identities reduce anonymity.
+- **Invite-only registration:** Users need an invite code to create an account. Open registration planned for later.
+- **Roles:** Admin (inventory owner, full control) and Member (browse, request items)
+- **Anonymous visitors:** See landing page only. Must sign in to access any inventory data.
+
+### Security
+- Dedicated GCP VM (no shared workloads) with firewall, SSH key-auth only
+- Reverse proxy (Caddy) with TLS termination, only ports 80/443 exposed
+- Unprivileged application user with no access to host files beyond app directory
+- Dedicated PostgreSQL user scoped to inventory database only
+- OAuth eliminates password storage attack surface
+- Invite-only registration limits account creation to known users
 
 ## Out of Scope (MVP)
 
-- Payment processing
+- Payment processing (prices displayed, all transactions in person)
 - Rental term management ($/hour, $/week)
 - Mobile native app (web responsive is sufficient)
 - Barcode/QR code scanning (future consideration)
 - Automatic reorder suggestions
+- Email/password authentication (OAuth only)
+- Multi-user inventory ownership (Phase 11+)

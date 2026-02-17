@@ -296,7 +296,42 @@ inventory_locator/
 └── mix.exs
 ```
 
-## Security Considerations (Post-MVP)
+### 8. Authentication
+
+**Decision:** OAuth-only via LinkedIn and GitHub. No email/password.
+
+**Why:** Real identities build community trust. OAuth eliminates password storage and the associated security burden. LinkedIn + GitHub cover the target audience (professionals and technical users).
+
+**Library:** [Ueberauth](https://github.com/ueberauth/ueberauth) with `ueberauth_github` and `ueberauth_linkedin` strategies.
+
+**Flow:**
+1. User visits landing page, clicks "Sign in with LinkedIn" or "Sign in with GitHub"
+2. OAuth redirect → provider → callback with profile info (name, email, avatar)
+3. First-time users must enter an invite code to complete registration
+4. Returning users are signed in directly (matched by provider + provider UID)
+
+**Schema:**
+- `users` table: id, name, email, avatar_url, role (admin/member), inserted_at
+- `user_identities` table: user_id, provider (github/linkedin), provider_uid, provider_email
+- `invite_codes` table: code, created_by, used_by, expires_at, used_at
+
+**Roles:**
+- **Admin:** Full inventory management (current functionality). First user is auto-admin.
+- **Member:** Browse inventory, request items. Cannot modify inventory data.
+
+### 9. Request Workflow
+
+**Decision:** Simple status-based workflow using Ecto.Enum. No state machine library.
+
+**Schema:**
+- `listings` table: item_type_id, type (borrow/lease/sale), price (nullable), notes, active
+- `requests` table: listing_id, requester_id (user), status (pending/approved/denied/completed), message, admin_notes
+
+**Status transitions:** pending → approved/denied, approved → completed
+
+**Notifications:** Swoosh for email (async via Oban). Phoenix PubSub for real-time in-app notifications.
+
+## Security Considerations
 
 | Concern | Mitigation |
 |---------|------------|
@@ -304,17 +339,31 @@ inventory_locator/
 | SQL injection | Ecto parameterized queries (default) |
 | XSS | Phoenix HTML escaping (default) |
 | CSRF | Phoenix CSRF tokens (default) |
-| Auth (future) | Phoenix.Token for invite links, phx_gen_auth for users |
+| Authentication | OAuth only (LinkedIn, GitHub) via Ueberauth |
+| Registration | Invite-only (codes with expiration) |
+| Infrastructure | Dedicated VM, unprivileged app user, firewall |
+| Reverse proxy | Caddy with TLS, only 80/443 exposed |
+| Database | Dedicated PostgreSQL user, inventory DB only |
 
-## Deployment (MVP)
+## Deployment
 
-- **Local network only** - No public internet exposure initially
-- **Single machine** - Phoenix + PostgreSQL co-located
-- **Process management** - Mix for dev, systemd or similar for production
+### Development (Current)
+- **Raspberry Pi** - Local development with `mix phx.server`
+- **PostgreSQL** co-located on same device
+
+### Production (Phase 9)
+- **Dedicated GCP Compute Engine VM** - Isolated from other workloads
+- **Caddy** reverse proxy with automatic TLS (Let's Encrypt)
+- **Phoenix release** managed by systemd
+- **PostgreSQL** co-located on VM
+- **Custom domain** pointing to VM IP
+- **Firewall** - SSH (key-auth only) + HTTP/HTTPS only
+- **Unprivileged user** - Phoenix runs as dedicated `inventory` user
 
 ## Future Considerations
 
 1. **Image-based search:** Store embeddings in pgvector, query by image similarity
 2. **Mobile app:** Consider LiveView Native if web responsive proves insufficient
-3. **Cloud deployment:** Fly.io (Elixir), Cloud SQL (Postgres)
-4. **File storage:** Migrate from local filesystem to GCS/S3
+3. **Cloud Run migration:** When 24/7 availability needed, containerize and migrate (requires GCS for photos, Cloud SQL for DB)
+4. **Multi-user inventories:** Other users create and share their own inventories with access keys
+5. **Open registration:** Remove invite-code requirement when community is established
