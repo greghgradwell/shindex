@@ -26,6 +26,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
      |> assign(:page_title, "Location Management")
      |> assign(:selected_item_id, nil)
      |> assign(:start_editing, false)
+     |> assign(:shelf_filter, MapSet.new())
      |> assign(:show_create_shelf_modal, false)
      |> assign(:show_rename_shelf_modal, false)
      |> assign(:rename_shelf, nil)
@@ -61,6 +62,27 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to delete location")}
     end
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("clear_shelf_filter", _params, socket) do
+    {:noreply, assign(socket, :shelf_filter, MapSet.new())}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("toggle_shelf_filter", %{"prefix" => prefix}, socket) do
+    filter = socket.assigns.shelf_filter
+
+    updated =
+      if MapSet.member?(filter, prefix) do
+        MapSet.delete(filter, prefix)
+      else
+        MapSet.put(filter, prefix)
+      end
+
+    {:noreply, assign(socket, :shelf_filter, updated)}
   end
 
   def handle_event("open_item_modal", %{"id" => id}, socket) do

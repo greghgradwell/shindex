@@ -5,12 +5,12 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Client Layer                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │   Desktop   │  │   Mobile    │  │  Phone Camera           │  │
-│  │   Browser   │  │   Browser   │  │  (Photo Capture Only)   │  │
-│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘  │
-│         │                │                      │                │
-│         └────────────────┼──────────────────────┘                │
+│  ┌─────────────┐  ┌─────────────┐                               │
+│  │   Desktop   │  │   Mobile    │                               │
+│  │   Browser   │  │   Browser   │                               │
+│  └──────┬──────┘  └──────┬──────┘                               │
+│         │                │                                       │
+│         └────────────────┘                                       │
 │                          │ WebSocket (LiveView)                  │
 └──────────────────────────┼───────────────────────────────────────┘
                            │
@@ -129,15 +129,7 @@ The Shelf → Bin model provides sufficient granularity for workshop organizatio
 
 ## Key Design Decisions
 
-### 1. Photo Sync Between Devices
-
-**Decision:** Use Phoenix PubSub to broadcast photos between user sessions.
-
-When phone uploads a photo, broadcast to all sessions for that user. Desktop LiveView receives broadcast and displays photo immediately.
-
-**Why:** Native to Phoenix, no external dependencies, real-time by default.
-
-### 2. Duplicate Detection
+### 1. Duplicate Detection
 
 **Decision:** Two-phase approach
 
@@ -146,7 +138,7 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** Trigram catches obvious duplicates instantly. AI handles semantic similarity ("USB-C charger" vs "65W power adapter") when needed.
 
-### 3. AI Search Integration
+### 2. AI Search Integration
 
 **Decision:** Direct Gemini API calls from Elixir via Req HTTP client.
 
@@ -163,7 +155,7 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** Simpler than Python service, no deployment complexity, sufficient for MVP semantic search.
 
-### 4. Text Search
+### 3. Text Search
 
 **Decision:** PostgreSQL full-text search with trigram fallback.
 
@@ -173,7 +165,7 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** No external search service needed, PostgreSQL handles both well.
 
-### 5. Location Code Format
+### 4. Location Code Format
 
 **Decision:** Fixed delimiter format: `shelf-bin` (e.g., "A-3", "tall_workbench-12")
 
@@ -205,7 +197,7 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** Fixed delimiter enables unambiguous parsing. Integer-only bin codes ensure simple validation and prevent entry errors. Shelf name flexibility accommodates descriptive labels while maintaining parseability.
 
-### 6. String-Based Location Entry
+### 5. String-Based Location Entry
 
 **Decision:** User types location as free-form string, system parses and validates.
 
@@ -225,7 +217,7 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** String entry is faster than dropdown navigation for high-volume data entry. At 1000+ items, this saves significant time. Validation logic lives in schema modules (single source of truth), and parser delegates to them for flexibility.
 
-### 7. Item Installations (Projects)
+### 6. Item Installations (Projects)
 
 **Decision:** Track items installed in project builds.
 
@@ -242,12 +234,12 @@ When phone uploads a photo, broadcast to all sessions for that user. Desktop Liv
 
 **Why:** Know where every item is, even when installed in a project rather than storage.
 
-### 8. Photo Capture with URL Fetching
+### 7. Photo Capture with URL Fetching
 
 **Decision:** Consolidated PhotoCapture LiveComponent with secure URL fetching.
 
 **Architecture:**
-- Reusable `PhotoCapture` LiveComponent for both CameraLive and ShowModal
+- Reusable `PhotoCapture` LiveComponent used in ShowModal
 - Supports file upload (via LiveView uploads) and URL fetching (via Req HTTP client)
 - Parent-child communication via `send(self(), message)` pattern
 - AutoConfirmUpload JS hook bridges upload completion to Save/Cancel UI
@@ -285,7 +277,6 @@ inventory_locator/
 │   │   ├── live/
 │   │   │   ├── item_live/       # Search, detail modal
 │   │   │   ├── location_live/   # Hierarchy view
-│   │   │   ├── camera_live/     # Photo capture
 │   │   │   └── project_live/    # Project management
 │   │   └── components/
 │   │       ├── ghost_autocomplete.ex

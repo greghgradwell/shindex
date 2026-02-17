@@ -8,6 +8,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
 
+  @page_size 48
+
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(params, _session, socket) do
@@ -30,6 +32,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     socket =
       socket
       |> assign(:query, query)
+      |> assign(:page, 1)
       |> perform_search()
 
     {:noreply, socket}
@@ -42,6 +45,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     socket =
       socket
       |> assign(:show_archived, !socket.assigns.show_archived)
+      |> assign(:page, 1)
       |> refresh_current_view()
 
     {:noreply, socket}
@@ -58,6 +62,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     socket =
       socket
       |> assign(:active_filters, active_filters)
+      |> assign(:page, 1)
       |> perform_search()
 
     {:noreply, socket}
@@ -147,12 +152,28 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       socket
       |> assign(:sort_by, sort_by)
       |> assign(:sort_order, sort_order)
+      |> assign(:page, 1)
       |> load_all_items()
 
     {:noreply, socket}
   end
 
   def handle_event("sort", %{"column" => _invalid}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("change_page", %{"page" => page_str}, socket) do
+    page = String.to_integer(page_str)
+    max_page = max(ceil(socket.assigns.total_count / @page_size), 1)
+    page = page |> max(1) |> min(max_page)
+
+    socket =
+      socket
+      |> assign(:page, page)
+      |> refresh_current_view()
+
     {:noreply, socket}
   end
 
@@ -182,7 +203,11 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       |> assign(:show_ai_modal, false)
       |> assign(:ai_loading, true)
 
-    all_items = Inventory.list_all_items(socket.assigns.current_inventory.id, show_archived: socket.assigns.show_archived)
+    all_items =
+      Inventory.list_all_items_unpaginated(socket.assigns.current_inventory.id,
+        show_archived: socket.assigns.show_archived
+      )
+
     send(self(), {:perform_ai_search, socket.assigns.query, all_items})
 
     {:noreply, socket}
@@ -320,6 +345,9 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:items, [])
     |> assign(:sort_by, :name)
     |> assign(:sort_order, :asc)
+    |> assign(:page, 1)
+    |> assign(:total_count, 0)
+    |> assign(:page_size, @page_size)
     |> assign(:page_title, "Items")
     |> assign(:show_ai_modal, false)
     |> assign(:ai_modal_type, nil)
@@ -340,15 +368,19 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @spec perform_search(Socket.t()) :: Socket.t()
   defp perform_search(socket) do
-    results =
+    {results, total_count} =
       Inventory.search_items(
         socket.assigns.current_inventory.id,
         socket.assigns.query,
         show_archived: socket.assigns.show_archived,
-        filters: socket.assigns.active_filters
+        filters: socket.assigns.active_filters,
+        page: socket.assigns.page,
+        page_size: @page_size
       )
 
-    assign(socket, :results, results)
+    socket
+    |> assign(:results, results)
+    |> assign(:total_count, total_count)
   end
 
   @spec refresh_current_view(Socket.t()) :: Socket.t()
@@ -362,15 +394,19 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @spec load_all_items(Socket.t()) :: Socket.t()
   defp load_all_items(socket) do
-    items =
+    {items, total_count} =
       Inventory.list_all_items(
         socket.assigns.current_inventory.id,
         show_archived: socket.assigns.show_archived,
         sort_by: socket.assigns.sort_by,
-        sort_order: socket.assigns.sort_order
+        sort_order: socket.assigns.sort_order,
+        page: socket.assigns.page,
+        page_size: @page_size
       )
 
-    assign(socket, :items, items)
+    socket
+    |> assign(:items, items)
+    |> assign(:total_count, total_count)
   end
 
   @spec toggle_filter_list([atom()], atom()) :: [atom()]

@@ -48,7 +48,7 @@ Workshop and household items are difficult to locate, leading to:
 ### Item Management
 - **Required fields:** Name, photo, location, quantity, archived status
 - **Optional fields:** Description, manufacturer, model
-- **Photos:** Captured from phone camera or desktop webcam
+- **Photos:** Uploaded from file or fetched from product page URL
 - **Co-location:** Multiple items can share a location (user warned but allowed)
 - **Projects:** Items can be installed in named projects, reducing available stock
 - **Constraint:** Active items MUST have a valid location
@@ -80,10 +80,11 @@ Workshop and household items are difficult to locate, leading to:
   - Example: "mipi camera" finds "Raspberry Pi Camera Module v2" with MIPI CSI-2 connector
 - **Results:** Return item name, location code, photo thumbnail, quantity
 
-### Multi-Device Workflow
-- Web UI works on desktop and mobile browsers
-- Phone captures photo → instantly appears on desktop session
-- Same user, two devices, real-time sync
+### Workflow
+- Desktop-first data entry with full keyboard and screen
+- Photos taken in batch on phone, synced to desktop via Syncthing
+- Product page photos fetched via URL for professional-grade images
+- Items created from Browse or Locations pages via modal
 
 ## Success Criteria
 

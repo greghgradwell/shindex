@@ -67,6 +67,9 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   attr :query, :string, required: true
   attr :results, :list, required: true
   attr :active_filters, :list, required: true
+  attr :page, :integer, required: true
+  attr :total_count, :integer, required: true
+  attr :page_size, :integer, required: true
 
   @spec search_view(map()) :: Rendered.t()
   def search_view(assigns) do
@@ -135,6 +138,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
           </p>
         <% true -> %>
           <.item_grid items={@results} />
+          <.pagination_controls page={@page} total_count={@total_count} page_size={@page_size} />
       <% end %>
     </div>
     """
@@ -143,6 +147,9 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   attr :items, :list, required: true
   attr :sort_by, :atom, required: true
   attr :sort_order, :atom, required: true
+  attr :page, :integer, required: true
+  attr :total_count, :integer, required: true
+  attr :page_size, :integer, required: true
 
   @spec table_view(map()) :: Rendered.t()
   def table_view(assigns) do
@@ -151,6 +158,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
       <%= if @items == [] do %>
         <p class="text-gray-500 text-center py-12">No items found</p>
       <% else %>
+        <.pagination_controls page={@page} total_count={@total_count} page_size={@page_size} />
         <table class="table table-zebra w-full">
           <thead>
             <tr>
@@ -211,7 +219,39 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
             <% end %>
           </tbody>
         </table>
+        <.pagination_controls page={@page} total_count={@total_count} page_size={@page_size} />
       <% end %>
+    </div>
+    """
+  end
+
+  attr :page, :integer, required: true
+  attr :total_count, :integer, required: true
+  attr :page_size, :integer, required: true
+
+  @spec pagination_controls(map()) :: Rendered.t()
+  def pagination_controls(assigns) do
+    assigns = assign(assigns, :total_pages, max(ceil(assigns.total_count / assigns.page_size), 1))
+
+    ~H"""
+    <div :if={@total_pages > 1} class="flex items-center justify-center gap-2 mt-6">
+      <button
+        class="btn btn-sm btn-ghost"
+        phx-click="change_page"
+        phx-value-page={@page - 1}
+        disabled={@page <= 1}
+      >
+        <.icon name="hero-chevron-left" class="w-4 h-4" />
+      </button>
+      <span class="text-sm">Page {@page} of {@total_pages}</span>
+      <button
+        class="btn btn-sm btn-ghost"
+        phx-click="change_page"
+        phx-value-page={@page + 1}
+        disabled={@page >= @total_pages}
+      >
+        <.icon name="hero-chevron-right" class="w-4 h-4" />
+      </button>
     </div>
     """
   end

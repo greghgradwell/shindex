@@ -27,8 +27,23 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
           quantity: 5
         })
 
-      workshop_items = Inventory.list_all_items(workshop.id, show_archived: false)
-      kitchen_items = Inventory.list_all_items(kitchen.id, show_archived: false)
+      {workshop_items, _} =
+        Inventory.list_all_items(workshop.id,
+          show_archived: false,
+          sort_by: :name,
+          sort_order: :asc,
+          page: 1,
+          page_size: 100
+        )
+
+      {kitchen_items, _} =
+        Inventory.list_all_items(kitchen.id,
+          show_archived: false,
+          sort_by: :name,
+          sort_order: :asc,
+          page: 1,
+          page_size: 100
+        )
 
       assert length(workshop_items) == 1
       assert hd(workshop_items).name == "Workshop Screws"
@@ -54,8 +69,11 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
           description: "Kitchen tool"
         })
 
-      workshop_results = Inventory.search_items(workshop.id, "hammer", [])
-      kitchen_results = Inventory.search_items(kitchen.id, "hammer", [])
+      {workshop_results, _} =
+        Inventory.search_items(workshop.id, "hammer", show_archived: false, filters: [], page: 1, page_size: 100)
+
+      {kitchen_results, _} =
+        Inventory.search_items(kitchen.id, "hammer", show_archived: false, filters: [], page: 1, page_size: 100)
 
       assert length(workshop_results) == 1
       assert hd(workshop_results).name == "Hammer"

@@ -7,15 +7,56 @@
   </:actions>
 </.header>
 
+<% shelf_prefixes =
+  @shelves
+  |> Enum.map(fn shelf -> String.replace(shelf.code, ~r/[0-9]+$/, "") end)
+  |> Enum.uniq()
+  |> Enum.sort() %>
+
+<%= if length(shelf_prefixes) > 1 do %>
+  <div class="mt-4 flex flex-wrap gap-2">
+    <label class="flex items-center gap-1.5 cursor-pointer">
+      <input
+        type="checkbox"
+        phx-click="clear_shelf_filter"
+        checked={MapSet.size(@shelf_filter) == 0}
+        class="checkbox checkbox-sm"
+      />
+      <span class="text-sm">All</span>
+    </label>
+    <%= for prefix <- shelf_prefixes do %>
+      <label class="flex items-center gap-1.5 cursor-pointer">
+        <input
+          type="checkbox"
+          phx-click="toggle_shelf_filter"
+          phx-value-prefix={prefix}
+          checked={MapSet.size(@shelf_filter) == 0 or MapSet.member?(@shelf_filter, prefix)}
+          class="checkbox checkbox-sm"
+        />
+        <span class="text-sm">{prefix}</span>
+      </label>
+    <% end %>
+  </div>
+<% end %>
+
+<% filtered_shelves =
+  if MapSet.size(@shelf_filter) == 0 do
+    @shelves
+  else
+    Enum.filter(@shelves, fn shelf ->
+      String.replace(shelf.code, ~r/[0-9]+$/, "") in @shelf_filter
+    end)
+  end %>
+
 <div class="mt-4 space-y-6">
-  <%= if @shelves == [] do %>
+  <%= if filtered_shelves == [] do %>
     <div class="text-center py-12 text-base-content/60">
       <.icon name="hero-archive-box" class="w-12 h-12 mx-auto mb-4 opacity-50" />
       <p class="text-lg">No shelves yet</p>
       <p class="text-sm mt-2">Create your first shelf to start organizing your inventory.</p>
     </div>
   <% else %>
-    <%= for shelf <- @shelves do %>
+    <%= for shelf <- filtered_shelves do %>
       <.shelf_row shelf={shelf} />
     <% end %>
   <% end %>

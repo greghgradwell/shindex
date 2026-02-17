@@ -725,46 +725,71 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec search_items(integer(), String.t(), keyword()) :: [ItemType.t()]
+  @spec search_items(integer(), String.t(), keyword()) :: {[ItemType.t()], non_neg_integer()}
   def search_items(inventory_id, query, opts) do
-    show_archived =
-      if Keyword.has_key?(opts, :show_archived) do
-        Keyword.fetch!(opts, :show_archived)
-      else
-        false
-      end
-
-    filters =
-      if Keyword.has_key?(opts, :filters) do
-        Keyword.fetch!(opts, :filters)
-      else
-        []
-      end
+    show_archived = Keyword.fetch!(opts, :show_archived)
+    filters = Keyword.fetch!(opts, :filters)
+    page = Keyword.fetch!(opts, :page)
+    page_size = Keyword.fetch!(opts, :page_size)
 
     if query == "" and filters == [] do
-      []
+      {[], 0}
     else
-      ItemType
-      |> where([i], i.inventory_id == ^inventory_id)
-      |> filter_by_archived(show_archived)
-      |> filter_by_missing_fields(filters)
-      |> search_by_name(query)
-      |> apply_default_ordering(query)
-      |> Repo.all()
-      |> Repo.preload(location: [bin: :shelf])
+      base_query =
+        ItemType
+        |> where([i], i.inventory_id == ^inventory_id)
+        |> filter_by_archived(show_archived)
+        |> filter_by_missing_fields(filters)
+        |> search_by_name(query)
+
+      total_count = Repo.aggregate(base_query, :count)
+
+      items =
+        base_query
+        |> apply_default_ordering(query)
+        |> limit(^page_size)
+        |> offset(^((page - 1) * page_size))
+        |> Repo.all()
+        |> Repo.preload(location: [bin: :shelf])
+
+      {items, total_count}
     end
   end
 
-  @spec list_all_items(integer(), keyword()) :: [ItemType.t()]
+  @spec list_all_items(integer(), keyword()) :: {[ItemType.t()], non_neg_integer()}
   def list_all_items(inventory_id, opts) do
-    show_archived = Keyword.get(opts, :show_archived, false)
-    sort_by = Keyword.get(opts, :sort_by, :name)
-    sort_order = Keyword.get(opts, :sort_order, :asc)
+    show_archived = Keyword.fetch!(opts, :show_archived)
+    sort_by = Keyword.fetch!(opts, :sort_by)
+    sort_order = Keyword.fetch!(opts, :sort_order)
+    page = Keyword.fetch!(opts, :page)
+    page_size = Keyword.fetch!(opts, :page_size)
+
+    base_query =
+      ItemType
+      |> where([i], i.inventory_id == ^inventory_id)
+      |> filter_by_archived(show_archived)
+
+    total_count = Repo.aggregate(base_query, :count)
+
+    items =
+      base_query
+      |> apply_sort(sort_by, sort_order)
+      |> limit(^page_size)
+      |> offset(^((page - 1) * page_size))
+      |> Repo.all()
+      |> Repo.preload(location: [bin: :shelf])
+
+    {items, total_count}
+  end
+
+  @spec list_all_items_unpaginated(integer(), keyword()) :: [ItemType.t()]
+  def list_all_items_unpaginated(inventory_id, opts) do
+    show_archived = Keyword.fetch!(opts, :show_archived)
 
     ItemType
     |> where([i], i.inventory_id == ^inventory_id)
     |> filter_by_archived(show_archived)
-    |> apply_sort(sort_by, sort_order)
+    |> order_by([i], asc: i.name)
     |> Repo.all()
     |> Repo.preload(location: [bin: :shelf])
   end

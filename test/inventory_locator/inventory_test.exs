@@ -302,8 +302,11 @@ defmodule InventoryLocator.InventoryTest do
           description: "Galvanized"
         })
 
-      results = Inventory.search_items(inventory.id, "", [])
+      {results, total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert results == []
+      assert total_count == 0
     end
 
     test "finds items with exact match using fuzzy search", %{inventory: inventory} do
@@ -323,7 +326,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 20
         })
 
-      results = Inventory.search_items(inventory.id, "screws", [])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "screws", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).name == "M3 Screws"
     end
@@ -337,7 +342,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "scres", [])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "scres", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).name == "M3 Screws"
     end
@@ -359,7 +366,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 20
         })
 
-      results = Inventory.search_items(inventory.id, "screws", [])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "screws", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 2
       assert hd(results).name == "Screws"
     end
@@ -373,7 +382,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "test", [])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "test", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
 
       item = hd(results)
@@ -391,7 +402,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:manufacturer])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [:manufacturer], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).name == "Item 1"
     end
@@ -405,7 +418,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:model])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [:model], page: 1, page_size: 100)
+
       assert length(results) == 1
     end
 
@@ -431,7 +446,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 5
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:description])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [:description], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).name == "Item 2"
     end
@@ -453,7 +470,14 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 20
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:manufacturer, :model])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "",
+          show_archived: false,
+          filters: [:manufacturer, :model],
+          page: 1,
+          page_size: 100
+        )
+
       assert length(results) == 2
     end
 
@@ -474,7 +498,14 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 20
         })
 
-      results = Inventory.search_items(inventory.id, "screw", filters: [:manufacturer])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "screw",
+          show_archived: false,
+          filters: [:manufacturer],
+          page: 1,
+          page_size: 100
+        )
+
       assert length(results) == 1
       assert hd(results).name == "Screws"
     end
@@ -488,7 +519,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "item", [])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "item", show_archived: false, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).archived == false
     end
@@ -502,7 +535,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "item", show_archived: true)
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "item", show_archived: true, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
     end
 
@@ -515,7 +550,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 10
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:manufacturer])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [:manufacturer], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).archived == false
     end
@@ -537,7 +574,9 @@ defmodule InventoryLocator.InventoryTest do
           quantity: 5
         })
 
-      results = Inventory.search_items(inventory.id, "", filters: [:manufacturer])
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "", show_archived: false, filters: [:manufacturer], page: 1, page_size: 100)
+
       assert length(results) == 2
       assert Enum.at(results, 0).name == "Active Item"
       assert Enum.at(results, 1).name == "Zulu Item"
@@ -668,7 +707,9 @@ defmodule InventoryLocator.InventoryTest do
 
       {:ok, _archived} = Inventory.archive_item_type(item)
 
-      results = Inventory.search_items(inventory.id, "test", show_archived: true)
+      {results, _total_count} =
+        Inventory.search_items(inventory.id, "test", show_archived: true, filters: [], page: 1, page_size: 100)
+
       assert length(results) == 1
       assert hd(results).archived == true
     end

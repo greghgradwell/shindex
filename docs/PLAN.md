@@ -18,7 +18,7 @@ This plan implements the Core MVP: add items, find items, AI-powered search.
 | 4.5 | ✅ Complete | Projects feature |
 | 4.7 | ✅ Complete | Multi-inventory support |
 | 4.8 | ✅ Complete | Backup system |
-| 5 | Pending | Multi-device photo sync (PubSub) |
+| 5 | ✅ Removed | ~~Multi-device photo sync~~ (workflow changed) |
 | 6 | Partial | Polish and scale |
 | 7 | Pending | Full catalogue (1000+ items) |
 
@@ -297,39 +297,17 @@ Automated database and photo backups with full management UI.
 
 **Go/No-Go:** ✅ Backups work. Full restore tested. Security reviewed.
 
-## Phase 5: Multi-Device Photo Capture
+## Phase 5: ~~Multi-Device Photo Capture~~ (Removed)
 
-### 5.1 Camera LiveView
-- [ ] Create CameraLive - dedicated camera capture page
-- [ ] Implement browser camera access (getUserMedia)
-- [ ] Capture photo and upload to server
-- [ ] Generate shareable session link (same user, different device)
-
-### 5.2 Photo Sync
-- [ ] Broadcast photo via PubSub when captured
-- [ ] Desktop ItemLive.New subscribes to photo channel
-- [ ] Display captured photo in add item form
-- [ ] Handle multiple photos (select which to use)
-
-**Go/No-Go:** Phone captures photo, appears on desktop instantly.
+Workflow changed: photos are taken in batch on phone, synced to desktop via Syncthing, then items are added on desktop using product page photos and URL fetching. PubSub real-time sync is unnecessary.
 
 ## Phase 6: Polish and Scale
 
 ### 6.1 Performance
-- [ ] Add database indexes for common queries
 - [ ] Implement pagination for item list
 - [ ] Optimize photo storage (thumbnails, compression)
-- [ ] Add loading states to UI
 
-### 6.2 UX Improvements
-- [ ] Keyboard shortcuts for common actions
-- [ ] Bulk location creation
-- [ ] Recently added items section
-- [ ] Search result highlighting
-
-### 6.3 Reliability
-- [ ] Error handling for AI service failures
-- [ ] Photo upload retry logic
+### 6.2 Reliability
 - [x] Database backup strategy (implemented in Phase 4.8)
 
 **Go/No-Go:** System performs well with 100+ items. Ready for full catalogue.

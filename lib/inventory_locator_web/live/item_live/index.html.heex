@@ -4,9 +4,9 @@
     <%= if @view_mode == :search do %>
       {if @query == "" and @active_filters == [],
         do: "Enter a search query or select filters",
-        else: "#{length(@results)} results"}
+        else: "#{@total_count} results"}
     <% else %>
-      {length(@items)} items
+      {@total_count} items
     <% end %>
   </:subtitle>
   <:actions>
@@ -38,7 +38,14 @@
 </div>
 
 <%= if @view_mode == :search do %>
-  <.search_view query={@query} results={@results} active_filters={@active_filters} />
+  <.search_view
+    query={@query}
+    results={@results}
+    active_filters={@active_filters}
+    page={@page}
+    total_count={@total_count}
+    page_size={@page_size}
+  />
 
   <%= cond do %>
     <% @ai_loading -> %>
@@ -63,7 +70,14 @@
       <!-- fuzzy results handled inside search_view -->
   <% end %>
 <% else %>
-  <.table_view items={@items} sort_by={@sort_by} sort_order={@sort_order} />
+  <.table_view
+    items={@items}
+    sort_by={@sort_by}
+    sort_order={@sort_order}
+    page={@page}
+    total_count={@total_count}
+    page_size={@page_size}
+  />
 <% end %>
 
 <.live_component
