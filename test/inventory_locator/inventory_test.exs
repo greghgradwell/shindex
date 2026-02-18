@@ -7,7 +7,7 @@ defmodule InventoryLocator.InventoryTest do
   alias InventoryLocator.Inventory.Shelf
 
   setup do
-    inventory = create_test_inventory()
+    inventory = create_test_inventory(%{})
     %{inventory: inventory}
   end
 

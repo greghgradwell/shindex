@@ -53,7 +53,7 @@ defmodule InventoryLocator.AccountsTest do
 
   describe "register_user_from_oauth/2" do
     test "first user becomes admin" do
-      invite = insert_invite()
+      invite = insert_invite(%{})
 
       oauth_info = %{
         name: "First User",
@@ -70,7 +70,7 @@ defmodule InventoryLocator.AccountsTest do
 
     test "subsequent users become members" do
       _admin = insert_user(%{name: "Admin", role: "admin"})
-      invite = insert_invite()
+      invite = insert_invite(%{})
 
       oauth_info = %{
         name: "Second User",
@@ -126,7 +126,7 @@ defmodule InventoryLocator.AccountsTest do
     end
 
     test "marks invite code as used" do
-      invite = insert_invite()
+      invite = insert_invite(%{})
 
       oauth_info = %{
         name: "User",
@@ -236,7 +236,7 @@ defmodule InventoryLocator.AccountsTest do
   end
 
   @spec insert_invite(map()) :: InviteCode.t()
-  defp insert_invite(overrides \\ %{}) do
+  defp insert_invite(overrides) do
     attrs =
       Map.merge(
         %{code: InviteCode.generate_code(), expires_at: InviteCode.default_expiry()},

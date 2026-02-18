@@ -1,8 +1,5 @@
 defmodule InventoryLocatorWeb.Plugs.RateLimiter do
-  @moduledoc """
-  Simple rate limiter for API endpoints using ETS.
-  Limits requests per IP address to prevent abuse of polling endpoints.
-  """
+  @moduledoc false
   import Plug.Conn
 
   require Logger

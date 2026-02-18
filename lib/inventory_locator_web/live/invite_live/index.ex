@@ -2,6 +2,8 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
   @moduledoc false
   use InventoryLocatorWeb, :live_view
 
+  import InventoryLocatorWeb.AuthHelpers
+
   alias InventoryLocator.Accounts
   alias Phoenix.LiveView.Socket
 
@@ -20,6 +22,7 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
     else
       {:ok,
        socket
+       |> assign(:invite_codes, [])
        |> put_flash(:error, "Admin access required.")
        |> push_navigate(to: ~p"/")}
     end
@@ -28,33 +31,37 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("generate", _params, socket) do
-    case Accounts.create_invite_code(socket.assigns.current_user.id) do
-      {:ok, _invite} ->
-        {:noreply,
-         socket
-         |> assign(:invite_codes, Accounts.list_invite_codes())
-         |> put_flash(:info, "Invite code generated.")}
+    require_admin(socket, fn socket ->
+      case Accounts.create_invite_code(socket.assigns.current_user.id) do
+        {:ok, _invite} ->
+          {:noreply,
+           socket
+           |> assign(:invite_codes, Accounts.list_invite_codes())
+           |> put_flash(:info, "Invite code generated.")}
 
-      {:error, reason} ->
-        Logger.warning("Failed to create invite code: #{inspect(reason)}")
-        {:noreply, put_flash(socket, :error, "Failed to generate invite code.")}
-    end
+        {:error, reason} ->
+          Logger.warning("Failed to create invite code: #{inspect(reason)}")
+          {:noreply, put_flash(socket, :error, "Failed to generate invite code.")}
+      end
+    end)
   end
 
   def handle_event("revoke", %{"id" => id}, socket) do
-    case Accounts.revoke_invite_code(String.to_integer(id)) do
-      {:ok, _invite} ->
-        {:noreply,
-         socket
-         |> assign(:invite_codes, Accounts.list_invite_codes())
-         |> put_flash(:info, "Invite code revoked.")}
+    require_admin(socket, fn socket ->
+      case Accounts.revoke_invite_code(String.to_integer(id)) do
+        {:ok, _invite} ->
+          {:noreply,
+           socket
+           |> assign(:invite_codes, Accounts.list_invite_codes())
+           |> put_flash(:info, "Invite code revoked.")}
 
-      {:error, :already_used} ->
-        {:noreply, put_flash(socket, :error, "Cannot revoke an already-used code.")}
+        {:error, :already_used} ->
+          {:noreply, put_flash(socket, :error, "Cannot revoke an already-used code.")}
 
-      {:error, :not_found} ->
-        {:noreply, put_flash(socket, :error, "Invite code not found.")}
-    end
+        {:error, :not_found} ->
+          {:noreply, put_flash(socket, :error, "Invite code not found.")}
+      end
+    end)
   end
 
   @impl true

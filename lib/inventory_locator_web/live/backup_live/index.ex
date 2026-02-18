@@ -12,6 +12,7 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   require Logger
 
   @impl true
+  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
     _ =
       if connected?(socket) do
@@ -37,6 +38,7 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
   end

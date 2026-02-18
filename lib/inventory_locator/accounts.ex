@@ -76,17 +76,10 @@ defmodule InventoryLocator.Accounts do
   @spec create_user_with_identity(map(), String.t(), String.t()) ::
           {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   defp create_user_with_identity(user_attrs, provider, provider_uid) do
-    case %User{} |> User.changeset(user_attrs) |> Repo.insert() do
-      {:ok, user} ->
-        identity_attrs = %{provider: provider, provider_uid: provider_uid, user_id: user.id}
-
-        case %UserIdentity{} |> UserIdentity.changeset(identity_attrs) |> Repo.insert() do
-          {:ok, _identity} -> {:ok, user}
-          {:error, changeset} -> {:error, changeset}
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
+    with {:ok, user} <- %User{} |> User.changeset(user_attrs) |> Repo.insert(),
+         identity_attrs = %{provider: provider, provider_uid: provider_uid, user_id: user.id},
+         {:ok, _identity} <- %UserIdentity{} |> UserIdentity.changeset(identity_attrs) |> Repo.insert() do
+      {:ok, user}
     end
   end
 

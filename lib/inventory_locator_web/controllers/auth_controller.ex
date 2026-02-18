@@ -88,6 +88,8 @@ defmodule InventoryLocatorWeb.AuthController do
   defp handle_unknown_identity(conn, auth, provider, provider_uid) do
     email = extract_email(auth)
     session_user_id = get_session(conn, :user_id)
+    # GitHub and LinkedIn both verify email ownership before exposing it via OAuth,
+    # so email-match linking is safe for our supported providers.
     email_user = email && Accounts.get_user_by_email(email)
 
     case {session_user_id, email_user} do
