@@ -39,7 +39,7 @@ defmodule InventoryLocator.Accounts.InviteCode do
   @spec default_expiry() :: DateTime.t()
   def default_expiry do
     DateTime.utc_now()
-    |> DateTime.add(@default_expiry_days * 24 * 3600, :second)
+    |> DateTime.add(@default_expiry_days, :day)
     |> DateTime.truncate(:second)
   end
 

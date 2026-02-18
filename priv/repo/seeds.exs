@@ -78,7 +78,7 @@ Repo.delete_all(InventoryLocator.Accounts.User)
 %InviteCode{}
 |> InviteCode.changeset(%{
   code: "SEED0001",
-  expires_at: DateTime.add(DateTime.utc_now(), 365 * 24 * 3600, :second)
+  expires_at: DateTime.add(DateTime.utc_now(), 365, :day)
 })
 |> Repo.insert!()
 

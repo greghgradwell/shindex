@@ -122,7 +122,7 @@ defmodule InventoryLocator.Accounts do
       invite ->
         invite
         |> InviteCode.changeset(%{
-          expires_at: DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.truncate(:second)
+          expires_at: DateTime.utc_now() |> DateTime.truncate(:second)
         })
         |> Repo.update()
     end

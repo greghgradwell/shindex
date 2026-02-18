@@ -86,23 +86,19 @@ defmodule InventoryLocatorWeb.AuthController do
 
   @spec handle_unknown_identity(Plug.Conn.t(), Ueberauth.Auth.t(), String.t(), String.t()) :: Plug.Conn.t()
   defp handle_unknown_identity(conn, auth, provider, provider_uid) do
-    email = extract_email(auth)
     session_user_id = get_session(conn, :user_id)
-    # GitHub and LinkedIn both verify email ownership before exposing it via OAuth,
-    # so email-match linking is safe for our supported providers.
-    email_user = email && Accounts.get_user_by_email(email)
 
-    case {session_user_id, email_user} do
-      {user_id, _} when is_integer(user_id) ->
-        link_identity_to_user(conn, Accounts.get_user(user_id), provider, provider_uid)
+    cond do
+      is_integer(session_user_id) ->
+        link_identity_to_user(conn, Accounts.get_user(session_user_id), provider, provider_uid)
 
-      {_, %User{} = user} ->
+      (user = email_verified_user(auth)) ->
         link_identity_to_user(conn, user, provider, provider_uid)
 
-      {_, _} ->
+      true ->
         oauth_info = %{
           name: extract_name(auth),
-          email: email,
+          email: extract_email(auth),
           avatar_url: extract_avatar(auth),
           provider: provider,
           provider_uid: provider_uid
@@ -132,6 +128,18 @@ defmodule InventoryLocatorWeb.AuthController do
         |> redirect(to: ~p"/landing")
     end
   end
+
+  # Only auto-link when the OAuth provider verifies email ownership.
+  # GitHub and LinkedIn both do; gate here so adding an unverified provider won't auto-link.
+  @verified_email_providers ~w(github linkedin)
+
+  @spec email_verified_user(Ueberauth.Auth.t()) :: User.t() | nil
+  defp email_verified_user(%{provider: provider, info: %{email: email}})
+       when provider in @verified_email_providers and is_binary(email) and email != "" do
+    Accounts.get_user_by_email(email)
+  end
+
+  defp email_verified_user(_auth), do: nil
 
   @spec extract_name(Ueberauth.Auth.t()) :: String.t()
   defp extract_name(%{info: %{name: name}}) when is_binary(name) and name != "", do: name
