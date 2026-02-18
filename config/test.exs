@@ -39,3 +39,12 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
+
+# Ueberauth test config - use dummy values
+config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+  client_id: "test_github_client_id",
+  client_secret: "test_github_client_secret"
+
+config :ueberauth, Ueberauth.Strategy.LinkedIn.OAuth,
+  client_id: "test_linkedin_client_id",
+  client_secret: "test_linkedin_client_secret"

@@ -1,0 +1,39 @@
+<div class="flex min-h-[60vh] items-center justify-center">
+  <div class="card bg-base-200 w-full max-w-md shadow-xl">
+    <div class="card-body">
+      <h2 class="card-title text-2xl">Complete Registration</h2>
+      <p class="text-base-content/70">Enter an invite code to create your account.</p>
+
+      <%= if @error do %>
+        <div class="alert alert-error">
+          <span>{@error}</span>
+        </div>
+      <% end %>
+
+      <form action={~p"/auth/register"} method="post" class="mt-4 space-y-4">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+
+        <div class="form-control">
+          <label class="label" for="invite_code">
+            <span class="label-text">Invite Code</span>
+          </label>
+          <input
+            type="text"
+            name="invite_code"
+            id="invite_code"
+            class="input input-bordered font-mono uppercase"
+            placeholder="XXXXXXXX"
+            maxlength="8"
+            required
+            autofocus
+          />
+        </div>
+
+        <div class="card-actions justify-end">
+          <a href={~p"/landing"} class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

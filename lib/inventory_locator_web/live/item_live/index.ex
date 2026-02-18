@@ -2,6 +2,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @moduledoc false
   use InventoryLocatorWeb, :live_view
 
+  import InventoryLocatorWeb.AuthHelpers
   import InventoryLocatorWeb.ItemLive.Components
 
   alias InventoryLocator.Inventory
@@ -101,32 +102,34 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("create_new_item", _params, socket) do
-    inventory_id = socket.assigns.current_inventory.id
+    require_admin(socket, fn socket ->
+      inventory_id = socket.assigns.current_inventory.id
 
-    case Inventory.get_unsorted_location(inventory_id) do
-      {:ok, location} ->
-        case Inventory.create_item_type(%{
-               inventory_id: inventory_id,
-               location_id: location.id,
-               name: "New Item",
-               quantity: 1,
-               archived: false
-             }) do
-          {:ok, item} ->
-            {:noreply,
-             socket
-             |> assign(:selected_item_id, item.id)
-             |> assign(:start_editing, true)
-             |> assign(:batch_mode, false)
-             |> assign(:batch_item_ids, [])}
+      case Inventory.get_unsorted_location(inventory_id) do
+        {:ok, location} ->
+          case Inventory.create_item_type(%{
+                 inventory_id: inventory_id,
+                 location_id: location.id,
+                 name: "New Item",
+                 quantity: 1,
+                 archived: false
+               }) do
+            {:ok, item} ->
+              {:noreply,
+               socket
+               |> assign(:selected_item_id, item.id)
+               |> assign(:start_editing, true)
+               |> assign(:batch_mode, false)
+               |> assign(:batch_item_ids, [])}
 
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Failed to create item")}
-        end
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to create item")}
+          end
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to get default location")}
-    end
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to get default location")}
+      end
+    end)
   end
 
   @impl true

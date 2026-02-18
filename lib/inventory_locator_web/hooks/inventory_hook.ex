@@ -9,7 +9,8 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
   def on_mount(:default, _params, session, socket) do
     inventory_id = session["inventory_id"]
-    admin_mode = session["admin_mode"] || false
+    admin_user? = Map.get(socket.assigns, :admin_user?, false)
+    admin_mode = if admin_user?, do: session["admin_mode"] || false, else: false
     inventories = Inventory.list_inventories()
 
     inventory = find_inventory(inventory_id, inventories)

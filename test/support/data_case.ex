@@ -17,6 +17,7 @@ defmodule InventoryLocator.DataCase do
   use ExUnit.CaseTemplate
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias InventoryLocator.Accounts.User
 
   using do
     quote do
@@ -56,6 +57,16 @@ defmodule InventoryLocator.DataCase do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  @spec create_test_user(map()) :: User.t()
+  def create_test_user(attrs) do
+    {:ok, user} =
+      %User{}
+      |> User.changeset(Map.merge(%{name: "Test User #{System.unique_integer([:positive])}", role: "admin"}, attrs))
+      |> InventoryLocator.Repo.insert()
+
+    user
   end
 
   @spec create_test_inventory(map()) :: InventoryLocator.Inventory.Inv.t()

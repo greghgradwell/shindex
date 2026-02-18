@@ -63,4 +63,11 @@ config :tailwind,
     cd: Path.expand("..", __DIR__)
   ]
 
+# Ueberauth OAuth configuration
+config :ueberauth, Ueberauth,
+  providers: [
+    github: {Ueberauth.Strategy.Github, [default_scope: "user:email"]},
+    linkedin: {Ueberauth.Strategy.LinkedIn, [default_scope: "openid profile email", uid_field: :sub]}
+  ]
+
 import_config "#{config_env()}.exs"
