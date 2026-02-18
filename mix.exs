@@ -83,6 +83,11 @@ defmodule InventoryLocator.MixProject do
       # Backup scheduling
       {:quantum, "~> 3.5"},
 
+      # OAuth authentication
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_github, "~> 0.8"},
+      {:ueberauth_linkedin, github: "utf26/ueberauth_linkedin", tag: "v1.0.0"},
+
       # Development tools
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

@@ -2,6 +2,8 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @moduledoc false
   use InventoryLocatorWeb, :live_view
 
+  import InventoryLocatorWeb.AuthHelpers
+
   alias InventoryLocator.Inventory
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
@@ -25,34 +27,36 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("dismantle_project", %{"project" => project_name}, socket) do
-    inventory_id = socket.assigns.current_inventory.id
+    require_admin(socket, fn socket ->
+      inventory_id = socket.assigns.current_inventory.id
 
-    case Inventory.uninstall_all_from_project(inventory_id, project_name) do
-      {:ok, count} ->
-        projects = Inventory.list_all_projects_with_items(inventory_id)
+      case Inventory.uninstall_all_from_project(inventory_id, project_name) do
+        {:ok, count} ->
+          projects = Inventory.list_all_projects_with_items(inventory_id)
 
-        message =
-          if count > 0,
-            do: "Dismantled #{project_name}: #{count} items returned to stock",
-            else: "Dismantled #{project_name}"
+          message =
+            if count > 0,
+              do: "Dismantled #{project_name}: #{count} items returned to stock",
+              else: "Dismantled #{project_name}"
 
-        {:noreply,
-         socket
-         |> assign(:projects, projects)
-         |> put_flash(:info, message)}
+          {:noreply,
+           socket
+           |> assign(:projects, projects)
+           |> put_flash(:info, message)}
 
-      {:error, :has_archived_items} ->
-        archived_items = Inventory.list_archived_items_in_project(inventory_id, project_name)
+        {:error, :has_archived_items} ->
+          archived_items = Inventory.list_archived_items_in_project(inventory_id, project_name)
 
-        {:noreply,
-         socket
-         |> assign(:show_archived_modal, true)
-         |> assign(:archived_items, archived_items)
-         |> assign(:blocked_project, project_name)}
+          {:noreply,
+           socket
+           |> assign(:show_archived_modal, true)
+           |> assign(:archived_items, archived_items)
+           |> assign(:blocked_project, project_name)}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to dismantle project")}
-    end
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to dismantle project")}
+      end
+    end)
   end
 
   def handle_event("close_archived_modal", _params, socket) do

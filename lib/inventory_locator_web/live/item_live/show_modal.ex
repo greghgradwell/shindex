@@ -12,6 +12,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @accepted_document_types ~w(.pdf .png .jpg .jpeg)
 
+  @mutation_events ~w(increment_quantity decrement_quantity update_quantity archive
+    confirm_archive_from_quantity restore update_item_details move_to_location
+    save_photo_only save_document delete_document fetch_document_from_url delete
+    install_item increment_installation decrement_installation uninstall_item)
+
   @impl true
   @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
   def update(%{pending_photo: photo_data}, socket) do
@@ -81,6 +86,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event(event, _params, %{assigns: %{admin_user?: false}} = socket) when event in @mutation_events do
+    {:noreply, notify_flash(socket, :error, "Admin access required.")}
+  end
+
   def handle_event("close_modal", _params, socket) do
     # Don't close if a nested modal is open (clicks inside nested modals trigger parent's click-away)
     if socket.assigns.show_delete_modal or

@@ -1,9 +1,11 @@
 defmodule InventoryLocatorWeb.Router do
   use InventoryLocatorWeb, :router
 
+  alias InventoryLocatorWeb.Hooks.AuthHook
   alias InventoryLocatorWeb.Hooks.InventoryHook
   alias InventoryLocatorWeb.Plugs.LoadInventory
   alias InventoryLocatorWeb.Plugs.RateLimiter
+  alias InventoryLocatorWeb.Plugs.RequireAuthenticated
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -12,7 +14,21 @@ defmodule InventoryLocatorWeb.Router do
     plug :put_root_layout, html: {InventoryLocatorWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug RequireAuthenticated
     plug LoadInventory
+  end
+
+  pipeline :browser_public do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {InventoryLocatorWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  pipeline :rate_limit_auth do
+    plug RateLimiter, max_requests: 10, window_seconds: 60
   end
 
   pipeline :api do
@@ -23,6 +39,7 @@ defmodule InventoryLocatorWeb.Router do
     plug :accepts, ["json"]
     plug :fetch_session
     plug :protect_from_forgery
+    plug RequireAuthenticated
     plug LoadInventory
     plug RateLimiter, max_requests: 60, window_seconds: 60
   end
@@ -31,8 +48,28 @@ defmodule InventoryLocatorWeb.Router do
   pipeline :api_dev do
     plug :accepts, ["json"]
     plug :fetch_session
+    plug RequireAuthenticated
     plug LoadInventory
     plug RateLimiter, max_requests: 60, window_seconds: 60
+  end
+
+  scope "/", InventoryLocatorWeb do
+    pipe_through :browser_public
+
+    live_session :public,
+      layout: {InventoryLocatorWeb.Layouts, :public} do
+      live "/landing", LandingLive.Index
+    end
+  end
+
+  scope "/auth", InventoryLocatorWeb do
+    pipe_through [:browser_public, :rate_limit_auth]
+
+    get "/register", AuthController, :register
+    post "/register", AuthController, :create_registration
+    post "/logout", AuthController, :logout
+    get "/:provider", AuthController, :request
+    get "/:provider/callback", AuthController, :callback
   end
 
   scope "/", InventoryLocatorWeb do
@@ -42,28 +79,19 @@ defmodule InventoryLocatorWeb.Router do
     post "/admin/toggle", AdminController, :toggle
 
     live_session :default,
-      on_mount: [InventoryHook],
+      on_mount: [AuthHook, InventoryHook],
       layout: {InventoryLocatorWeb.Layouts, :app} do
       live "/", ItemLive.Index
       live "/locations", LocationLive.Index
       live "/projects", ProjectLive.Index
       live "/inventories", InventoryLive.Index
       live "/backups", BackupLive.Index
+      live "/invites", InviteLive.Index
     end
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", InventoryLocatorWeb do
-  #   pipe_through :api
-  # end
-
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:inventory_locator, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
@@ -73,7 +101,7 @@ defmodule InventoryLocatorWeb.Router do
       forward "/mailbox", Plug.Swoosh.MailboxPreview
 
       live_session :dev,
-        on_mount: [InventoryHook],
+        on_mount: [AuthHook, InventoryHook],
         layout: {InventoryLocatorWeb.Layouts, :app} do
         live "/assist", InventoryLocatorWeb.AssistLive.Index
       end

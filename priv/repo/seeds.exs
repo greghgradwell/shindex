@@ -1,3 +1,4 @@
+alias InventoryLocator.Accounts.InviteCode
 alias InventoryLocator.Inventory
 alias InventoryLocator.Repo
 
@@ -67,5 +68,18 @@ Inventory.create_item_with_location!(%{
   quantity: 3,
   manufacturer: "Sparkfun"
 })
+
+Logger.info("Creating seed invite code SEED0001...")
+
+Repo.delete_all(InventoryLocator.Accounts.UserIdentity)
+Repo.delete_all(InviteCode)
+Repo.delete_all(InventoryLocator.Accounts.User)
+
+%InviteCode{}
+|> InviteCode.changeset(%{
+  code: "SEED0001",
+  expires_at: DateTime.add(DateTime.utc_now(), 365, :day)
+})
+|> Repo.insert!()
 
 Logger.info("✅ Seeding complete!")

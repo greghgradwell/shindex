@@ -24,9 +24,10 @@ Next: public deployment with authentication and a community marketplace for borr
 | 6 | ✅ Complete | Polish and scale |
 | 7 | Ongoing | Full catalogue (1000+ items) |
 | 8 | Deferred | Image-based search |
-| 9 | Pending | Auth + public deployment |
+| 9 | In Progress | Authentication + authorization |
 | 10 | Pending | Requests + marketplace |
-| 11 | Future | Multi-user inventories |
+| 11 | Pending | Public deployment |
+| 12 | Future | Multi-user inventories |
 
 ## Phase 1: Foundation
 
@@ -336,60 +337,51 @@ Deferred in favor of public access and marketplace features. Can revisit after P
 - Store embeddings in pgvector
 - Implement "search by photo" feature
 
-## Phase 9: Auth + Public Deployment (Milestone F)
+## Phase 9: Authentication + Authorization (Milestone F)
 
-Deploy inventory to the public internet with OAuth authentication and invite-only registration.
+All developed locally on the Pi. OAuth uses localhost callback URLs for development.
 
-### 9.1 Infrastructure
-- [ ] Provision dedicated GCP Compute Engine VM
-- [ ] Install Erlang/OTP, Elixir, PostgreSQL on VM
-- [ ] Create unprivileged `inventory` user for running the application
-- [ ] Configure firewall: SSH (key-auth only) + HTTP/HTTPS
-- [ ] Install and configure Caddy as reverse proxy with automatic TLS
-- [ ] Set up custom domain with DNS pointing to VM
-- [ ] Configure Phoenix release (mix release) with systemd service
-- [ ] Set up deployment workflow (git pull → build release → restart service)
+### 9.1 Authentication
+- [x] Add Ueberauth with GitHub and LinkedIn strategies
+- [x] Create `users` migration (name, email, avatar_url, role)
+- [x] Create `user_identities` migration (provider, provider_uid, user_id)
+- [x] Create `invite_codes` migration (code, created_by, used_by, expires_at, used_at)
+- [x] Implement User schema and Accounts context
+- [x] Implement OAuth callback controller (create or match existing user)
+- [x] Implement invite code validation on first sign-in
+- [x] Implement session management (login/logout)
+- [x] First user auto-promoted to admin role
+- [x] Multi-provider OAuth linking (auto-link by email match, or link when already logged in)
 
-### 9.2 Authentication
-- [ ] Add Ueberauth with GitHub and LinkedIn strategies
-- [ ] Create `users` migration (name, email, avatar_url, role)
-- [ ] Create `user_identities` migration (provider, provider_uid, user_id)
-- [ ] Create `invite_codes` migration (code, created_by, used_by, expires_at, used_at)
-- [ ] Implement User schema and Accounts context
-- [ ] Implement OAuth callback controller (create or match existing user)
-- [ ] Implement invite code validation on first sign-in
-- [ ] Implement session management (login/logout)
-- [ ] First user auto-promoted to admin role
+### 9.2 Authorization
+- [x] Add authentication plug (require login for all routes except landing page)
+- [x] Add role-based authorization (admin vs member)
+- [x] Members: read-only access to inventory (browse, search, view items)
+- [x] Admin: full access (current functionality unchanged)
+- [x] Protect admin routes (backups, inventory management, shelf CRUD, item CRUD)
 
-### 9.3 Authorization
-- [ ] Add authentication plug (require login for all routes except landing page)
-- [ ] Add role-based authorization (admin vs member)
-- [ ] Members: read-only access to inventory (browse, search, view items)
-- [ ] Admin: full access (current functionality unchanged)
-- [ ] Protect admin routes (backups, inventory management, shelf CRUD, item CRUD)
+### 9.3 Landing Page
+- [x] Create public landing page (description of service, sign-in buttons)
+- [x] LinkedIn and GitHub sign-in buttons
+- [x] Redirect authenticated users to inventory
 
-### 9.4 Landing Page
-- [ ] Create public landing page (description of service, sign-in buttons)
-- [ ] LinkedIn and GitHub sign-in buttons
-- [ ] Redirect authenticated users to inventory
+### 9.4 Invite System
+- [x] Admin UI to generate invite codes (with optional expiration)
+- [x] Display active/used invite codes
+- [x] Invite code entry form shown after first OAuth sign-in
+- [x] Revoke unused invite codes
 
-### 9.5 Invite System
-- [ ] Admin UI to generate invite codes (with optional expiration)
-- [ ] Display active/used invite codes
-- [ ] Invite code entry form shown after first OAuth sign-in
-- [ ] Revoke unused invite codes
-
-### 9.6 Security Hardening
+### 9.5 Security Hardening
+- [x] Rate limiting on OAuth and invite code endpoints
 - [ ] Content Security Policy headers
-- [ ] Rate limiting on OAuth and invite code endpoints
 - [ ] Audit logging for admin actions
 - [ ] Review all routes for proper authorization
 
-**Go/No-Go:** Site accessible on public URL. OAuth sign-in works. Invite-only registration enforced. Admin/member roles working.
+**Go/No-Go:** OAuth sign-in works locally. Invite-only registration enforced. Admin/member roles working.
 
 ## Phase 10: Requests + Marketplace (Milestones G-I)
 
-Enable members to request items for borrow, lease, or sale. All transactions happen in person.
+Enable members to request items for borrow, lease, or sale. All transactions happen in person. Developed locally on the Pi.
 
 ### 10.1 Listings
 - [ ] Create `listings` migration (item_type_id, type, price, notes, active)
@@ -416,9 +408,36 @@ Enable members to request items for borrow, lease, or sale. All transactions hap
 - [ ] Member request history (my requests and their statuses)
 - [ ] Member profile page
 
-**Go/No-Go:** Members can browse inventory, request items, receive status updates. Admin can manage requests.
+**Go/No-Go:** Members can browse inventory, request items, receive status updates. Admin can manage requests. All tested locally.
 
-## Phase 11: Multi-User Inventories (Future)
+## Phase 11: Public Deployment
+
+Deploy to a dedicated GCP VM. All application code is already complete from Phases 9-10.
+
+### 11.1 Infrastructure
+- [ ] Provision dedicated GCP Compute Engine VM
+- [ ] Install Erlang/OTP, Elixir, PostgreSQL on VM
+- [ ] Create unprivileged `inventory` user for running the application
+- [ ] Configure firewall: SSH (key-auth only) + HTTP/HTTPS
+- [ ] Install and configure Caddy as reverse proxy with automatic TLS
+- [ ] Set up custom domain with DNS pointing to VM
+- [ ] Configure Phoenix release (mix release) with systemd service
+- [ ] Set up deployment workflow (git pull → build release → restart service)
+
+### 11.2 Data Migration
+- [ ] Migrate database from Pi (pg_dump → pg_restore)
+- [ ] Copy photo uploads to VM
+- [ ] Add production OAuth callback URLs to GitHub and LinkedIn apps
+- [ ] Verify all functionality on production URL
+
+### 11.3 Operations
+- [ ] Configure backup system for VM environment
+- [ ] Set up monitoring/health checks
+- [ ] Document deployment and rollback procedures
+
+**Go/No-Go:** Site accessible on public URL with HTTPS. All features working in production. Backups running.
+
+## Phase 12: Multi-User Inventories (Future)
 
 Other users create and share their own inventories.
 

@@ -25,6 +25,20 @@ config :inventory_locator, InventoryLocatorWeb.Endpoint, http: [port: String.to_
 # Gemini API for AI-powered search
 config :inventory_locator, gemini_api_key: System.get_env("GEMINI_API_KEY")
 
+# GitHub OAuth (optional - auth features disabled when not set)
+if github_client_id = System.get_env("GITHUB_CLIENT_ID") do
+  config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+    client_id: github_client_id,
+    client_secret: System.get_env("GITHUB_CLIENT_SECRET")
+end
+
+# LinkedIn OAuth (optional)
+if linkedin_client_id = System.get_env("LINKEDIN_CLIENT_ID") do
+  config :ueberauth, Ueberauth.Strategy.LinkedIn.OAuth,
+    client_id: linkedin_client_id,
+    client_secret: System.get_env("LINKEDIN_CLIENT_SECRET")
+end
+
 # Local backup storage path (optional - defaults to priv/backups)
 if backup_path = System.get_env("BACKUP_PATH") do
   config :inventory_locator, InventoryLocator.Backup.LocalStorage, path: backup_path

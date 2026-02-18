@@ -2,6 +2,8 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   @moduledoc false
   use InventoryLocatorWeb, :live_view
 
+  import InventoryLocatorWeb.AuthHelpers
+
   alias InventoryLocator.Backup
   alias InventoryLocator.Backup.MaintenanceMode
   alias InventoryLocator.Backup.Settings
@@ -10,6 +12,7 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   require Logger
 
   @impl true
+  @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
     _ =
       if connected?(socket) do
@@ -35,14 +38,17 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab))}
   end
 
   def handle_event("run_backup", %{"type" => type}, socket) do
-    socket = assign(socket, :backup_running, true)
-    send(self(), {:run_backup, String.to_existing_atom(type)})
-    {:noreply, socket}
+    require_admin(socket, fn socket ->
+      socket = assign(socket, :backup_running, true)
+      send(self(), {:run_backup, String.to_existing_atom(type)})
+      {:noreply, socket}
+    end)
   end
 
   def handle_event("open_restore_modal", %{"key" => key}, socket) do
@@ -70,20 +76,22 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   end
 
   def handle_event("confirm_restore", _params, socket) do
-    expected = expected_confirmation(socket.assigns.restore_target)
+    require_admin(socket, fn socket ->
+      expected = expected_confirmation(socket.assigns.restore_target)
 
-    if socket.assigns.restore_confirmation == expected do
-      send(self(), {:perform_restore, socket.assigns.restore_target})
+      if socket.assigns.restore_confirmation == expected do
+        send(self(), {:perform_restore, socket.assigns.restore_target})
 
-      socket =
-        socket
-        |> assign(:restore_modal_open, false)
-        |> put_flash(:info, "Starting database restore...")
+        socket =
+          socket
+          |> assign(:restore_modal_open, false)
+          |> put_flash(:info, "Starting database restore...")
 
-      {:noreply, socket}
-    else
-      {:noreply, put_flash(socket, :error, "Confirmation text does not match")}
-    end
+        {:noreply, socket}
+      else
+        {:noreply, put_flash(socket, :error, "Confirmation text does not match")}
+      end
+    end)
   end
 
   def handle_event("open_delete_modal", %{"key" => key}, socket) do
@@ -105,39 +113,43 @@ defmodule InventoryLocatorWeb.BackupLive.Index do
   end
 
   def handle_event("confirm_delete", _params, socket) do
-    key = socket.assigns.delete_target
+    require_admin(socket, fn socket ->
+      key = socket.assigns.delete_target
 
-    case Backup.delete_backup(key) do
-      :ok ->
-        socket =
-          socket
-          |> assign(:delete_modal_open, false)
-          |> assign(:delete_target, nil)
-          |> load_backups()
-          |> put_flash(:info, "Backup deleted")
+      case Backup.delete_backup(key) do
+        :ok ->
+          socket =
+            socket
+            |> assign(:delete_modal_open, false)
+            |> assign(:delete_target, nil)
+            |> load_backups()
+            |> put_flash(:info, "Backup deleted")
 
-        {:noreply, socket}
+          {:noreply, socket}
 
-      {:error, reason} ->
-        Logger.error("Backup deletion failed: #{inspect(reason)}")
-        {:noreply, put_flash(socket, :error, "Failed to delete backup")}
-    end
+        {:error, reason} ->
+          Logger.error("Backup deletion failed: #{inspect(reason)}")
+          {:noreply, put_flash(socket, :error, "Failed to delete backup")}
+      end
+    end)
   end
 
   def handle_event("save_settings", %{"settings" => settings_params}, socket) do
-    case Backup.update_settings(settings_params) do
-      {:ok, settings} ->
-        socket =
-          socket
-          |> assign(:settings, settings)
-          |> assign(:settings_changeset, Backup.change_settings(settings))
-          |> put_flash(:info, "Settings saved successfully")
+    require_admin(socket, fn socket ->
+      case Backup.update_settings(settings_params) do
+        {:ok, settings} ->
+          socket =
+            socket
+            |> assign(:settings, settings)
+            |> assign(:settings_changeset, Backup.change_settings(settings))
+            |> put_flash(:info, "Settings saved successfully")
 
-        {:noreply, socket}
+          {:noreply, socket}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :settings_changeset, changeset)}
-    end
+        {:error, changeset} ->
+          {:noreply, assign(socket, :settings_changeset, changeset)}
+      end
+    end)
   end
 
   def handle_event("validate_settings", %{"settings" => settings_params}, socket) do

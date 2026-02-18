@@ -2,6 +2,8 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
   @moduledoc false
   use InventoryLocatorWeb, :live_view
 
+  import InventoryLocatorWeb.AuthHelpers
+
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.Inv
   alias Phoenix.LiveView.Socket
@@ -46,21 +48,23 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
   end
 
   def handle_event("create_inventory", %{"name" => name, "description" => description}, socket) do
-    attrs = %{name: String.trim(name), description: nullify_blank(description)}
+    require_admin(socket, fn socket ->
+      attrs = %{name: String.trim(name), description: nullify_blank(description)}
 
-    case Inventory.create_inventory(attrs) do
-      {:ok, _inv} ->
-        {:noreply,
-         socket
-         |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
-         |> assign(:show_create_modal, false)
-         |> assign(:name_error, nil)
-         |> put_flash(:info, "Inventory created: #{attrs.name}")}
+      case Inventory.create_inventory(attrs) do
+        {:ok, _inv} ->
+          {:noreply,
+           socket
+           |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
+           |> assign(:show_create_modal, false)
+           |> assign(:name_error, nil)
+           |> put_flash(:info, "Inventory created: #{attrs.name}")}
 
-      {:error, changeset} ->
-        error = extract_name_error(changeset)
-        {:noreply, assign(socket, :name_error, error)}
-    end
+        {:error, changeset} ->
+          error = extract_name_error(changeset)
+          {:noreply, assign(socket, :name_error, error)}
+      end
+    end)
   end
 
   def handle_event("show_edit_modal", %{"id" => id}, socket) do
@@ -82,23 +86,25 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
   end
 
   def handle_event("update_inventory", %{"name" => name, "description" => description}, socket) do
-    inv = socket.assigns.edit_inventory
-    attrs = %{name: String.trim(name), description: nullify_blank(description)}
+    require_admin(socket, fn socket ->
+      inv = socket.assigns.edit_inventory
+      attrs = %{name: String.trim(name), description: nullify_blank(description)}
 
-    case Inventory.update_inventory(inv, attrs) do
-      {:ok, _inv} ->
-        {:noreply,
-         socket
-         |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
-         |> assign(:show_edit_modal, false)
-         |> assign(:edit_inventory, nil)
-         |> assign(:name_error, nil)
-         |> put_flash(:info, "Inventory updated: #{attrs.name}")}
+      case Inventory.update_inventory(inv, attrs) do
+        {:ok, _inv} ->
+          {:noreply,
+           socket
+           |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
+           |> assign(:show_edit_modal, false)
+           |> assign(:edit_inventory, nil)
+           |> assign(:name_error, nil)
+           |> put_flash(:info, "Inventory updated: #{attrs.name}")}
 
-      {:error, changeset} ->
-        error = extract_name_error(changeset)
-        {:noreply, assign(socket, :name_error, error)}
-    end
+        {:error, changeset} ->
+          error = extract_name_error(changeset)
+          {:noreply, assign(socket, :name_error, error)}
+      end
+    end)
   end
 
   def handle_event("show_delete_modal", %{"id" => id, "shelves" => shelves, "items" => items}, socket) do
@@ -128,26 +134,28 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
   end
 
   def handle_event("delete_inventory", _params, socket) do
-    inv = socket.assigns.delete_inventory
-    confirmation = socket.assigns.delete_confirmation
+    require_admin(socket, fn socket ->
+      inv = socket.assigns.delete_inventory
+      confirmation = socket.assigns.delete_confirmation
 
-    if confirmation == inv.name do
-      case Inventory.delete_inventory(inv) do
-        {:ok, _inv} ->
-          {:noreply,
-           socket
-           |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
-           |> assign(:show_delete_modal, false)
-           |> assign(:delete_inventory, nil)
-           |> assign(:delete_confirmation, "")
-           |> put_flash(:info, "Deleted inventory: #{inv.name}")}
+      if confirmation == inv.name do
+        case Inventory.delete_inventory(inv) do
+          {:ok, _inv} ->
+            {:noreply,
+             socket
+             |> assign(:inventories_with_counts, Inventory.list_inventories_with_counts())
+             |> assign(:show_delete_modal, false)
+             |> assign(:delete_inventory, nil)
+             |> assign(:delete_confirmation, "")
+             |> put_flash(:info, "Deleted inventory: #{inv.name}")}
 
-        {:error, :last_inventory} ->
-          {:noreply, put_flash(socket, :error, "Cannot delete the last inventory")}
+          {:error, :last_inventory} ->
+            {:noreply, put_flash(socket, :error, "Cannot delete the last inventory")}
+        end
+      else
+        {:noreply, put_flash(socket, :error, "Confirmation does not match inventory name")}
       end
-    else
-      {:noreply, put_flash(socket, :error, "Confirmation does not match inventory name")}
-    end
+    end)
   end
 
   @spec validate_name(String.t()) :: String.t() | nil
