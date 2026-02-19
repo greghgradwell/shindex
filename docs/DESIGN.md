@@ -24,7 +24,8 @@
 │                          │                                       │
 │  ┌───────────────────────▼────────────────────────────────────┐  │
 │  │                   Core Contexts                             │  │
-│  │  • Inventory (Items, Locations, Projects)                  │  │
+│  │  • Inventory (Items, Locations, Projects, Sharing)         │  │
+│  │  • Accounts (Users, Invites)                               │  │
 │  │  • Search (Text, AI)                                       │  │
 │  │  • Media (Photo Storage)                                   │  │
 │  └───────────────────────┬────────────────────────────────────┘  │
@@ -33,6 +34,8 @@
 │  │         Ecto + PostgreSQL       │                            │
 │  │  • Items  • Locations  • Media  │                            │
 │  │  • ItemInstallations (Projects) │                            │
+│  │  • Users  • Inventories         │                            │
+│  │  • InventoryMembers • ShareCodes│                            │
 │  └─────────────────────────────────┘                            │
 └──────────────────────────────────────────────────┬──────────────┘
                                                    │ HTTPS/JSON
@@ -59,6 +62,38 @@
 ### Core Entities
 
 ```
+┌─────────────────┐
+│      User       │
+├─────────────────┤
+│ id              │
+│ name            │
+│ email           │
+│ avatar_url      │
+│ role            │ ← admin/member
+└────────┬────────┘
+         │ 1:N (ownership)
+         ▼
+┌─────────────────┐       ┌─────────────────┐
+│      Inv        │       │InventoryMember  │
+├─────────────────┤       ├─────────────────┤
+│ id              │◄──────│ inventory_id    │
+│ name            │       │ user_id         │ ← FK to User
+│ description     │       │ role            │ ← "viewer"
+│ user_id         │ ← FK  └─────────────────┘
+└────────┬────────┘
+         │                ┌─────────────────────┐
+         │                │InventoryShareCode   │
+         │                ├─────────────────────┤
+         │                │ code (unique)       │
+         ├───────────────►│ inventory_id        │
+         │                │ role                │ ← "viewer"
+         │                │ expires_at          │
+         │                │ used_at             │ ← nullable
+         │                │ used_by_id          │ ← FK to User
+         │                │ created_by_id       │ ← FK to User
+         │                └─────────────────────┘
+         │
+         ▼
 ┌─────────────────┐       ┌─────────────────┐
 │     Shelf       │       │      Bin        │
 ├─────────────────┤       ├─────────────────┤
@@ -122,6 +157,9 @@
 6. **Deletion protection:** Cannot delete a location with an active item; cannot delete shelf/bin with children
 7. **Quantity validation:** `CHECK (quantity >= 0)` - allows zero for archived items
 8. **Item installations:** (item_type_id, project_name) unique constraint, quantity > 0
+9. **Inventory ownership:** Every inventory has a user_id (NOT NULL, on_delete: :restrict). Per-user unique names via `[:user_id, :name]` index.
+10. **Inventory membership:** (user_id, inventory_id) unique constraint. Role is "viewer" only.
+11. **Share codes:** One-time-use, 7-day expiry. Unique code. Redemption is atomic (insert member + mark used in transaction).
 
 ### Why Two-Level Hierarchy
 
@@ -263,9 +301,16 @@ The Shelf → Bin model provides sufficient granularity for workshop organizatio
 inventory_locator/
 ├── lib/
 │   ├── inventory_locator/
+│   │   ├── accounts/            # User management context
+│   │   │   ├── user.ex
+│   │   │   ├── user_identity.ex
+│   │   │   └── invite_code.ex
 │   │   ├── inventory/           # Core inventory context
+│   │   │   ├── inv.ex           # Inventory schema (belongs_to user)
 │   │   │   ├── item_type.ex
-│   │   │   ├── item_installation.ex  # Project tracking
+│   │   │   ├── item_installation.ex
+│   │   │   ├── inventory_member.ex    # Sharing membership
+│   │   │   ├── inventory_share_code.ex # One-time share codes
 │   │   │   ├── location.ex
 │   │   │   ├── shelf.ex, bin.ex
 │   │   │   └── location_parser.ex
@@ -274,20 +319,32 @@ inventory_locator/
 │   │   ├── media.ex             # Photo handling
 │   │   └── repo.ex
 │   ├── inventory_locator_web/
+│   │   ├── plugs/
+│   │   │   ├── require_authenticated.ex
+│   │   │   └── load_inventory.ex    # User-scoped inventory loading
+│   │   ├── hooks/
+│   │   │   ├── auth_hook.ex
+│   │   │   └── inventory_hook.ex    # User-scoped, assigns inventory_role
+│   │   ├── controllers/
+│   │   │   ├── auth_controller.ex   # OAuth + registration
+│   │   │   ├── share_controller.ex  # Share code redemption
+│   │   │   └── inventory_controller.ex
 │   │   ├── live/
 │   │   │   ├── item_live/       # Search, detail modal
 │   │   │   ├── location_live/   # Hierarchy view
-│   │   │   └── project_live/    # Project management
+│   │   │   ├── project_live/    # Project management
+│   │   │   └── inventory_live/  # Inventory CRUD + sharing UI
+│   │   ├── auth_helpers.ex      # require_admin, require_owner
 │   │   └── components/
 │   │       ├── ghost_autocomplete.ex
-│   │       └── photo_capture.ex  # Reusable photo upload/URL fetch
+│   │       └── photo_capture.ex
 │   └── inventory_locator_web.ex
 ├── assets/
 │   └── js/
 │       └── hooks/               # JavaScript hooks
 │           ├── ghost_autocomplete.js
 │           ├── focus_first_empty.js
-│           └── auto_confirm_upload.js  # Upload completion → Save/Cancel
+│           └── auto_confirm_upload.js
 ├── priv/
 │   ├── repo/migrations/
 │   └── static/uploads/          # Photo storage (MVP)
@@ -315,9 +372,30 @@ inventory_locator/
 - `user_identities` table: user_id, provider (github/linkedin), provider_uid, provider_email
 - `invite_codes` table: code, created_by, used_by, expires_at, used_at
 
-**Roles:**
-- **Admin:** Full inventory management (current functionality). First user is auto-admin.
-- **Member:** Browse inventory, request items. Cannot modify inventory data.
+**Authorization model (three layers):**
+- **Admin (site-level):** Generate invite codes, manage backups. First user is auto-admin. Checked via `require_admin`.
+- **Owner (per-inventory):** Create/edit/delete inventories, manage items/locations/projects, generate share codes, remove members. Checked via `require_owner` (for current inventory) or `require_inventory_owner` (for a specific inventory).
+- **Viewer (per-inventory):** Read-only access to shared inventories. Cannot modify items, locations, or projects.
+
+### 9. Inventory Sharing
+
+**Decision:** One-time-use share codes with 7-day expiry. Viewers get read-only access.
+
+**Flow:**
+1. Owner generates a share code from the Inventories page
+2. Owner sends the share URL to another user
+3. Recipient visits the URL, sees a confirmation page (inventory name, shared by, access level)
+4. Recipient clicks "Accept Invite" to redeem the code
+5. Recipient gains viewer access to the inventory (appears in their dropdown with "(shared)" suffix)
+6. Owner can remove members from the share modal
+
+**Schema:**
+- `inventory_members` table: user_id, inventory_id, role ("viewer"), unique on (user_id, inventory_id)
+- `inventory_share_codes` table: code (unique), inventory_id, role, expires_at, used_at, used_by_id, created_by_id
+
+**Access queries:** `list_accessible_inventories/1` uses `LEFT JOIN` on `inventory_members` to include both owned and shared inventories.
+
+**Why one-time-use codes over persistent invite links:** Limits exposure if a link is shared beyond the intended recipient. Matches the existing invite code pattern.
 
 ### 9. Request Workflow
 
@@ -365,5 +443,6 @@ inventory_locator/
 1. **Image-based search:** Store embeddings in pgvector, query by image similarity
 2. **Mobile app:** Consider LiveView Native if web responsive proves insufficient
 3. **Cloud Run migration:** When 24/7 availability needed, containerize and migrate (requires GCS for photos, Cloud SQL for DB)
-4. **Multi-user inventories:** Other users create and share their own inventories with access keys
-5. **Open registration:** Remove invite-code requirement when community is established
+4. **Open registration:** Remove invite-code requirement when community is established
+5. **Additional sharing roles:** Editor role for collaborative inventory management
+6. **Cross-inventory discovery:** Browse and search across inventories from different owners

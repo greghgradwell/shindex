@@ -92,7 +92,7 @@ defmodule InventoryLocatorWeb.AuthController do
       is_integer(session_user_id) ->
         link_identity_to_user(conn, Accounts.get_user(session_user_id), provider, provider_uid)
 
-      (user = email_verified_user(auth)) ->
+      user = email_verified_user(auth) ->
         link_identity_to_user(conn, user, provider, provider_uid)
 
       true ->

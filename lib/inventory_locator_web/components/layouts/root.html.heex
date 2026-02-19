@@ -42,11 +42,11 @@
           <.link navigate={~p"/projects"} class="btn btn-ghost btn-sm md:btn-md">
             Projects
           </.link>
+          <div class="divider divider-horizontal mx-1 hidden md:flex"></div>
+          <.link navigate={~p"/inventories"} class="btn btn-ghost btn-sm md:btn-md">
+            Inventories
+          </.link>
           <%= if assigns[:admin_mode] do %>
-            <div class="divider divider-horizontal mx-1 hidden md:flex"></div>
-            <.link navigate={~p"/inventories"} class="btn btn-ghost btn-sm md:btn-md text-warning">
-              Inventories
-            </.link>
             <.link navigate={~p"/backups"} class="btn btn-ghost btn-sm md:btn-md text-warning">
               Backups
             </.link>
@@ -70,20 +70,25 @@
             <span class="text-sm hidden md:inline">{@current_user.name}</span>
           </div>
 
-          <form action={~p"/switch_inventory"} method="post">
-            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-            <select
-              name="inventory_id"
-              class="select select-bordered select-sm"
-              onchange="this.form.submit()"
-            >
-              <%= for inv <- @inventories do %>
-                <option value={inv.id} selected={inv.id == @current_inventory.id}>
-                  {inv.name}
-                </option>
-              <% end %>
-            </select>
-          </form>
+          <%= if assigns[:inventories] != [] and assigns[:current_inventory] do %>
+            <form action={~p"/switch_inventory"} method="post">
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <select
+                name="inventory_id"
+                class="select select-bordered select-sm"
+                onchange="this.form.submit()"
+              >
+                <%= for inv <- @inventories do %>
+                  <option value={inv.id} selected={inv.id == @current_inventory.id}>
+                    {inv.name}
+                    <%= if inv.user_id != @current_user.id do %>
+                      (shared)
+                    <% end %>
+                  </option>
+                <% end %>
+              </select>
+            </form>
+          <% end %>
           <!-- Admin toggle button -->
           <%= if assigns[:admin_user?] do %>
             <form action={~p"/admin/toggle"} method="post">

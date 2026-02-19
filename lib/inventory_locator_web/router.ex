@@ -77,6 +77,8 @@ defmodule InventoryLocatorWeb.Router do
 
     post "/switch_inventory", InventoryController, :switch
     post "/admin/toggle", AdminController, :toggle
+    get "/share/:code", ShareController, :show
+    post "/share/:code/redeem", ShareController, :redeem
 
     live_session :default,
       on_mount: [AuthHook, InventoryHook],

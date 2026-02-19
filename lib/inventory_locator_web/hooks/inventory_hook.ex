@@ -4,43 +4,65 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   import Phoenix.LiveView, only: [attach_hook: 4]
 
   alias InventoryLocator.Inventory
+  alias InventoryLocator.Inventory.Inv
   alias Phoenix.LiveView.Socket
 
   @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
   def on_mount(:default, _params, session, socket) do
+    user_id = socket.assigns.current_user.id
     inventory_id = session["inventory_id"]
     admin_user? = Map.get(socket.assigns, :admin_user?, false)
     admin_mode = if admin_user?, do: session["admin_mode"] || false, else: false
-    inventories = Inventory.list_inventories()
+    inventories = Inventory.list_accessible_inventories(user_id)
 
     inventory = find_inventory(inventory_id, inventories)
+    inventory_role = inventory_role(user_id, inventory)
 
     socket =
       socket
       |> assign(:current_inventory, inventory)
       |> assign(:inventories, inventories)
       |> assign(:admin_mode, admin_mode)
+      |> assign(:inventory_role, inventory_role)
       |> attach_hook(:inventory_refresh, :handle_info, &handle_inventory_refresh/2)
 
     {:cont, socket}
   end
 
-  @spec find_inventory(integer() | nil, [Inventory.Inv.t()]) :: Inventory.Inv.t()
+  @spec find_inventory(integer() | nil, [Inv.t()]) :: Inv.t() | nil
+  defp find_inventory(_id, []), do: nil
   defp find_inventory(nil, inventories), do: hd(inventories)
 
   defp find_inventory(inventory_id, inventories) do
     Enum.find(inventories, hd(inventories), fn inv -> inv.id == inventory_id end)
   end
 
+  @spec inventory_role(integer(), Inv.t() | nil) :: :owner | :viewer | :none
+  defp inventory_role(_user_id, nil), do: :none
+  defp inventory_role(user_id, %Inv{user_id: user_id}), do: :owner
+  defp inventory_role(_user_id, _inv), do: :viewer
+
   @spec handle_inventory_refresh(term(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   defp handle_inventory_refresh({:inventory_switched, new_inventory_id}, socket) do
-    case Inventory.get_inventory(new_inventory_id) do
-      nil ->
-        {:cont, socket}
+    user_id = socket.assigns.current_user.id
 
-      inventory ->
-        socket = assign(socket, :current_inventory, inventory)
-        {:halt, socket}
+    if Inventory.user_can_access?(user_id, new_inventory_id) do
+      case Inventory.get_inventory(new_inventory_id) do
+        nil ->
+          {:cont, socket}
+
+        inventory ->
+          role = inventory_role(user_id, inventory)
+
+          socket =
+            socket
+            |> assign(:current_inventory, inventory)
+            |> assign(:inventory_role, role)
+
+          {:halt, socket}
+      end
+    else
+      {:cont, socket}
     end
   end
 

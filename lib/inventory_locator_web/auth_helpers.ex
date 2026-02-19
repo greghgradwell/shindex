@@ -12,4 +12,13 @@ defmodule InventoryLocatorWeb.AuthHelpers do
       {:noreply, put_flash(socket, :error, "Admin access required.")}
     end
   end
+
+  @spec require_owner(Socket.t(), (Socket.t() -> {:noreply, Socket.t()})) :: {:noreply, Socket.t()}
+  def require_owner(socket, func) do
+    if socket.assigns[:inventory_role] == :owner do
+      func.(socket)
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to modify this inventory.")}
+    end
+  end
 end

@@ -27,7 +27,7 @@ defmodule InventoryLocatorWeb.ProjectLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("dismantle_project", %{"project" => project_name}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       inventory_id = socket.assigns.current_inventory.id
 
       case Inventory.uninstall_all_from_project(inventory_id, project_name) do

@@ -24,9 +24,10 @@ Workshop and household items are difficult to locate, leading to:
 - Needs to add items quickly during workshop organization
 - Searches for items by name, description, or semantic meaning
 
-### Secondary Users (Post-MVP)
-- **Members** - Invited users who can browse inventory and request items for borrow/lease/sale
-- **Future: Inventory owners** - Other users who add and share their own inventories
+### Secondary Users
+- **Inventory owners** - Invited users who create and manage their own inventories
+- **Viewers** - Users granted read-only access to an inventory via one-time share codes
+- **Members** - Invited users who can browse shared inventories and request items for borrow/lease/sale (Phase 10)
 
 ## Core Requirements
 
@@ -130,7 +131,11 @@ Workshop and household items are difficult to locate, leading to:
 ### Authentication & Access
 - **OAuth only:** LinkedIn and GitHub (no email/password). Real identities reduce anonymity.
 - **Invite-only registration:** Users need an invite code to create an account. Open registration planned for later.
-- **Roles:** Admin (inventory owner, full control) and Member (browse, request items)
+- **Roles:**
+  - **Admin:** Site-level control (generate invite codes, manage backups). First user is auto-admin.
+  - **Owner:** Per-inventory control. Each inventory belongs to a user. Owners can create/edit/delete their inventories and share them.
+  - **Viewer:** Read-only access to shared inventories. Cannot modify items, locations, or projects.
+- **Sharing:** Owners generate one-time-use share codes (7-day expiry). Another user redeems a code to gain viewer access to that inventory.
 - **Anonymous visitors:** See landing page only. Must sign in to access any inventory data.
 
 ### Security
@@ -149,4 +154,5 @@ Workshop and household items are difficult to locate, leading to:
 - Barcode/QR code scanning (future consideration)
 - Automatic reorder suggestions
 - Email/password authentication (OAuth only)
-- Multi-user inventory ownership (Phase 11+)
+- Open registration (invite-only for now)
+- Cross-inventory discovery

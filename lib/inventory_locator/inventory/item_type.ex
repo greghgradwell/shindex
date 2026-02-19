@@ -9,7 +9,17 @@ defmodule InventoryLocator.Inventory.ItemType do
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
 
-  @castable_fields [:name, :description, :manufacturer, :model, :quantity, :photo_path, :archived, :metadata, :source_url]
+  @castable_fields [
+    :name,
+    :description,
+    :manufacturer,
+    :model,
+    :quantity,
+    :photo_path,
+    :archived,
+    :metadata,
+    :source_url
+  ]
 
   @spec castable_fields() :: [atom()]
   def castable_fields, do: @castable_fields

@@ -8,60 +8,86 @@
 </.header>
 
 <div class="mt-6">
-  <div class="overflow-x-auto">
-    <table class="table table-zebra">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Description</th>
-          <th class="text-right">Shelves</th>
-          <th class="text-right">Items</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%= for {inv, shelf_count, item_count} <- @inventories_with_counts do %>
+  <%= if @inventories_with_counts == [] do %>
+    <div class="text-center py-12">
+      <.icon name="hero-archive-box" class="w-12 h-12 mx-auto text-base-content/30" />
+      <p class="mt-4 text-base-content/70">You don't have any inventories yet.</p>
+      <p class="text-base-content/50">
+        Create one to get started, or ask someone to share theirs.
+      </p>
+    </div>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
           <tr>
-            <td class="font-medium">
-              {inv.name}
-              <span
-                :if={current_inventory?(inv, @current_inventory)}
-                class="badge badge-primary badge-sm ml-2"
-              >
-                Current
-              </span>
-            </td>
-            <td class="text-base-content/70">{inv.description || "—"}</td>
-            <td class="text-right">{shelf_count}</td>
-            <td class="text-right">{item_count}</td>
-            <td class="text-right">
-              <div class="flex justify-end gap-2">
-                <button
-                  class="btn btn-ghost btn-sm"
-                  phx-click="show_edit_modal"
-                  phx-value-id={inv.id}
-                  title="Edit"
-                >
-                  <.icon name="hero-pencil" class="w-4 h-4" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-sm text-error"
-                  phx-click="show_delete_modal"
-                  phx-value-id={inv.id}
-                  phx-value-shelves={shelf_count}
-                  phx-value-items={item_count}
-                  title="Delete"
-                  disabled={current_inventory?(inv, @current_inventory)}
-                >
-                  <.icon name="hero-trash" class="w-4 h-4" />
-                </button>
-              </div>
-            </td>
+            <th>Name</th>
+            <th>Description</th>
+            <th class="text-right">Shelves</th>
+            <th class="text-right">Items</th>
+            <th class="text-right">Actions</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          <%= for {inv, shelf_count, item_count} <- @inventories_with_counts do %>
+            <tr>
+              <td class="font-medium">
+                {inv.name}
+                <span
+                  :if={current_inventory?(inv, @current_inventory)}
+                  class="badge badge-primary badge-sm ml-2"
+                >
+                  Current
+                </span>
+                <span
+                  :if={not owned?(inv, @current_user.id)}
+                  class="badge badge-ghost badge-sm ml-1"
+                >
+                  Shared
+                </span>
+              </td>
+              <td class="text-base-content/70">{inv.description || "—"}</td>
+              <td class="text-right">{shelf_count}</td>
+              <td class="text-right">{item_count}</td>
+              <td class="text-right">
+                <%= if owned?(inv, @current_user.id) do %>
+                  <div class="flex justify-end gap-2">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      phx-click="show_share_modal"
+                      phx-value-id={inv.id}
+                      title="Share"
+                    >
+                      <.icon name="hero-share" class="w-4 h-4" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      phx-click="show_edit_modal"
+                      phx-value-id={inv.id}
+                      title="Edit"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm text-error"
+                      phx-click="show_delete_modal"
+                      phx-value-id={inv.id}
+                      phx-value-shelves={shelf_count}
+                      phx-value-items={item_count}
+                      title="Delete"
+                      disabled={current_inventory?(inv, @current_inventory)}
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  </div>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
 </div>
 
 <%!-- Create Modal --%>
@@ -233,5 +259,111 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<%!-- Share Modal --%>
+<div
+  :if={@show_share_modal}
+  class="modal modal-open"
+  phx-window-keydown="close_share_modal"
+  phx-key="escape"
+>
+  <div class="modal-box max-w-2xl" phx-click-away="close_share_modal">
+    <h3 class="font-bold text-lg mb-4">
+      <.icon name="hero-share" class="w-5 h-5 inline-block mr-1" />
+      Share {@share_inventory && @share_inventory.name}
+    </h3>
+
+    <%!-- Generate Share Link --%>
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="font-semibold">Share Link</h4>
+        <button class="btn btn-primary btn-sm" phx-click="generate_share_code">
+          Generate New Link
+        </button>
+      </div>
+      <%= if @new_share_code do %>
+        <div class="alert alert-success mt-2">
+          <div>
+            <p class="text-sm font-semibold">
+              Share this link (one-time use, expires in 7 days):
+            </p>
+            <code class="text-xs break-all">{share_url(@new_share_code)}</code>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Share Codes --%>
+    <%= if @share_codes != [] do %>
+      <div class="mb-6">
+        <h4 class="font-semibold mb-2">Share Codes</h4>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Status</th>
+                <th>Used By</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for sc <- @share_codes do %>
+                <tr>
+                  <td class="font-mono text-xs">{sc.code}</td>
+                  <td>
+                    <% status = share_code_status(sc) %>
+                    <span class={[
+                      "badge badge-sm",
+                      status == "Active" && "badge-success",
+                      status == "Used" && "badge-ghost",
+                      status == "Expired" && "badge-warning"
+                    ]}>
+                      {status}
+                    </span>
+                  </td>
+                  <td class="text-sm">{sc.used_by && sc.used_by.name}</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Members --%>
+    <%= if @members != [] do %>
+      <div class="mb-6">
+        <h4 class="font-semibold mb-2">Members</h4>
+        <div class="space-y-2">
+          <%= for member <- @members do %>
+            <div class="flex items-center justify-between bg-base-200 rounded-lg px-4 py-2">
+              <div class="flex items-center gap-2">
+                <%= if member.user.avatar_url do %>
+                  <img src={member.user.avatar_url} class="w-6 h-6 rounded-full" />
+                <% end %>
+                <span>{member.user.name}</span>
+                <span class="badge badge-ghost badge-sm">{member.role}</span>
+              </div>
+              <button
+                class="btn btn-ghost btn-xs text-error"
+                phx-click="remove_member"
+                phx-value-user-id={member.user_id}
+                title="Remove"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4" />
+              </button>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" phx-click="close_share_modal">
+        Close
+      </button>
+    </div>
   </div>
 </div>

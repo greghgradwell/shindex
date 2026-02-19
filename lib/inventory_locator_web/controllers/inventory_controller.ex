@@ -4,24 +4,24 @@ defmodule InventoryLocatorWeb.InventoryController do
 
   alias InventoryLocator.Inventory
 
-  @allowed_path_prefixes ["/", "/locations", "/projects", "/camera", "/inventories"]
+  @allowed_path_prefixes ["/", "/locations", "/projects", "/camera", "/inventories", "/share"]
 
   @spec switch(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def switch(conn, %{"inventory_id" => inventory_id_str}) do
+    user_id = conn.assigns.current_user.id
+
     case Integer.parse(inventory_id_str) do
       {inventory_id, ""} when inventory_id > 0 ->
-        case Inventory.get_inventory(inventory_id) do
-          nil ->
-            conn
-            |> put_flash(:error, "Inventory not found")
-            |> redirect(to: "/")
+        if Inventory.user_can_access?(user_id, inventory_id) do
+          redirect_path = get_safe_redirect_path(conn)
 
-          _inventory ->
-            redirect_path = get_safe_redirect_path(conn)
-
-            conn
-            |> put_session(:inventory_id, inventory_id)
-            |> redirect(to: redirect_path)
+          conn
+          |> put_session(:inventory_id, inventory_id)
+          |> redirect(to: redirect_path)
+        else
+          conn
+          |> put_flash(:error, "Inventory not found")
+          |> redirect(to: "/")
         end
 
       _ ->

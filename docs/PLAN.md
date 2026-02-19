@@ -24,10 +24,10 @@ Next: public deployment with authentication and a community marketplace for borr
 | 6 | ✅ Complete | Polish and scale |
 | 7 | Ongoing | Full catalogue (1000+ items) |
 | 8 | Deferred | Image-based search |
-| 9 | In Progress | Authentication + authorization |
+| 9 | ✅ Complete | Authentication + authorization + ownership |
 | 10 | Pending | Requests + marketplace |
 | 11 | Pending | Public deployment |
-| 12 | Future | Multi-user inventories |
+| 12 | Future | Open registration + cross-inventory discovery |
 
 ## Phase 1: Foundation
 
@@ -244,7 +244,7 @@ Transform location system from auto-create to explicit management.
 
 ## Phase 4.7: Multi-Inventory Support ✅ COMPLETE
 
-Manage multiple inventories (e.g., workshop vs. household) with full CRUD operations.
+Manage multiple inventories (e.g., workshop vs. household) with full CRUD operations. Extended in Phase 9.6 with per-user ownership and sharing.
 
 ### 4.7.1 Schema
 - [x] Create Inv schema and inventories table
@@ -254,13 +254,12 @@ Manage multiple inventories (e.g., workshop vs. household) with full CRUD operat
 ### 4.7.2 Context Functions
 - [x] list_inventories_with_counts/0 (shelf and item counts)
 - [x] create_inventory/1, update_inventory/2, delete_inventory/1
-- [x] Prevent deletion of last inventory
+- [x] ~~Prevent deletion of last inventory~~ (removed in Phase 9.6 — users can delete all inventories)
 
 ### 4.7.3 Infrastructure
 - [x] LoadInventory plug for session-based inventory selection
 - [x] InventoryHook for LiveView inventory context
 - [x] Resilient to stale session IDs (graceful fallback)
-- [x] Transaction-wrapped delete to prevent TOCTOU race conditions
 
 ### 4.7.4 UI
 - [x] InventoryLive.Index page at `/inventories` with table view
@@ -355,10 +354,8 @@ All developed locally on the Pi. OAuth uses localhost callback URLs for developm
 
 ### 9.2 Authorization
 - [x] Add authentication plug (require login for all routes except landing page)
-- [x] Add role-based authorization (admin vs member)
-- [x] Members: read-only access to inventory (browse, search, view items)
-- [x] Admin: full access (current functionality unchanged)
-- [x] Protect admin routes (backups, inventory management, shelf CRUD, item CRUD)
+- [x] Add role-based authorization (admin for site-level features: invites, backups)
+- [x] Ownership-based authorization for inventory operations (see Phase 9.6)
 
 ### 9.3 Landing Page
 - [x] Create public landing page (description of service, sign-in buttons)
@@ -375,9 +372,43 @@ All developed locally on the Pi. OAuth uses localhost callback URLs for developm
 - [x] Rate limiting on OAuth and invite code endpoints
 - [ ] Content Security Policy headers
 - [ ] Audit logging for admin actions
-- [ ] Review all routes for proper authorization
+- [x] Review all routes for proper authorization
 
-**Go/No-Go:** OAuth sign-in works locally. Invite-only registration enforced. Admin/member roles working.
+### 9.6 Inventory Ownership & Sharing ✅ COMPLETE
+
+Per-user inventory ownership and one-time-use share codes for read-only access.
+
+#### Ownership
+- [x] Add `user_id` FK to inventories (NOT NULL, on_delete: :restrict)
+- [x] Per-user unique name constraint (`[:user_id, :name]` index)
+- [x] Replace global inventory queries with user-scoped (`list_accessible_inventories/1`, etc.)
+- [x] `user_can_access?/2`, `user_role_for_inventory/2`, `user_is_owner?/2`
+- [x] LoadInventory plug and InventoryHook use user-scoped queries
+- [x] `inventory_role` assign (`:owner | :viewer | :none`) on every request
+- [x] Bypass paths (`/inventories`, `/share/`) for users with zero inventories
+
+#### Sharing
+- [x] `inventory_members` table (user_id, inventory_id, role, unique constraint)
+- [x] `inventory_share_codes` table (code, inventory_id, role, expires_at, used_at, used_by_id, created_by_id)
+- [x] One-time-use share codes with 7-day expiry (mirrors InviteCode pattern)
+- [x] `redeem_share_code/2` with race-condition-safe transaction
+- [x] Share confirmation page at `GET /share/:code`, redemption at `POST /share/:code/redeem`
+- [x] Share modal in InventoryLive: generate links, view codes/members, remove members
+
+#### Authorization
+- [x] `require_owner` in AuthHelpers for item/location/project LiveViews
+- [x] `require_inventory_owner` in InventoryLive for inventory-specific operations (checks against the target inventory, not the current dropdown inventory)
+- [x] `require_admin` retained for site-level features (invites, backups)
+- [x] Viewers are read-only for all inventory content
+- [x] IDOR protection on all modal-opening and mutation handlers
+
+#### UI
+- [x] Inventories page accessible to all users (not admin-only)
+- [x] Empty state when user has zero inventories
+- [x] Shared inventories show "(shared)" suffix in dropdown
+- [x] Owner-only action buttons (edit, delete, share) in inventory table
+
+**Go/No-Go:** ✅ Ownership and sharing work. 224 tests passing. Users can create inventories, share via one-time codes, and viewers get read-only access.
 
 ## Phase 10: Requests + Marketplace (Milestones G-I)
 
@@ -437,14 +468,13 @@ Deploy to a dedicated GCP VM. All application code is already complete from Phas
 
 **Go/No-Go:** Site accessible on public URL with HTTPS. All features working in production. Backups running.
 
-## Phase 12: Multi-User Inventories (Future)
+## Phase 12: Open Registration + Discovery (Future)
 
-Other users create and share their own inventories.
+Inventory ownership and sharing are complete (Phase 9.6). Remaining:
 
-- Inventory ownership (users own inventories, not just the admin)
-- Inventory sharing keys with configurable access levels
-- Cross-inventory browsing and discovery
-- Open registration (remove invite-code requirement)
+- [ ] Open registration (remove invite-code requirement)
+- [ ] Cross-inventory browsing and discovery
+- [ ] Additional roles beyond viewer (e.g., editor)
 
 ---
 

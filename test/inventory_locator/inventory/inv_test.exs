@@ -6,62 +6,80 @@ defmodule InventoryLocator.Inventory.InvTest do
 
   setup do
     Repo.delete_all(Inv)
-    :ok
+    user = create_test_user(%{name: "Test Owner", role: "admin"})
+    {:ok, user: user}
   end
 
   describe "create_inventory/1" do
-    test "creates inventory with valid attributes" do
-      attrs = %{name: "Workshop", description: "Main workshop inventory"}
+    test "creates inventory with valid attributes", %{user: user} do
+      attrs = %{name: "Workshop", description: "Main workshop inventory", user_id: user.id}
 
       assert {:ok, inventory} = Inventory.create_inventory(attrs)
       assert inventory.name == "Workshop"
       assert inventory.description == "Main workshop inventory"
+      assert inventory.user_id == user.id
     end
 
-    test "creates inventory without description" do
-      attrs = %{name: "Kitchen"}
+    test "creates inventory without description", %{user: user} do
+      attrs = %{name: "Kitchen", user_id: user.id}
 
       assert {:ok, inventory} = Inventory.create_inventory(attrs)
       assert inventory.name == "Kitchen"
       assert inventory.description == nil
     end
 
-    test "returns error for missing name" do
-      attrs = %{description: "No name"}
+    test "returns error for missing name", %{user: user} do
+      attrs = %{description: "No name", user_id: user.id}
 
       assert {:error, changeset} = Inventory.create_inventory(attrs)
       assert changeset.errors[:name]
     end
 
-    test "enforces unique name constraint" do
-      attrs = %{name: "Unique"}
+    test "returns error for missing user_id" do
+      attrs = %{name: "No owner"}
+
+      assert {:error, changeset} = Inventory.create_inventory(attrs)
+      assert changeset.errors[:user_id]
+    end
+
+    test "enforces unique name per user constraint", %{user: user} do
+      attrs = %{name: "Unique", user_id: user.id}
 
       {:ok, _first} = Inventory.create_inventory(attrs)
       assert {:error, changeset} = Inventory.create_inventory(attrs)
       assert changeset.errors[:name]
     end
+
+    test "allows same name for different users", %{user: user} do
+      other_user = create_test_user(%{name: "Other User", role: "member"})
+
+      {:ok, _first} = Inventory.create_inventory(%{name: "Workshop", user_id: user.id})
+      assert {:ok, _second} = Inventory.create_inventory(%{name: "Workshop", user_id: other_user.id})
+    end
   end
 
-  describe "list_inventories/0" do
-    test "returns empty list when no inventories exist" do
-      assert Inventory.list_inventories() == []
+  describe "list_accessible_inventories/1" do
+    test "returns empty list when no inventories exist", %{user: user} do
+      assert Inventory.list_accessible_inventories(user.id) == []
     end
 
-    test "returns all inventories ordered by name" do
-      {:ok, _inv1} = Inventory.create_inventory(%{name: "Zebra"})
-      {:ok, _inv2} = Inventory.create_inventory(%{name: "Alpha"})
-      {:ok, _inv3} = Inventory.create_inventory(%{name: "Beta"})
+    test "returns only user's inventories ordered by name", %{user: user} do
+      other_user = create_test_user(%{name: "Other", role: "member"})
 
-      inventories = Inventory.list_inventories()
+      {:ok, _inv1} = Inventory.create_inventory(%{name: "Zebra", user_id: user.id})
+      {:ok, _inv2} = Inventory.create_inventory(%{name: "Alpha", user_id: user.id})
+      {:ok, _inv3} = Inventory.create_inventory(%{name: "Other's Inv", user_id: other_user.id})
+
+      inventories = Inventory.list_accessible_inventories(user.id)
       names = Enum.map(inventories, & &1.name)
 
-      assert names == ["Alpha", "Beta", "Zebra"]
+      assert names == ["Alpha", "Zebra"]
     end
   end
 
   describe "get_inventory!/1" do
-    test "returns inventory by id" do
-      {:ok, created} = Inventory.create_inventory(%{name: "Test"})
+    test "returns inventory by id", %{user: user} do
+      {:ok, created} = Inventory.create_inventory(%{name: "Test", user_id: user.id})
 
       fetched = Inventory.get_inventory!(created.id)
       assert fetched.id == created.id
@@ -75,55 +93,57 @@ defmodule InventoryLocator.Inventory.InvTest do
     end
   end
 
-  describe "get_inventory_by_name/1" do
-    test "returns inventory by name" do
-      {:ok, created} = Inventory.create_inventory(%{name: "FindMe"})
+  describe "get_first_inventory!/1" do
+    test "returns first inventory by name for user", %{user: user} do
+      {:ok, _inv1} = Inventory.create_inventory(%{name: "Zebra", user_id: user.id})
+      {:ok, inv2} = Inventory.create_inventory(%{name: "Alpha", user_id: user.id})
 
-      fetched = Inventory.get_inventory_by_name("FindMe")
-      assert fetched.id == created.id
-    end
-
-    test "returns nil when not found" do
-      assert Inventory.get_inventory_by_name("NotFound") == nil
-    end
-  end
-
-  describe "get_first_inventory!/0" do
-    test "returns first inventory by name" do
-      {:ok, _inv1} = Inventory.create_inventory(%{name: "Zebra"})
-      {:ok, inv2} = Inventory.create_inventory(%{name: "Alpha"})
-
-      first = Inventory.get_first_inventory!()
+      first = Inventory.get_first_inventory!(user.id)
       assert first.id == inv2.id
     end
 
-    test "raises when no inventories exist" do
+    test "raises when no inventories exist for user", %{user: user} do
       assert_raise Ecto.NoResultsError, fn ->
-        Inventory.get_first_inventory!()
+        Inventory.get_first_inventory!(user.id)
       end
     end
   end
 
   describe "update_inventory/2" do
-    test "updates inventory attributes" do
-      {:ok, inventory} = Inventory.create_inventory(%{name: "Old"})
+    test "updates inventory attributes", %{user: user} do
+      {:ok, inventory} = Inventory.create_inventory(%{name: "Old", user_id: user.id})
 
       {:ok, updated} = Inventory.update_inventory(inventory, %{name: "New", description: "Updated"})
       assert updated.name == "New"
       assert updated.description == "Updated"
     end
 
-    test "returns error for invalid update" do
-      {:ok, inventory} = Inventory.create_inventory(%{name: "Valid"})
+    test "returns error for invalid update", %{user: user} do
+      {:ok, inventory} = Inventory.create_inventory(%{name: "Valid", user_id: user.id})
 
       assert {:error, changeset} = Inventory.update_inventory(inventory, %{name: ""})
       assert changeset.errors[:name]
     end
   end
 
+  describe "user_can_access?/2" do
+    test "returns true for owned inventory", %{user: user} do
+      {:ok, inv} = Inventory.create_inventory(%{name: "Mine", user_id: user.id})
+
+      assert Inventory.user_can_access?(user.id, inv.id)
+    end
+
+    test "returns false for other user's inventory", %{user: user} do
+      other_user = create_test_user(%{name: "Other", role: "member"})
+      {:ok, inv} = Inventory.create_inventory(%{name: "Theirs", user_id: other_user.id})
+
+      refute Inventory.user_can_access?(user.id, inv.id)
+    end
+  end
+
   describe "inventory associations" do
-    test "shelves are associated with inventory" do
-      {:ok, inventory} = Inventory.create_inventory(%{name: "Test"})
+    test "shelves are associated with inventory", %{user: user} do
+      {:ok, inventory} = Inventory.create_inventory(%{name: "Test", user_id: user.id})
       {:ok, shelf} = Inventory.create_shelf_with_bins(inventory.id, %{code: "A"}, 1)
 
       inventory = Repo.preload(inventory, :shelves)
@@ -131,8 +151,8 @@ defmodule InventoryLocator.Inventory.InvTest do
       assert hd(inventory.shelves).id == shelf.id
     end
 
-    test "item_types are associated with inventory" do
-      {:ok, inventory} = Inventory.create_inventory(%{name: "Test"})
+    test "item_types are associated with inventory", %{user: user} do
+      {:ok, inventory} = Inventory.create_inventory(%{name: "Test", user_id: user.id})
 
       {:ok, item} =
         Inventory.create_item_with_location(%{

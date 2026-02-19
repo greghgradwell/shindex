@@ -60,7 +60,7 @@ defmodule InventoryLocator.Accounts do
 
           case create_user_with_identity(user_attrs, oauth_info.provider, oauth_info.provider_uid) do
             {:ok, user} ->
-              mark_invite_used(invite, user.id)
+              _invite = mark_invite_used(invite, user.id)
               user
 
             {:error, changeset} ->
@@ -122,7 +122,7 @@ defmodule InventoryLocator.Accounts do
       invite ->
         invite
         |> InviteCode.changeset(%{
-          expires_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          expires_at: DateTime.truncate(DateTime.utc_now(), :second)
         })
         |> Repo.update()
     end
@@ -139,7 +139,7 @@ defmodule InventoryLocator.Accounts do
     end
   end
 
-  @spec mark_invite_used(InviteCode.t(), integer()) :: {:ok, InviteCode.t()}
+  @spec mark_invite_used(InviteCode.t(), integer()) :: InviteCode.t()
   defp mark_invite_used(invite, user_id) do
     invite
     |> InviteCode.changeset(%{used_at: DateTime.truncate(DateTime.utc_now(), :second), used_by_id: user_id})

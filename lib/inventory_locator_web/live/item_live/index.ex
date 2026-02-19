@@ -102,7 +102,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("create_new_item", _params, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       inventory_id = socket.assigns.current_inventory.id
 
       case Inventory.get_unsorted_location(inventory_id) do

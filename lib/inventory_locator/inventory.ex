@@ -4,6 +4,8 @@ defmodule InventoryLocator.Inventory do
 
   alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.Inv
+  alias InventoryLocator.Inventory.InventoryMember
+  alias InventoryLocator.Inventory.InventoryShareCode
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
@@ -15,9 +17,16 @@ defmodule InventoryLocator.Inventory do
 
   # Inventories
 
-  @spec list_inventories() :: [Inv.t()]
-  def list_inventories do
-    Repo.all(from(i in Inv, order_by: i.name))
+  @spec list_accessible_inventories(integer()) :: [Inv.t()]
+  def list_accessible_inventories(user_id) do
+    Repo.all(
+      from(i in Inv,
+        left_join: m in InventoryMember,
+        on: m.inventory_id == i.id and m.user_id == ^user_id,
+        where: i.user_id == ^user_id or not is_nil(m.id),
+        order_by: i.name
+      )
+    )
   end
 
   @spec get_inventory!(integer()) :: Inv.t()
@@ -27,14 +36,9 @@ defmodule InventoryLocator.Inventory do
   def get_inventory(nil), do: nil
   def get_inventory(id), do: Repo.get(Inv, id)
 
-  @spec get_inventory_by_name(String.t()) :: Inv.t() | nil
-  def get_inventory_by_name(name) do
-    Repo.get_by(Inv, name: name)
-  end
-
-  @spec get_first_inventory!() :: Inv.t()
-  def get_first_inventory! do
-    Repo.one!(from(i in Inv, order_by: i.name, limit: 1))
+  @spec get_first_inventory!(integer()) :: Inv.t()
+  def get_first_inventory!(user_id) do
+    Repo.one!(from(i in Inv, where: i.user_id == ^user_id, order_by: i.name, limit: 1))
   end
 
   @spec create_inventory(map()) :: {:ok, Inv.t()} | {:error, Ecto.Changeset.t()}
@@ -51,14 +55,17 @@ defmodule InventoryLocator.Inventory do
     |> Repo.update()
   end
 
-  @spec list_inventories_with_counts() :: [{Inv.t(), non_neg_integer(), non_neg_integer()}]
-  def list_inventories_with_counts do
+  @spec list_accessible_inventories_with_counts(integer()) :: [{Inv.t(), non_neg_integer(), non_neg_integer()}]
+  def list_accessible_inventories_with_counts(user_id) do
     Repo.all(
       from(i in Inv,
+        left_join: m in InventoryMember,
+        on: m.inventory_id == i.id and m.user_id == ^user_id,
         left_join: s in Shelf,
         on: s.inventory_id == i.id,
         left_join: it in ItemType,
         on: it.inventory_id == i.id and it.archived == false,
+        where: i.user_id == ^user_id or not is_nil(m.id),
         group_by: i.id,
         select: {i, count(s.id, :distinct), count(it.id, :distinct)},
         order_by: i.name
@@ -66,24 +73,51 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec count_inventories() :: non_neg_integer()
-  def count_inventories do
-    Repo.aggregate(Inv, :count)
+  @spec count_user_inventories(integer()) :: non_neg_integer()
+  def count_user_inventories(user_id) do
+    Repo.aggregate(from(i in Inv, where: i.user_id == ^user_id), :count)
   end
 
-  @spec delete_inventory(Inv.t()) :: {:ok, Inv.t()} | {:error, :last_inventory | Ecto.Changeset.t()}
-  def delete_inventory(%Inv{} = inv) do
-    Repo.transaction(fn ->
-      if count_inventories() <= 1 do
-        Repo.rollback(:last_inventory)
-      else
-        case Repo.delete(inv) do
-          {:ok, deleted} -> deleted
-          {:error, changeset} -> Repo.rollback(changeset)
-        end
-      end
-    end)
+  @spec user_can_access?(integer(), integer()) :: boolean()
+  def user_can_access?(user_id, inventory_id) do
+    Repo.exists?(
+      from(i in Inv,
+        left_join: m in InventoryMember,
+        on: m.inventory_id == i.id and m.user_id == ^user_id,
+        where: i.id == ^inventory_id and (i.user_id == ^user_id or not is_nil(m.id))
+      )
+    )
   end
+
+  @spec user_role_for_inventory(integer(), integer()) :: :owner | :viewer | :none
+  def user_role_for_inventory(user_id, inventory_id) do
+    case Repo.one(from(i in Inv, where: i.id == ^inventory_id, select: i.user_id)) do
+      nil -> :none
+      ^user_id -> :owner
+      _other -> check_membership_role(user_id, inventory_id)
+    end
+  end
+
+  @spec check_membership_role(integer(), integer()) :: :viewer | :none
+  defp check_membership_role(user_id, inventory_id) do
+    case Repo.one(
+           from(m in InventoryMember,
+             where: m.user_id == ^user_id and m.inventory_id == ^inventory_id,
+             select: m.role
+           )
+         ) do
+      nil -> :none
+      _role -> :viewer
+    end
+  end
+
+  @spec user_is_owner?(integer(), integer()) :: boolean()
+  def user_is_owner?(user_id, inventory_id) do
+    Repo.exists?(from(i in Inv, where: i.id == ^inventory_id and i.user_id == ^user_id))
+  end
+
+  @spec delete_inventory(Inv.t()) :: {:ok, Inv.t()} | {:error, Ecto.Changeset.t()}
+  def delete_inventory(%Inv{} = inv), do: Repo.delete(inv)
 
   # Shelves
 
@@ -1064,5 +1098,127 @@ defmodule InventoryLocator.Inventory do
     |> Repo.all()
     |> Enum.group_by(& &1.project_name)
     |> Enum.sort_by(fn {project_name, _} -> project_name end)
+  end
+
+  # Share Codes & Membership
+
+  @spec create_share_code(integer(), integer()) :: {:ok, InventoryShareCode.t()} | {:error, Ecto.Changeset.t()}
+  def create_share_code(inventory_id, created_by_id) do
+    attrs = %{
+      code: InventoryShareCode.generate_code(),
+      role: "viewer",
+      expires_at: InventoryShareCode.default_expiry(),
+      inventory_id: inventory_id,
+      created_by_id: created_by_id
+    }
+
+    %InventoryShareCode{}
+    |> InventoryShareCode.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @spec redeem_share_code(String.t(), integer()) ::
+          {:ok, InventoryMember.t()} | {:error, :invalid_code | :already_member | :own_inventory}
+  def redeem_share_code(code_str, user_id) do
+    case Repo.one(from(sc in InventoryShareCode, where: sc.code == ^code_str, preload: :inventory)) do
+      nil ->
+        {:error, :invalid_code}
+
+      share_code ->
+        cond do
+          not InventoryShareCode.valid?(share_code) ->
+            {:error, :invalid_code}
+
+          share_code.inventory.user_id == user_id ->
+            {:error, :own_inventory}
+
+          Repo.exists?(
+            from(m in InventoryMember,
+              where: m.user_id == ^user_id and m.inventory_id == ^share_code.inventory_id
+            )
+          ) ->
+            {:error, :already_member}
+
+          true ->
+            Repo.transaction(fn ->
+              case %InventoryMember{}
+                   |> InventoryMember.changeset(%{
+                     user_id: user_id,
+                     inventory_id: share_code.inventory_id,
+                     role: share_code.role
+                   })
+                   |> Repo.insert() do
+                {:ok, member} ->
+                  share_code
+                  |> InventoryShareCode.changeset(%{
+                    used_at: DateTime.truncate(DateTime.utc_now(), :second),
+                    used_by_id: user_id
+                  })
+                  |> Repo.update!()
+
+                  member
+
+                {:error, _changeset} ->
+                  Repo.rollback(:already_member)
+              end
+            end)
+        end
+    end
+  end
+
+  @spec get_share_code_info(String.t()) :: %{inventory_name: String.t(), shared_by: String.t(), role: String.t()} | nil
+  def get_share_code_info(code_str) do
+    case Repo.one(
+           from(sc in InventoryShareCode,
+             where: sc.code == ^code_str,
+             preload: [:inventory, :created_by]
+           )
+         ) do
+      nil ->
+        nil
+
+      share_code ->
+        if InventoryShareCode.valid?(share_code) do
+          %{
+            inventory_name: share_code.inventory.name,
+            shared_by: share_code.created_by.name,
+            role: share_code.role
+          }
+        end
+    end
+  end
+
+  @spec list_share_codes(integer()) :: [InventoryShareCode.t()]
+  def list_share_codes(inventory_id) do
+    Repo.all(
+      from(sc in InventoryShareCode,
+        where: sc.inventory_id == ^inventory_id,
+        order_by: [desc: sc.inserted_at],
+        preload: [:created_by, :used_by]
+      )
+    )
+  end
+
+  @spec list_members(integer()) :: [InventoryMember.t()]
+  def list_members(inventory_id) do
+    Repo.all(
+      from(m in InventoryMember,
+        where: m.inventory_id == ^inventory_id,
+        order_by: m.inserted_at,
+        preload: :user
+      )
+    )
+  end
+
+  @spec remove_member(integer(), integer()) :: {:ok, InventoryMember.t()} | {:error, :not_found}
+  def remove_member(inventory_id, user_id) do
+    case Repo.one(
+           from(m in InventoryMember,
+             where: m.inventory_id == ^inventory_id and m.user_id == ^user_id
+           )
+         ) do
+      nil -> {:error, :not_found}
+      member -> Repo.delete(member)
+    end
   end
 end

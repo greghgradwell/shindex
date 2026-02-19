@@ -19,8 +19,8 @@ defmodule InventoryLocatorWeb.ConnCase do
 
   setup tags do
     InventoryLocator.DataCase.setup_sandbox(tags)
-    inventory = InventoryLocator.DataCase.create_test_inventory(%{})
     user = InventoryLocator.DataCase.create_test_user(%{name: "Test Admin", role: "admin"})
+    inventory = InventoryLocator.DataCase.create_test_inventory(%{user_id: user.id})
 
     conn =
       Plug.Test.init_test_session(Phoenix.ConnTest.build_conn(), %{

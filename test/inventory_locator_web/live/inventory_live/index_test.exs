@@ -122,8 +122,8 @@ defmodule InventoryLocatorWeb.InventoryLive.IndexTest do
       assert html =~ ~r/phx-value-id="#{inventory.id}"[^>]*disabled/
     end
 
-    test "opens delete modal for non-current inventory", %{conn: conn} do
-      {:ok, other} = Inventory.create_inventory(%{name: "Other"})
+    test "opens delete modal for non-current inventory", %{conn: conn, user: user} do
+      {:ok, other} = Inventory.create_inventory(%{name: "Other", user_id: user.id})
 
       {:ok, view, _html} = live(conn, ~p"/inventories")
 
@@ -137,8 +137,8 @@ defmodule InventoryLocatorWeb.InventoryLive.IndexTest do
       assert html =~ other.name
     end
 
-    test "requires exact name to enable delete button", %{conn: conn} do
-      {:ok, other} = Inventory.create_inventory(%{name: "ToDelete"})
+    test "requires exact name to enable delete button", %{conn: conn, user: user} do
+      {:ok, other} = Inventory.create_inventory(%{name: "ToDelete", user_id: user.id})
 
       {:ok, view, _html} = live(conn, ~p"/inventories")
 
@@ -161,8 +161,8 @@ defmodule InventoryLocatorWeb.InventoryLive.IndexTest do
       refute html =~ ~r/type="submit"[^>]*disabled/
     end
 
-    test "deletes inventory with correct confirmation", %{conn: conn} do
-      {:ok, other} = Inventory.create_inventory(%{name: "ToDelete"})
+    test "deletes inventory with correct confirmation", %{conn: conn, user: user} do
+      {:ok, other} = Inventory.create_inventory(%{name: "ToDelete", user_id: user.id})
 
       {:ok, view, _html} = live(conn, ~p"/inventories")
 
@@ -180,18 +180,6 @@ defmodule InventoryLocatorWeb.InventoryLive.IndexTest do
         |> render_submit()
 
       refute html =~ ">ToDelete<"
-    end
-
-    test "prevents deleting last inventory", %{conn: _conn, inventory: inventory} do
-      initial_count = Inventory.count_inventories()
-
-      result = Inventory.delete_inventory(inventory)
-
-      if initial_count == 1 do
-        assert result == {:error, :last_inventory}
-      else
-        assert {:ok, _} = result
-      end
     end
 
     test "closes create modal with escape key", %{conn: conn} do

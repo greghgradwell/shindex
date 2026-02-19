@@ -44,7 +44,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   @spec handle_event(String.t(), map(), Socket.t()) ::
           {:noreply, Socket.t()}
   def handle_event("delete_location", %{"id" => id}, socket) when is_integer(id) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       inventory_id = socket.assigns.current_inventory.id
 
       case Inventory.delete_empty_location(id) do
@@ -93,7 +93,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("show_add_item_modal", %{"location_code" => location_code}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       inventory_id = socket.assigns.current_inventory.id
 
       case Inventory.create_item_with_location(%{
@@ -147,7 +147,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("create_shelf", %{"code" => code, "bin_count" => bin_count_str}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       bin_count = String.to_integer(bin_count_str)
       shelf_code = String.upcase(code)
       inventory_id = socket.assigns.current_inventory.id
@@ -194,7 +194,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("rename_shelf", %{"new_code" => new_code}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       shelf = socket.assigns.rename_shelf
       new_code = String.upcase(new_code)
       inventory_id = socket.assigns.current_inventory.id
@@ -229,7 +229,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("delete_shelf", %{"id" => id}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       shelf = Inventory.get_shelf!(String.to_integer(id))
 
       case Inventory.delete_empty_shelf(shelf) do
@@ -249,7 +249,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("add_bin", %{"shelf_id" => shelf_id}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       shelf = Inventory.get_shelf!(String.to_integer(shelf_id))
 
       case Inventory.add_bin_to_shelf(shelf) do
@@ -310,7 +310,7 @@ defmodule InventoryLocatorWeb.LocationLive.Index do
   end
 
   def handle_event("move_bin", %{"new_code" => new_code, "target_shelf_id" => target_shelf_id_str}, socket) do
-    require_admin(socket, fn socket ->
+    require_owner(socket, fn socket ->
       bin = socket.assigns.rename_bin
       source_shelf = socket.assigns.rename_bin_shelf
       target_shelf_id = String.to_integer(target_shelf_id_str)

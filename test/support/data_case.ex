@@ -49,6 +49,14 @@ defmodule InventoryLocator.DataCase do
 
   @spec create_test_inventory(map()) :: InventoryLocator.Inventory.Inv.t()
   def create_test_inventory(attrs) do
+    attrs =
+      if Map.has_key?(attrs, :user_id) do
+        attrs
+      else
+        user = create_test_user(%{name: "Inventory Owner #{System.unique_integer([:positive])}", role: "admin"})
+        Map.put(attrs, :user_id, user.id)
+      end
+
     {:ok, inv} =
       InventoryLocator.Inventory.create_inventory(
         Map.merge(%{name: "Test Inventory #{System.unique_integer([:positive])}"}, attrs)

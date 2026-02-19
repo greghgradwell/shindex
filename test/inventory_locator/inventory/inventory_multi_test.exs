@@ -5,9 +5,10 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
   describe "inventory isolation" do
     setup do
-      {:ok, workshop} = Inventory.create_inventory(%{name: "Workshop"})
-      {:ok, kitchen} = Inventory.create_inventory(%{name: "Kitchen"})
-      %{workshop: workshop, kitchen: kitchen}
+      user = create_test_user(%{name: "Test Owner", role: "admin"})
+      {:ok, workshop} = Inventory.create_inventory(%{name: "Workshop", user_id: user.id})
+      {:ok, kitchen} = Inventory.create_inventory(%{name: "Kitchen", user_id: user.id})
+      %{workshop: workshop, kitchen: kitchen, user: user}
     end
 
     test "items are isolated between inventories", %{workshop: workshop, kitchen: kitchen} do
@@ -192,8 +193,9 @@ defmodule InventoryLocator.Inventory.InventoryMultiTest do
 
   describe "validate_location_code with inventory" do
     test "validates location within correct inventory" do
-      {:ok, inv1} = Inventory.create_inventory(%{name: "Inv1"})
-      {:ok, inv2} = Inventory.create_inventory(%{name: "Inv2"})
+      user = create_test_user(%{name: "Validator", role: "admin"})
+      {:ok, inv1} = Inventory.create_inventory(%{name: "Inv1", user_id: user.id})
+      {:ok, inv2} = Inventory.create_inventory(%{name: "Inv2", user_id: user.id})
 
       {:ok, _shelf} = Inventory.create_shelf_with_bins(inv1.id, %{code: "A"}, 1)
 
