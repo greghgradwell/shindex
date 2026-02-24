@@ -33,14 +33,26 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     inventory_id = current_inventory.id
     inventory_role = Map.get(assigns, :inventory_role, :viewer)
     item = Inventory.get_item_type_with_location!(item_id)
+
+    if item.inventory_id != inventory_id do
+      Logger.warning("Item #{item_id} does not belong to inventory #{inventory_id}")
+      {:ok, socket |> assign(assigns) |> assign(:item, nil)}
+    else
+      update_with_item(assigns, socket, item, inventory_id, inventory_role)
+    end
+  end
+
+  @spec update_with_item(map(), Socket.t(), ItemType.t(), integer(), :owner | :viewer | :none) ::
+          {:ok, Socket.t()}
+  defp update_with_item(assigns, socket, item, inventory_id, inventory_role) do
     location_codes = Inventory.list_location_codes(inventory_id)
     project_names = Inventory.list_project_names(inventory_id)
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
-    documents = Media.list_documents(item_id)
+    documents = Media.list_documents(item.id)
 
-    listings = load_listings(item_id, inventory_role)
-    user_requests = load_user_requests(assigns, item_id, inventory_role)
+    listings = load_listings(item.id, inventory_role)
+    user_requests = load_user_requests(assigns, item.id, inventory_role)
 
     batch_mode = Map.get(assigns, :batch_mode, false)
     start_editing = Map.get(assigns, :start_editing, false)
@@ -96,10 +108,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event(event, _params, socket) when event in @mutation_events do
-    if socket.assigns[:inventory_role] != :owner do
-      {:noreply, notify_flash(socket, :error, "You don't have permission to modify this inventory.")}
-    end
+  def handle_event(event, _params, %{assigns: %{inventory_role: role}} = socket)
+      when event in @mutation_events and role != :owner do
+    {:noreply, notify_flash(socket, :error, "You don't have permission to modify this inventory.")}
   end
 
   def handle_event("close_modal", _params, socket) do
@@ -528,31 +539,43 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   def handle_event("resolve_request", %{"request-id" => request_id_str}, socket) do
     request_id = String.to_integer(request_id_str)
-    request = Marketplace.get_request!(request_id)
+    inventory_id = socket.assigns.current_inventory.id
 
-    case Marketplace.resolve_request(request) do
-      {:ok, _request} ->
-        listings = load_listings(socket.assigns.item.id, :owner)
-        {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request resolved")}
+    case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+      nil ->
+        {:noreply, notify_flash(socket, :error, "Request not found")}
 
-      {:error, changeset} ->
-        Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
-        {:noreply, notify_flash(socket, :error, "Failed to resolve request")}
+      request ->
+        case Marketplace.resolve_request(request) do
+          {:ok, _request} ->
+            listings = load_listings(socket.assigns.item.id, :owner)
+            {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request resolved")}
+
+          {:error, changeset} ->
+            Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
+            {:noreply, notify_flash(socket, :error, "Failed to resolve request")}
+        end
     end
   end
 
   def handle_event("unresolve_request", %{"request-id" => request_id_str}, socket) do
     request_id = String.to_integer(request_id_str)
-    request = Marketplace.get_request!(request_id)
+    inventory_id = socket.assigns.current_inventory.id
 
-    case Marketplace.unresolve_request(request) do
-      {:ok, _request} ->
-        listings = load_listings(socket.assigns.item.id, :owner)
-        {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request reopened")}
+    case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+      nil ->
+        {:noreply, notify_flash(socket, :error, "Request not found")}
 
-      {:error, changeset} ->
-        Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
-        {:noreply, notify_flash(socket, :error, "Failed to reopen request")}
+      request ->
+        case Marketplace.unresolve_request(request) do
+          {:ok, _request} ->
+            listings = load_listings(socket.assigns.item.id, :owner)
+            {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request reopened")}
+
+          {:error, changeset} ->
+            Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
+            {:noreply, notify_flash(socket, :error, "Failed to reopen request")}
+        end
     end
   end
 
@@ -581,6 +604,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
       {:error, :listing_inactive} ->
         {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
+
+      {:error, :unauthorized} ->
+        {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
 
       {:error, changeset} ->
         Logger.warning("Failed to create request: #{inspect(changeset.errors)}")

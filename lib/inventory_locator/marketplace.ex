@@ -2,6 +2,7 @@ defmodule InventoryLocator.Marketplace do
   @moduledoc false
   import Ecto.Query, warn: false
 
+  alias InventoryLocator.Inventory
   alias InventoryLocator.Marketplace.Listing
   alias InventoryLocator.Marketplace.Request
   alias InventoryLocator.Repo
@@ -60,29 +61,37 @@ defmodule InventoryLocator.Marketplace do
 
   # Requests
 
-  @spec create_request(map()) :: {:ok, Request.t()} | {:error, :already_requested | :listing_inactive | Ecto.Changeset.t()}
+  @spec create_request(map()) ::
+          {:ok, Request.t()}
+          | {:error, :already_requested | :listing_inactive | :unauthorized | Ecto.Changeset.t()}
   def create_request(attrs) do
     listing_id = Map.fetch!(attrs, :listing_id)
-    listing = Repo.get!(Listing, listing_id)
+    requester_id = Map.fetch!(attrs, :requester_id)
+    listing = Repo.get!(Listing, listing_id) |> Repo.preload(:item_type)
 
-    if not listing.active do
-      {:error, :listing_inactive}
-    else
-      case %Request{}
-           |> Request.changeset(Map.put(attrs, :resolved, false))
-           |> Repo.insert() do
-        {:ok, request} ->
-          broadcast_new_request(listing, request)
-          {:ok, request}
+    cond do
+      not Inventory.user_can_access?(requester_id, listing.item_type.inventory_id) ->
+        {:error, :unauthorized}
 
-        {:error, %Ecto.Changeset{errors: errors} = changeset} ->
-          if Keyword.has_key?(errors, :listing_id) and
-               match?({_, [constraint: :unique, constraint_name: _]}, Keyword.get(errors, :listing_id)) do
-            {:error, :already_requested}
-          else
-            {:error, changeset}
-          end
-      end
+      not listing.active ->
+        {:error, :listing_inactive}
+
+      true ->
+        case %Request{}
+             |> Request.changeset(Map.put(attrs, :resolved, false))
+             |> Repo.insert() do
+          {:ok, request} ->
+            broadcast_new_request(listing, request)
+            {:ok, request}
+
+          {:error, %Ecto.Changeset{errors: errors} = changeset} ->
+            if Keyword.has_key?(errors, :listing_id) and
+                 match?({_, [constraint: :unique, constraint_name: _]}, Keyword.get(errors, :listing_id)) do
+              {:error, :already_requested}
+            else
+              {:error, changeset}
+            end
+        end
     end
   end
 
@@ -102,6 +111,17 @@ defmodule InventoryLocator.Marketplace do
 
   @spec get_request!(integer()) :: Request.t()
   def get_request!(id), do: Repo.get!(Request, id)
+
+  @spec get_request_for_inventory(integer(), integer()) :: Request.t() | nil
+  def get_request_for_inventory(request_id, inventory_id) do
+    Repo.one(
+      from(r in Request,
+        join: l in assoc(r, :listing),
+        join: it in assoc(l, :item_type),
+        where: r.id == ^request_id and it.inventory_id == ^inventory_id
+      )
+    )
+  end
 
   @spec list_requests_for_inventory(integer()) :: [Request.t()]
   def list_requests_for_inventory(inventory_id) do
@@ -154,7 +174,6 @@ defmodule InventoryLocator.Marketplace do
 
   @spec broadcast_new_request(Listing.t(), Request.t()) :: :ok
   defp broadcast_new_request(listing, _request) do
-    listing = Repo.preload(listing, item_type: [])
     inventory_id = listing.item_type.inventory_id
     Phoenix.PubSub.broadcast(InventoryLocator.PubSub, "inventory:#{inventory_id}:requests", :new_request)
   end
