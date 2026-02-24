@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
 
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.Inv
+  alias InventoryLocator.Marketplace
   alias Phoenix.LiveView.Socket
 
   @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
@@ -17,6 +18,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
 
     inventory = find_inventory(inventory_id, inventories)
     inventory_role = inventory_role(user_id, inventory)
+    unresolved_count = unresolved_request_count(inventory, inventory_role)
 
     socket =
       socket
@@ -24,6 +26,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
       |> assign(:inventories, inventories)
       |> assign(:admin_mode, admin_mode)
       |> assign(:inventory_role, inventory_role)
+      |> assign(:unresolved_request_count, unresolved_count)
       |> attach_hook(:inventory_refresh, :handle_info, &handle_inventory_refresh/2)
 
     {:cont, socket}
@@ -67,4 +70,14 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   end
 
   defp handle_inventory_refresh(_message, socket), do: {:cont, socket}
+
+  @spec unresolved_request_count(Inv.t() | nil, :owner | :viewer | :none) :: non_neg_integer()
+  defp unresolved_request_count(nil, _role), do: 0
+  defp unresolved_request_count(_inventory, :none), do: 0
+
+  defp unresolved_request_count(inventory, :owner) do
+    Marketplace.count_unresolved_requests(inventory.id)
+  end
+
+  defp unresolved_request_count(_inventory, _role), do: 0
 end

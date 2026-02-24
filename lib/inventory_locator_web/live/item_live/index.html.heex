@@ -10,7 +10,7 @@
     <% end %>
   </:subtitle>
   <:actions>
-    <.button phx-click="create_new_item">
+    <.button :if={@inventory_role == :owner} phx-click="create_new_item">
       <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Item
     </.button>
   </:actions>
@@ -25,7 +25,7 @@
   </.link>
 </div>
 
-<div class="mt-4">
+<div class="mt-4 flex flex-wrap items-center gap-4">
   <label class="flex items-center gap-2 cursor-pointer">
     <input
       type="checkbox"
@@ -35,6 +35,42 @@
     />
     <span class="text-sm">Show archived items</span>
   </label>
+
+  <%= if @inventory_role == :viewer do %>
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-base-content/60">Available:</span>
+      <label class="flex items-center gap-1 cursor-pointer">
+        <input
+          type="checkbox"
+          phx-click="toggle_availability_filter"
+          phx-value-type="borrow"
+          checked={"borrow" in @availability_filters}
+          class="checkbox checkbox-xs checkbox-info"
+        />
+        <span class="text-xs">Borrow</span>
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer">
+        <input
+          type="checkbox"
+          phx-click="toggle_availability_filter"
+          phx-value-type="lease"
+          checked={"lease" in @availability_filters}
+          class="checkbox checkbox-xs checkbox-warning"
+        />
+        <span class="text-xs">Lease</span>
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer">
+        <input
+          type="checkbox"
+          phx-click="toggle_availability_filter"
+          phx-value-type="sale"
+          checked={"sale" in @availability_filters}
+          class="checkbox checkbox-xs checkbox-success"
+        />
+        <span class="text-xs">Sale</span>
+      </label>
+    </div>
+  <% end %>
 </div>
 
 <%= if @view_mode == :search do %>
@@ -45,6 +81,7 @@
     page={@page}
     total_count={@total_count}
     page_size={@page_size}
+    listing_types_map={@listing_types_map}
   />
 
   <%= cond do %>
@@ -63,7 +100,7 @@
         <%= if @ai_results == [] do %>
           <p class="text-base-content/60 text-center py-8">No semantic matches found</p>
         <% else %>
-          <.item_grid items={@ai_results} />
+          <.item_grid items={@ai_results} listing_types_map={@listing_types_map} />
         <% end %>
       </div>
     <% true -> %>
@@ -77,6 +114,7 @@
     page={@page}
     total_count={@total_count}
     page_size={@page_size}
+    listing_types_map={@listing_types_map}
   />
 <% end %>
 
@@ -90,6 +128,8 @@
   current_inventory={@current_inventory}
   start_editing={@start_editing}
   admin_user?={@admin_user?}
+  inventory_role={@inventory_role}
+  current_user={@current_user}
 />
 
 <div

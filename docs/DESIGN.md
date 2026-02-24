@@ -397,13 +397,17 @@ inventory_locator/
 
 **Why one-time-use codes over persistent invite links:** Limits exposure if a link is shared beyond the intended recipient. Matches the existing invite code pattern.
 
-### 9. Request Workflow
+### 9. Marketplace (Listings & Requests)
 
-**Decision:** Simple status-based workflow using Ecto.Enum. No state machine library.
+**Decision:** Requests are conversation starters, not approval workflows. No status machine. Owner marks requests as `resolved` when handled through direct communication.
 
 **Schema:**
-- `listings` table: item_type_id, type (borrow/lease/sale), price (nullable), notes, active
-- `requests` table: listing_id, requester_id (user), status (pending/approved/denied/completed), message, admin_notes
+- `listings` table: item_type_id, type (borrow/lease/sale), price (nullable decimal), notes, active (boolean). Unique on (item_type_id, type). on_delete: restrict.
+- `requests` table: listing_id, requester_id, message (nullable), resolved (boolean). Unique on (listing_id, requester_id). on_delete: cascade.
+
+**Context:** `Marketplace` context (separate from Inventory ~1200 lines). Functions: create/deactivate listings, create/resolve/unresolve requests, count unresolved, list by inventory/user.
+
+**Notifications:** PubSub broadcast on new request. Nav badge shows unresolved count for owners. No email (deferred).
 
 **Status transitions:** pending → approved/denied, approved → completed
 

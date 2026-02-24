@@ -9,19 +9,21 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   alias Phoenix.LiveView.Rendered
 
   attr :items, :list, required: true
+  attr :listing_types_map, :map, required: true
 
   @spec item_grid(map()) :: Rendered.t()
   def item_grid(assigns) do
     ~H"""
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <%= for item <- @items do %>
-        <.item_card item={item} />
+        <.item_card item={item} listing_types={Map.get(@listing_types_map, item.id, [])} />
       <% end %>
     </div>
     """
   end
 
   attr :item, :map, required: true
+  attr :listing_types, :list, required: true
 
   @spec item_card(map()) :: Rendered.t()
   def item_card(assigns) do
@@ -54,6 +56,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
         {if @item.location, do: @item.location.full_code, else: "No location"}
       </p>
       <p class="text-sm">{@item.quantity} in stock</p>
+      <.availability_badges listing_types={@listing_types} />
 
       <%= if @item.archived do %>
         <span class="inline-block mt-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
@@ -70,6 +73,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   attr :page, :integer, required: true
   attr :total_count, :integer, required: true
   attr :page_size, :integer, required: true
+  attr :listing_types_map, :map, required: true
 
   @spec search_view(map()) :: Rendered.t()
   def search_view(assigns) do
@@ -137,7 +141,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
             <span class="text-sm">Press Enter to try AI-powered search</span>
           </p>
         <% true -> %>
-          <.item_grid items={@results} />
+          <.item_grid items={@results} listing_types_map={@listing_types_map} />
           <.pagination_controls page={@page} total_count={@total_count} page_size={@page_size} />
       <% end %>
     </div>
@@ -150,6 +154,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   attr :page, :integer, required: true
   attr :total_count, :integer, required: true
   attr :page_size, :integer, required: true
+  attr :listing_types_map, :map, required: true
 
   @spec table_view(map()) :: Rendered.t()
   def table_view(assigns) do
@@ -187,6 +192,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
                 <.sort_indicator column={:location} sort_by={@sort_by} sort_order={@sort_order} />
               </th>
               <th>Qty</th>
+              <th>Available</th>
             </tr>
           </thead>
           <tbody>
@@ -215,6 +221,9 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
                   {if item.location, do: item.location.full_code, else: "—"}
                 </td>
                 <td>{item.quantity}</td>
+                <td>
+                  <.availability_badges listing_types={Map.get(@listing_types_map, item.id, [])} />
+                </td>
               </tr>
             <% end %>
           </tbody>
@@ -268,6 +277,19 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
         {if @sort_order == :asc, do: "▲", else: "▼"}
       </span>
     <% end %>
+    """
+  end
+
+  attr :listing_types, :list, required: true
+
+  @spec availability_badges(map()) :: Rendered.t()
+  def availability_badges(assigns) do
+    ~H"""
+    <div :if={@listing_types != []} class="flex flex-wrap gap-1 mt-1">
+      <span :if={"borrow" in @listing_types} class="badge badge-xs badge-info">Borrow</span>
+      <span :if={"lease" in @listing_types} class="badge badge-xs badge-warning">Lease</span>
+      <span :if={"sale" in @listing_types} class="badge badge-xs badge-success">Buy</span>
+    </div>
     """
   end
 end

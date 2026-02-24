@@ -42,6 +42,12 @@
           <.link navigate={~p"/projects"} class="btn btn-ghost btn-sm md:btn-md">
             Projects
           </.link>
+          <.link navigate={~p"/requests"} class="btn btn-ghost btn-sm md:btn-md">
+            Requests
+            <%= if assigns[:unresolved_request_count] && assigns[:unresolved_request_count] > 0 do %>
+              <span class="badge badge-sm badge-primary">{@unresolved_request_count}</span>
+            <% end %>
+          </.link>
           <div class="divider divider-horizontal mx-1 hidden md:flex"></div>
           <.link navigate={~p"/inventories"} class="btn btn-ghost btn-sm md:btn-md">
             Inventories

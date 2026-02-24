@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
 
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.Inv
+  alias InventoryLocator.Marketplace
 
   @bypass_paths ["/inventories", "/share/"]
 
@@ -37,12 +38,20 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
         admin_mode = get_session(conn, :admin_mode) || false
         inventory_role = inventory_role(user_id, inventory)
 
+        unresolved_count =
+          if inventory_role == :owner do
+            Marketplace.count_unresolved_requests(inventory.id)
+          else
+            0
+          end
+
         conn
         |> put_session(:inventory_id, inventory.id)
         |> assign(:current_inventory, inventory)
         |> assign(:inventories, inventories)
         |> assign(:admin_mode, admin_mode)
         |> assign(:inventory_role, inventory_role)
+        |> assign(:unresolved_request_count, unresolved_count)
     end
   end
 

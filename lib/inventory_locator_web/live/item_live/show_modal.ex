@@ -5,6 +5,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Marketplace
   alias InventoryLocator.Media
   alias Phoenix.LiveView.Socket
 
@@ -15,7 +16,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   @mutation_events ~w(increment_quantity decrement_quantity update_quantity archive
     confirm_archive_from_quantity restore update_item_details move_to_location
     save_photo_only save_document delete_document fetch_document_from_url delete
-    install_item increment_installation decrement_installation uninstall_item)
+    install_item increment_installation decrement_installation uninstall_item
+    create_listing deactivate_listing resolve_request unresolve_request)
 
   @impl true
   @spec update(map(), Socket.t()) :: {:ok, Socket.t()}
@@ -29,12 +31,16 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   def update(%{item_id: item_id, current_inventory: current_inventory} = assigns, socket) do
     inventory_id = current_inventory.id
+    inventory_role = Map.get(assigns, :inventory_role, :viewer)
     item = Inventory.get_item_type_with_location!(item_id)
     location_codes = Inventory.list_location_codes(inventory_id)
     project_names = Inventory.list_project_names(inventory_id)
     installations = Inventory.list_installations_for_item(item)
     installed_quantity = Enum.sum(Enum.map(installations, & &1.quantity))
     documents = Media.list_documents(item_id)
+
+    listings = load_listings(item_id, inventory_role)
+    user_requests = load_user_requests(assigns, item_id, inventory_role)
 
     batch_mode = Map.get(assigns, :batch_mode, false)
     start_editing = Map.get(assigns, :start_editing, false)
@@ -77,6 +83,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:move_location_error, nil)
      |> assign(:batch_mode, batch_mode)
      |> assign(:batch_total, Map.get(assigns, :batch_total, 0))
+     |> assign(:listings, listings)
+     |> assign(:user_requests, user_requests)
+     |> assign(:show_listing_form, false)
+     |> assign(:inventory_role, inventory_role)
      |> assign_new(:pending_photo, fn -> nil end)
      |> assign_new(:show_document_url_input, fn -> false end)
      |> assign_new(:document_url, fn -> "" end)
@@ -86,8 +96,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event(event, _params, %{assigns: %{admin_user?: false}} = socket) when event in @mutation_events do
-    {:noreply, notify_flash(socket, :error, "Admin access required.")}
+  def handle_event(event, _params, socket) when event in @mutation_events do
+    if socket.assigns[:inventory_role] != :owner do
+      {:noreply, notify_flash(socket, :error, "You don't have permission to modify this inventory.")}
+    end
   end
 
   def handle_event("close_modal", _params, socket) do
@@ -458,6 +470,124 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_listing_form", _params, socket) do
+    {:noreply, assign(socket, :show_listing_form, not socket.assigns.show_listing_form)}
+  end
+
+  def handle_event("create_listing", %{"type" => type} = params, socket) do
+    item = socket.assigns.item
+    price = parse_price(Map.get(params, "price", ""))
+    notes = blank_to_nil(Map.get(params, "notes", ""))
+
+    attrs = %{
+      item_type_id: item.id,
+      type: type,
+      price: price,
+      notes: notes,
+      active: true
+    }
+
+    case Marketplace.create_listing(attrs) do
+      {:ok, _listing} ->
+        listings = load_listings(item.id, :owner)
+
+        {:noreply,
+         socket
+         |> assign(:listings, listings)
+         |> assign(:show_listing_form, false)
+         |> notify_flash(:info, "Listed as #{type}")}
+
+      {:error, changeset} ->
+        Logger.warning("Failed to create listing: #{inspect(changeset.errors)}")
+        {:noreply, notify_flash(socket, :error, "Failed to create listing")}
+    end
+  end
+
+  def handle_event("deactivate_listing", %{"listing-id" => listing_id_str}, socket) do
+    listing_id = String.to_integer(listing_id_str)
+    listing = Enum.find(socket.assigns.listings, &(&1.id == listing_id))
+
+    if listing do
+      case Marketplace.deactivate_listing(listing) do
+        {:ok, _listing} ->
+          listings = load_listings(socket.assigns.item.id, :owner)
+
+          {:noreply,
+           socket
+           |> assign(:listings, listings)
+           |> notify_flash(:info, "Listing deactivated")}
+
+        {:error, changeset} ->
+          Logger.warning("Failed to deactivate listing: #{inspect(changeset.errors)}")
+          {:noreply, notify_flash(socket, :error, "Failed to deactivate listing")}
+      end
+    else
+      {:noreply, notify_flash(socket, :error, "Listing not found")}
+    end
+  end
+
+  def handle_event("resolve_request", %{"request-id" => request_id_str}, socket) do
+    request_id = String.to_integer(request_id_str)
+    request = Marketplace.get_request!(request_id)
+
+    case Marketplace.resolve_request(request) do
+      {:ok, _request} ->
+        listings = load_listings(socket.assigns.item.id, :owner)
+        {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request resolved")}
+
+      {:error, changeset} ->
+        Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
+        {:noreply, notify_flash(socket, :error, "Failed to resolve request")}
+    end
+  end
+
+  def handle_event("unresolve_request", %{"request-id" => request_id_str}, socket) do
+    request_id = String.to_integer(request_id_str)
+    request = Marketplace.get_request!(request_id)
+
+    case Marketplace.unresolve_request(request) do
+      {:ok, _request} ->
+        listings = load_listings(socket.assigns.item.id, :owner)
+        {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request reopened")}
+
+      {:error, changeset} ->
+        Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
+        {:noreply, notify_flash(socket, :error, "Failed to reopen request")}
+    end
+  end
+
+  def handle_event("create_request", %{"listing-id" => listing_id_str} = params, socket) do
+    listing_id = String.to_integer(listing_id_str)
+    message = blank_to_nil(Map.get(params, "message", ""))
+    user_id = socket.assigns.current_user.id
+
+    attrs = %{
+      listing_id: listing_id,
+      requester_id: user_id,
+      message: message
+    }
+
+    case Marketplace.create_request(attrs) do
+      {:ok, _request} ->
+        user_requests = Marketplace.user_requests_for_item(user_id, socket.assigns.item.id)
+
+        {:noreply,
+         socket
+         |> assign(:user_requests, user_requests)
+         |> notify_flash(:info, "Request sent")}
+
+      {:error, :already_requested} ->
+        {:noreply, notify_flash(socket, :error, "You've already requested this listing")}
+
+      {:error, :listing_inactive} ->
+        {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
+
+      {:error, changeset} ->
+        Logger.warning("Failed to create request: #{inspect(changeset.errors)}")
+        {:noreply, notify_flash(socket, :error, "Failed to send request")}
+    end
+  end
+
   def handle_event("save_photo_only", _params, socket) do
     case process_pending_photo(socket.assigns.pending_photo) do
       {:ok, nil} ->
@@ -785,6 +915,35 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   defp blank_to_nil(str) when is_binary(str) do
     trimmed = String.trim(str)
     if trimmed == "", do: nil, else: trimmed
+  end
+
+  @spec parse_price(String.t()) :: Decimal.t() | nil
+  defp parse_price(""), do: nil
+
+  defp parse_price(str) do
+    case Decimal.parse(str) do
+      {decimal, _} -> decimal
+      :error -> nil
+    end
+  end
+
+  @spec load_listings(integer(), :owner | :viewer | :none) :: [Listing.t()]
+  defp load_listings(item_type_id, :owner), do: Marketplace.list_listings_for_item(item_type_id)
+  defp load_listings(item_type_id, _role), do: Marketplace.list_active_listings_for_item(item_type_id)
+
+  @spec load_user_requests(map(), integer(), :owner | :viewer | :none) :: [Marketplace.Request.t()]
+  defp load_user_requests(_assigns, _item_type_id, :owner), do: []
+
+  defp load_user_requests(assigns, item_type_id, _role) do
+    case Map.get(assigns, :current_user) do
+      nil -> []
+      user -> Marketplace.user_requests_for_item(user.id, item_type_id)
+    end
+  end
+
+  @spec user_requested_listing?(integer(), [Marketplace.Request.t()]) :: boolean()
+  defp user_requested_listing?(listing_id, user_requests) do
+    Enum.any?(user_requests, fn r -> r.listing.id == listing_id end)
   end
 
   @spec do_uninstall(Socket.t(), String.t(), pos_integer()) :: {:noreply, Socket.t()}
