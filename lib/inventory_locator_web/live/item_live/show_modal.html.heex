@@ -518,7 +518,9 @@
                           {String.capitalize(listing.type)}
                         </span>
                         <%= if listing.price do %>
-                          <span class="text-sm font-medium">${Decimal.to_string(listing.price)}</span>
+                          <span class="text-sm font-medium">
+                            ${Decimal.to_string(listing.price)}
+                          </span>
                         <% end %>
                         <%= if not listing.active do %>
                           <span class="badge badge-sm badge-ghost">Inactive</span>
@@ -552,7 +554,9 @@
                               <div>
                                 <span class="font-medium">{request.requester.name}</span>
                                 <%= if request.message do %>
-                                  <span class="text-base-content/60"> — {request.message}</span>
+                                  <span class="text-base-content/60">
+                                    &mdash; {request.message}
+                                  </span>
                                 <% end %>
                               </div>
                               <div>

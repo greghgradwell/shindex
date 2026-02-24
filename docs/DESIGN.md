@@ -409,10 +409,6 @@ inventory_locator/
 
 **Notifications:** PubSub broadcast on new request. Nav badge shows unresolved count for owners. No email (deferred).
 
-**Status transitions:** pending → approved/denied, approved → completed
-
-**Notifications:** Swoosh for email (async via Oban). Phoenix PubSub for real-time in-app notifications.
-
 ## Security Considerations
 
 | Concern | Mitigation |

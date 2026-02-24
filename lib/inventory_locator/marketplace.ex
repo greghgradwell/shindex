@@ -7,8 +7,6 @@ defmodule InventoryLocator.Marketplace do
   alias InventoryLocator.Marketplace.Request
   alias InventoryLocator.Repo
 
-  require Logger
-
   # Listings
 
   @spec create_listing(map()) :: {:ok, Listing.t()} | {:error, Ecto.Changeset.t()}
@@ -50,46 +48,56 @@ defmodule InventoryLocator.Marketplace do
   def listing_types_for_items([]), do: %{}
 
   def listing_types_for_items(item_ids) do
-    Repo.all(
-      from(l in Listing,
-        where: l.item_type_id in ^item_ids and l.active == true,
-        select: {l.item_type_id, l.type}
+    rows =
+      Repo.all(
+        from(l in Listing,
+          where: l.item_type_id in ^item_ids and l.active == true,
+          select: {l.item_type_id, l.type}
+        )
       )
-    )
-    |> Enum.group_by(fn {id, _type} -> id end, fn {_id, type} -> type end)
+
+    Enum.group_by(rows, fn {id, _type} -> id end, fn {_id, type} -> type end)
   end
 
   # Requests
 
   @spec create_request(map()) ::
           {:ok, Request.t()}
-          | {:error, :already_requested | :listing_inactive | :unauthorized | Ecto.Changeset.t()}
+          | {:error, :already_requested | :listing_inactive | :listing_not_found | :unauthorized | Ecto.Changeset.t()}
   def create_request(attrs) do
     listing_id = Map.fetch!(attrs, :listing_id)
     requester_id = Map.fetch!(attrs, :requester_id)
-    listing = Repo.get!(Listing, listing_id) |> Repo.preload(:item_type)
 
-    cond do
-      not Inventory.user_can_access?(requester_id, listing.item_type.inventory_id) ->
-        {:error, :unauthorized}
+    case Repo.get(Listing, listing_id) do
+      nil ->
+        {:error, :listing_not_found}
 
-      not listing.active ->
-        {:error, :listing_inactive}
+      listing ->
+        listing = Repo.preload(listing, :item_type)
 
-      true ->
-        case %Request{}
-             |> Request.changeset(Map.put(attrs, :resolved, false))
-             |> Repo.insert() do
-          {:ok, request} ->
-            broadcast_new_request(listing, request)
-            {:ok, request}
+        cond do
+          not Inventory.user_can_access?(requester_id, listing.item_type.inventory_id) ->
+            {:error, :unauthorized}
 
-          {:error, %Ecto.Changeset{errors: errors} = changeset} ->
-            if Keyword.has_key?(errors, :listing_id) and
-                 match?({_, [constraint: :unique, constraint_name: _]}, Keyword.get(errors, :listing_id)) do
-              {:error, :already_requested}
-            else
-              {:error, changeset}
+          not listing.active ->
+            {:error, :listing_inactive}
+
+          true ->
+            case %Request{}
+                 |> Request.changeset(Map.put(attrs, :resolved, false))
+                 |> Repo.insert() do
+              {:ok, request} ->
+                broadcast_new_request(listing)
+                {:ok, request}
+
+              {:error, %Ecto.Changeset{errors: errors} = changeset} ->
+                if Enum.any?(errors, fn {_field, {_msg, opts}} ->
+                     Keyword.get(opts, :constraint) == :unique
+                   end) do
+                  {:error, :already_requested}
+                else
+                  {:error, changeset}
+                end
             end
         end
     end
@@ -108,9 +116,6 @@ defmodule InventoryLocator.Marketplace do
     |> Request.changeset(%{resolved: false})
     |> Repo.update()
   end
-
-  @spec get_request!(integer()) :: Request.t()
-  def get_request!(id), do: Repo.get!(Request, id)
 
   @spec get_request_for_inventory(integer(), integer()) :: Request.t() | nil
   def get_request_for_inventory(request_id, inventory_id) do
@@ -172,8 +177,8 @@ defmodule InventoryLocator.Marketplace do
     )
   end
 
-  @spec broadcast_new_request(Listing.t(), Request.t()) :: :ok
-  defp broadcast_new_request(listing, _request) do
+  @spec broadcast_new_request(Listing.t()) :: :ok
+  defp broadcast_new_request(listing) do
     inventory_id = listing.item_type.inventory_id
     Phoenix.PubSub.broadcast(InventoryLocator.PubSub, "inventory:#{inventory_id}:requests", :new_request)
   end

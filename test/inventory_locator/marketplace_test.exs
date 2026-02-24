@@ -281,6 +281,13 @@ defmodule InventoryLocator.MarketplaceTest do
       assert {:error, :unauthorized} =
                Marketplace.create_request(%{listing_id: listing.id, requester_id: outsider.id})
     end
+
+    test "returns :listing_not_found for non-existent listing" do
+      requester = create_test_user(%{name: "Requester", role: "member"})
+
+      assert {:error, :listing_not_found} =
+               Marketplace.create_request(%{listing_id: -1, requester_id: requester.id})
+    end
   end
 
   describe "resolve_request/1 and unresolve_request/1" do
@@ -429,11 +436,16 @@ defmodule InventoryLocator.MarketplaceTest do
       {:ok, _} = Marketplace.create_listing(%{item_type_id: item1.id, type: "borrow", active: true})
 
       {items, count} =
-        Inventory.search_items(inventory.id, "", show_archived: false, filters: [], page: 1, page_size: 48, listing_types: ["borrow"])
+        Inventory.search_items(inventory.id, "",
+          show_archived: false,
+          filters: [],
+          page: 1,
+          page_size: 48,
+          listing_types: ["borrow"]
+        )
 
       assert count == 1
       assert hd(items).id == item1.id
-      # item2 should not appear
       refute Enum.any?(items, fn i -> i.id == item2.id end)
     end
 

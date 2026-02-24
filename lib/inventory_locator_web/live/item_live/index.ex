@@ -80,8 +80,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("toggle_availability_filter", %{"type" => type}, socket)
-      when type in ["borrow", "lease", "sale"] do
+  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in ["borrow", "lease", "sale"] do
     filters = toggle_filter_list(socket.assigns.availability_filters, type)
 
     socket =

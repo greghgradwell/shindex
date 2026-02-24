@@ -34,11 +34,13 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     inventory_role = Map.get(assigns, :inventory_role, :viewer)
     item = Inventory.get_item_type_with_location!(item_id)
 
-    if item.inventory_id != inventory_id do
-      Logger.warning("Item #{item_id} does not belong to inventory #{inventory_id}")
-      {:ok, socket |> assign(assigns) |> assign(:item, nil)}
-    else
+    if item.inventory_id == inventory_id do
       update_with_item(assigns, socket, item, inventory_id, inventory_role)
+    else
+      Logger.warning("Item #{item_id} does not belong to inventory #{inventory_id}")
+      send(self(), {:close_item_modal})
+      send(self(), {:flash, :error, "Item not found in this inventory"})
+      {:ok, assign(socket, assigns)}
     end
   end
 
@@ -605,6 +607,9 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
       {:error, :listing_inactive} ->
         {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
 
+      {:error, :listing_not_found} ->
+        {:noreply, notify_flash(socket, :error, "This listing no longer exists")}
+
       {:error, :unauthorized} ->
         {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
 
@@ -948,24 +953,30 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
   defp parse_price(str) do
     case Decimal.parse(str) do
-      {decimal, _} -> decimal
-      :error -> nil
+      {decimal, rest} ->
+        if String.trim(rest) == "", do: decimal
+
+      :error ->
+        nil
     end
   end
 
   @spec load_listings(integer(), :owner | :viewer | :none) :: [Listing.t()]
   defp load_listings(item_type_id, :owner), do: Marketplace.list_listings_for_item(item_type_id)
-  defp load_listings(item_type_id, _role), do: Marketplace.list_active_listings_for_item(item_type_id)
+  defp load_listings(item_type_id, :viewer), do: Marketplace.list_active_listings_for_item(item_type_id)
+  defp load_listings(item_type_id, :none), do: Marketplace.list_active_listings_for_item(item_type_id)
 
   @spec load_user_requests(map(), integer(), :owner | :viewer | :none) :: [Marketplace.Request.t()]
   defp load_user_requests(_assigns, _item_type_id, :owner), do: []
 
-  defp load_user_requests(assigns, item_type_id, _role) do
+  defp load_user_requests(assigns, item_type_id, :viewer) do
     case Map.get(assigns, :current_user) do
       nil -> []
       user -> Marketplace.user_requests_for_item(user.id, item_type_id)
     end
   end
+
+  defp load_user_requests(_assigns, _item_type_id, :none), do: []
 
   @spec user_requested_listing?(integer(), [Marketplace.Request.t()]) :: boolean()
   defp user_requested_listing?(listing_id, user_requests) do

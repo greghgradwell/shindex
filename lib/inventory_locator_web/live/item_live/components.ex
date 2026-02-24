@@ -70,6 +70,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
   attr :query, :string, required: true
   attr :results, :list, required: true
   attr :active_filters, :list, required: true
+  attr :availability_filters, :list, required: true
   attr :page, :integer, required: true
   attr :total_count, :integer, required: true
   attr :page_size, :integer, required: true
@@ -131,7 +132,7 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
 
     <div class="mt-8">
       <%= cond do %>
-        <% @query == "" and @active_filters == [] -> %>
+        <% @query == "" and @active_filters == [] and @availability_filters == [] -> %>
           <p class="text-gray-500 text-center py-12">
             Start typing to search for items or select filters to find incomplete items
           </p>
