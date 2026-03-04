@@ -46,20 +46,26 @@ defmodule InventoryLocatorWeb.RequestLive.Index do
 
   def handle_event("resolve", %{"id" => id_str}, socket) do
     require_owner(socket, fn socket ->
-      inventory_id = socket.assigns.current_inventory.id
+      case Integer.parse(id_str) do
+        :error ->
+          {:noreply, put_flash(socket, :error, "Invalid request ID")}
 
-      case Marketplace.get_request_for_inventory(String.to_integer(id_str), inventory_id) do
-        nil ->
-          {:noreply, put_flash(socket, :error, "Request not found")}
+        {request_id, _} ->
+          inventory_id = socket.assigns.current_inventory.id
 
-        request ->
-          case Marketplace.resolve_request(request) do
-            {:ok, _request} ->
-              {:noreply, socket |> reload_requests() |> put_flash(:info, "Request resolved")}
+          case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+            nil ->
+              {:noreply, put_flash(socket, :error, "Request not found")}
 
-            {:error, changeset} ->
-              Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
-              {:noreply, put_flash(socket, :error, "Failed to resolve request")}
+            request ->
+              case Marketplace.resolve_request(request) do
+                {:ok, _request} ->
+                  {:noreply, socket |> reload_requests() |> put_flash(:info, "Request resolved")}
+
+                {:error, changeset} ->
+                  Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
+                  {:noreply, put_flash(socket, :error, "Failed to resolve request")}
+              end
           end
       end
     end)
@@ -67,20 +73,26 @@ defmodule InventoryLocatorWeb.RequestLive.Index do
 
   def handle_event("unresolve", %{"id" => id_str}, socket) do
     require_owner(socket, fn socket ->
-      inventory_id = socket.assigns.current_inventory.id
+      case Integer.parse(id_str) do
+        :error ->
+          {:noreply, put_flash(socket, :error, "Invalid request ID")}
 
-      case Marketplace.get_request_for_inventory(String.to_integer(id_str), inventory_id) do
-        nil ->
-          {:noreply, put_flash(socket, :error, "Request not found")}
+        {request_id, _} ->
+          inventory_id = socket.assigns.current_inventory.id
 
-        request ->
-          case Marketplace.unresolve_request(request) do
-            {:ok, _request} ->
-              {:noreply, socket |> reload_requests() |> put_flash(:info, "Request reopened")}
+          case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+            nil ->
+              {:noreply, put_flash(socket, :error, "Request not found")}
 
-            {:error, changeset} ->
-              Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
-              {:noreply, put_flash(socket, :error, "Failed to reopen request")}
+            request ->
+              case Marketplace.unresolve_request(request) do
+                {:ok, _request} ->
+                  {:noreply, socket |> reload_requests() |> put_flash(:info, "Request reopened")}
+
+                {:error, changeset} ->
+                  Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
+                  {:noreply, put_flash(socket, :error, "Failed to reopen request")}
+              end
           end
       end
     end)

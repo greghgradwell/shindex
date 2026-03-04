@@ -517,105 +517,125 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   end
 
   def handle_event("deactivate_listing", %{"listing-id" => listing_id_str}, socket) do
-    listing_id = String.to_integer(listing_id_str)
-    listing = Enum.find(socket.assigns.listings, &(&1.id == listing_id))
+    case Integer.parse(listing_id_str) do
+      :error ->
+        {:noreply, notify_flash(socket, :error, "Invalid listing ID")}
 
-    if listing do
-      case Marketplace.deactivate_listing(listing) do
-        {:ok, _listing} ->
-          listings = load_listings(socket.assigns.item.id, :owner)
+      {listing_id, _} ->
+        listing = Enum.find(socket.assigns.listings, &(&1.id == listing_id))
 
-          {:noreply,
-           socket
-           |> assign(:listings, listings)
-           |> notify_flash(:info, "Listing deactivated")}
+        if listing do
+          case Marketplace.deactivate_listing(listing) do
+            {:ok, _listing} ->
+              listings = load_listings(socket.assigns.item.id, :owner)
 
-        {:error, changeset} ->
-          Logger.warning("Failed to deactivate listing: #{inspect(changeset.errors)}")
-          {:noreply, notify_flash(socket, :error, "Failed to deactivate listing")}
-      end
-    else
-      {:noreply, notify_flash(socket, :error, "Listing not found")}
+              {:noreply,
+               socket
+               |> assign(:listings, listings)
+               |> notify_flash(:info, "Listing deactivated")}
+
+            {:error, changeset} ->
+              Logger.warning("Failed to deactivate listing: #{inspect(changeset.errors)}")
+              {:noreply, notify_flash(socket, :error, "Failed to deactivate listing")}
+          end
+        else
+          {:noreply, notify_flash(socket, :error, "Listing not found")}
+        end
     end
   end
 
   def handle_event("resolve_request", %{"request-id" => request_id_str}, socket) do
-    request_id = String.to_integer(request_id_str)
-    inventory_id = socket.assigns.current_inventory.id
+    case Integer.parse(request_id_str) do
+      :error ->
+        {:noreply, notify_flash(socket, :error, "Invalid request ID")}
 
-    case Marketplace.get_request_for_inventory(request_id, inventory_id) do
-      nil ->
-        {:noreply, notify_flash(socket, :error, "Request not found")}
+      {request_id, _} ->
+        inventory_id = socket.assigns.current_inventory.id
 
-      request ->
-        case Marketplace.resolve_request(request) do
-          {:ok, _request} ->
-            listings = load_listings(socket.assigns.item.id, :owner)
-            {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request resolved")}
+        case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+          nil ->
+            {:noreply, notify_flash(socket, :error, "Request not found")}
 
-          {:error, changeset} ->
-            Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
-            {:noreply, notify_flash(socket, :error, "Failed to resolve request")}
+          request ->
+            case Marketplace.resolve_request(request) do
+              {:ok, _request} ->
+                listings = load_listings(socket.assigns.item.id, :owner)
+                {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request resolved")}
+
+              {:error, changeset} ->
+                Logger.warning("Failed to resolve request: #{inspect(changeset.errors)}")
+                {:noreply, notify_flash(socket, :error, "Failed to resolve request")}
+            end
         end
     end
   end
 
   def handle_event("unresolve_request", %{"request-id" => request_id_str}, socket) do
-    request_id = String.to_integer(request_id_str)
-    inventory_id = socket.assigns.current_inventory.id
+    case Integer.parse(request_id_str) do
+      :error ->
+        {:noreply, notify_flash(socket, :error, "Invalid request ID")}
 
-    case Marketplace.get_request_for_inventory(request_id, inventory_id) do
-      nil ->
-        {:noreply, notify_flash(socket, :error, "Request not found")}
+      {request_id, _} ->
+        inventory_id = socket.assigns.current_inventory.id
 
-      request ->
-        case Marketplace.unresolve_request(request) do
-          {:ok, _request} ->
-            listings = load_listings(socket.assigns.item.id, :owner)
-            {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request reopened")}
+        case Marketplace.get_request_for_inventory(request_id, inventory_id) do
+          nil ->
+            {:noreply, notify_flash(socket, :error, "Request not found")}
 
-          {:error, changeset} ->
-            Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
-            {:noreply, notify_flash(socket, :error, "Failed to reopen request")}
+          request ->
+            case Marketplace.unresolve_request(request) do
+              {:ok, _request} ->
+                listings = load_listings(socket.assigns.item.id, :owner)
+                {:noreply, socket |> assign(:listings, listings) |> notify_flash(:info, "Request reopened")}
+
+              {:error, changeset} ->
+                Logger.warning("Failed to unresolve request: #{inspect(changeset.errors)}")
+                {:noreply, notify_flash(socket, :error, "Failed to reopen request")}
+            end
         end
     end
   end
 
   def handle_event("create_request", %{"listing-id" => listing_id_str} = params, socket) do
-    listing_id = String.to_integer(listing_id_str)
-    message = blank_to_nil(Map.get(params, "message", ""))
-    user_id = socket.assigns.current_user.id
+    case Integer.parse(listing_id_str) do
+      :error ->
+        {:noreply, notify_flash(socket, :error, "Invalid listing ID")}
 
-    attrs = %{
-      listing_id: listing_id,
-      requester_id: user_id,
-      message: message
-    }
+      {listing_id, _} ->
+        message = blank_to_nil(Map.get(params, "message", ""))
+        user_id = socket.assigns.current_user.id
 
-    case Marketplace.create_request(attrs) do
-      {:ok, _request} ->
-        user_requests = Marketplace.user_requests_for_item(user_id, socket.assigns.item.id)
+        attrs = %{
+          listing_id: listing_id,
+          requester_id: user_id,
+          message: message
+        }
 
-        {:noreply,
-         socket
-         |> assign(:user_requests, user_requests)
-         |> notify_flash(:info, "Request sent")}
+        case Marketplace.create_request(attrs) do
+          {:ok, _request} ->
+            user_requests = Marketplace.user_requests_for_item(user_id, socket.assigns.item.id)
 
-      {:error, :already_requested} ->
-        {:noreply, notify_flash(socket, :error, "You've already requested this listing")}
+            {:noreply,
+             socket
+             |> assign(:user_requests, user_requests)
+             |> notify_flash(:info, "Request sent")}
 
-      {:error, :listing_inactive} ->
-        {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
+          {:error, :already_requested} ->
+            {:noreply, notify_flash(socket, :error, "You've already requested this listing")}
 
-      {:error, :listing_not_found} ->
-        {:noreply, notify_flash(socket, :error, "This listing no longer exists")}
+          {:error, :listing_inactive} ->
+            {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
 
-      {:error, :unauthorized} ->
-        {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
+          {:error, :listing_not_found} ->
+            {:noreply, notify_flash(socket, :error, "This listing no longer exists")}
 
-      {:error, changeset} ->
-        Logger.warning("Failed to create request: #{inspect(changeset.errors)}")
-        {:noreply, notify_flash(socket, :error, "Failed to send request")}
+          {:error, :unauthorized} ->
+            {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
+
+          {:error, changeset} ->
+            Logger.warning("Failed to create request: #{inspect(changeset.errors)}")
+            {:noreply, notify_flash(socket, :error, "Failed to send request")}
+        end
     end
   end
 
@@ -727,21 +747,28 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
-  def handle_event("delete_document", %{"document_id" => document_id}, socket) do
-    document_id = if is_binary(document_id), do: String.to_integer(document_id), else: document_id
-    document = Media.get_document!(document_id)
+  def handle_event("delete_document", %{"document_id" => document_id_str}, socket) do
+    document =
+      case Integer.parse(document_id_str) do
+        {id, _} -> Enum.find(socket.assigns.documents, &(&1.id == id))
+        :error -> nil
+      end
 
-    case Media.delete_document(document) do
-      {:ok, _deleted} ->
-        documents = Media.list_documents(socket.assigns.item.id)
+    if document do
+      case Media.delete_document(document) do
+        {:ok, _deleted} ->
+          documents = Media.list_documents(socket.assigns.item.id)
 
-        {:noreply,
-         socket
-         |> assign(:documents, documents)
-         |> notify_flash(:info, "Document deleted")}
+          {:noreply,
+           socket
+           |> assign(:documents, documents)
+           |> notify_flash(:info, "Document deleted")}
 
-      {:error, _} ->
-        {:noreply, notify_flash(socket, :error, "Failed to delete document")}
+        {:error, _} ->
+          {:noreply, notify_flash(socket, :error, "Failed to delete document")}
+      end
+    else
+      {:noreply, notify_flash(socket, :error, "Document not found")}
     end
   end
 
