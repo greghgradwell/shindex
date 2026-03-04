@@ -11,6 +11,7 @@ defmodule InventoryLocator.Inventory do
   alias InventoryLocator.Inventory.Location
   alias InventoryLocator.Inventory.LocationParser
   alias InventoryLocator.Inventory.Shelf
+  alias InventoryLocator.Marketplace.Listing
   alias InventoryLocator.Repo
 
   @similarity_threshold 0.3
@@ -765,8 +766,9 @@ defmodule InventoryLocator.Inventory do
     filters = Keyword.fetch!(opts, :filters)
     page = Keyword.fetch!(opts, :page)
     page_size = Keyword.fetch!(opts, :page_size)
+    listing_types = Keyword.get(opts, :listing_types, [])
 
-    if query == "" and filters == [] do
+    if query == "" and filters == [] and listing_types == [] do
       {[], 0}
     else
       base_query =
@@ -774,6 +776,7 @@ defmodule InventoryLocator.Inventory do
         |> where([i], i.inventory_id == ^inventory_id)
         |> filter_by_archived(show_archived)
         |> filter_by_missing_fields(filters)
+        |> filter_by_listing_types(listing_types)
         |> search_by_name(query)
 
       total_count = Repo.aggregate(base_query, :count)
@@ -797,11 +800,13 @@ defmodule InventoryLocator.Inventory do
     sort_order = Keyword.fetch!(opts, :sort_order)
     page = Keyword.fetch!(opts, :page)
     page_size = Keyword.fetch!(opts, :page_size)
+    listing_types = Keyword.get(opts, :listing_types, [])
 
     base_query =
       ItemType
       |> where([i], i.inventory_id == ^inventory_id)
       |> filter_by_archived(show_archived)
+      |> filter_by_listing_types(listing_types)
 
     total_count = Repo.aggregate(base_query, :count)
 
@@ -876,6 +881,15 @@ defmodule InventoryLocator.Inventory do
     query
     |> where(^combined)
     |> where([i], i.archived == false)
+  end
+
+  @spec filter_by_listing_types(Ecto.Queryable.t(), [String.t()]) :: Ecto.Queryable.t()
+  defp filter_by_listing_types(query, []), do: query
+
+  defp filter_by_listing_types(query, listing_types) do
+    query
+    |> join(:inner, [i], l in Listing, on: l.item_type_id == i.id and l.active == true and l.type in ^listing_types)
+    |> distinct([i], i.id)
   end
 
   @spec search_by_name(Ecto.Queryable.t(), String.t()) :: Ecto.Queryable.t()

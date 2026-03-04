@@ -8,6 +8,7 @@ defmodule InventoryLocator.Inventory.ItemType do
   alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.Location
+  alias InventoryLocator.Marketplace.Listing
 
   @castable_fields [
     :name,
@@ -39,6 +40,7 @@ defmodule InventoryLocator.Inventory.ItemType do
     belongs_to :location, Location
     has_many :installations, ItemInstallation
     has_many :documents, Document, foreign_key: :item_id
+    has_many :listings, Listing
 
     timestamps()
   end

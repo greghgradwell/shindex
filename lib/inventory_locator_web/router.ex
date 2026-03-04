@@ -86,6 +86,7 @@ defmodule InventoryLocatorWeb.Router do
       live "/", ItemLive.Index
       live "/locations", LocationLive.Index
       live "/projects", ProjectLive.Index
+      live "/requests", RequestLive.Index
       live "/inventories", InventoryLive.Index
       live "/backups", BackupLive.Index
       live "/invites", InviteLive.Index

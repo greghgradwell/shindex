@@ -6,6 +6,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   import InventoryLocatorWeb.ItemLive.Components
 
   alias InventoryLocator.Inventory
+  alias InventoryLocator.Inventory.ItemType
+  alias InventoryLocator.Marketplace
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias Phoenix.LiveView.Socket
 
@@ -73,6 +75,24 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @spec handle_event(String.t(), map(), Socket.t()) ::
           {:noreply, Socket.t()}
   def handle_event("toggle_filter", %{"filter" => _unknown}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
+  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in ["borrow", "lease", "sale"] do
+    filters = toggle_filter_list(socket.assigns.availability_filters, type)
+
+    socket =
+      socket
+      |> assign(:availability_filters, filters)
+      |> assign(:page, 1)
+      |> refresh_current_view()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_availability_filter", %{"type" => _unknown}, socket) do
     {:noreply, socket}
   end
 
@@ -345,6 +365,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     |> assign(:results, [])
     |> assign(:show_archived, false)
     |> assign(:active_filters, [])
+    |> assign(:availability_filters, [])
+    |> assign(:listing_types_map, %{})
     |> assign(:items, [])
     |> assign(:sort_by, :name)
     |> assign(:sort_order, :asc)
@@ -378,12 +400,16 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
         show_archived: socket.assigns.show_archived,
         filters: socket.assigns.active_filters,
         page: socket.assigns.page,
-        page_size: @page_size
+        page_size: @page_size,
+        listing_types: socket.assigns.availability_filters
       )
+
+    listing_types_map = preload_listing_types(results)
 
     socket
     |> assign(:results, results)
     |> assign(:total_count, total_count)
+    |> assign(:listing_types_map, listing_types_map)
   end
 
   @spec refresh_current_view(Socket.t()) :: Socket.t()
@@ -404,20 +430,32 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
         sort_by: socket.assigns.sort_by,
         sort_order: socket.assigns.sort_order,
         page: socket.assigns.page,
-        page_size: @page_size
+        page_size: @page_size,
+        listing_types: socket.assigns.availability_filters
       )
+
+    listing_types_map = preload_listing_types(items)
 
     socket
     |> assign(:items, items)
     |> assign(:total_count, total_count)
+    |> assign(:listing_types_map, listing_types_map)
   end
 
-  @spec toggle_filter_list([atom()], atom()) :: [atom()]
+  @spec toggle_filter_list([any()], any()) :: [any()]
   defp toggle_filter_list(filters, filter) do
     if filter in filters do
       List.delete(filters, filter)
     else
       [filter | filters]
     end
+  end
+
+  @spec preload_listing_types([ItemType.t()]) :: %{integer() => [String.t()]}
+  defp preload_listing_types([]), do: %{}
+
+  defp preload_listing_types(items) do
+    item_ids = Enum.map(items, & &1.id)
+    Marketplace.listing_types_for_items(item_ids)
   end
 end

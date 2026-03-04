@@ -25,7 +25,7 @@ Next: public deployment with authentication and a community marketplace for borr
 | 7 | Ongoing | Full catalogue (1000+ items) |
 | 8 | Deferred | Image-based search |
 | 9 | ✅ Complete | Authentication + authorization + ownership |
-| 10 | Pending | Requests + marketplace |
+| 10 | ✅ Complete | Requests + marketplace |
 | 11 | Pending | Public deployment |
 | 12 | Future | Open registration + cross-inventory discovery |
 
@@ -412,34 +412,39 @@ Per-user inventory ownership and one-time-use share codes for read-only access.
 
 ## Phase 10: Requests + Marketplace (Milestones G-I)
 
-Enable members to request items for borrow, lease, or sale. All transactions happen in person. Developed locally on the Pi.
+Enable viewers to express interest in items listed for borrow, lease, or sale. Simplified design: requests are conversation starters, not approval workflows. Owner marks requests as resolved when handled through direct communication.
 
 ### 10.1 Listings
-- [ ] Create `listings` migration (item_type_id, type, price, notes, active)
-- [ ] Implement Listing schema and context functions
-- [ ] Admin UI to mark items as available (borrow/lease/sale with optional price)
-- [ ] Display listing info on item detail view
+- [x] Create `listings` migration (item_type_id, type, price, notes, active)
+- [x] Implement Listing schema (TypedEctoSchema) and Marketplace context
+- [x] Owner UI in ShowModal to create/deactivate listings
+- [x] Display listing info and availability badges on item cards and table view
+- [x] Availability filter for viewers (borrow/lease/sale checkboxes)
 
 ### 10.2 Requests
-- [ ] Create `requests` migration (listing_id, requester_id, status, message, admin_notes)
-- [ ] Implement Request schema and context functions
-- [ ] Member UI to request an available item (with message)
-- [ ] Admin UI to view, approve, deny, and complete requests
-- [ ] Request status workflow: pending → approved/denied, approved → completed
+- [x] Create `requests` migration (listing_id, requester_id, message, resolved)
+- [x] Implement Request schema and Marketplace context functions
+- [x] Viewer UI in ShowModal to express interest with message
+- [x] Owner UI in ShowModal to view requests and resolve/reopen
+- [x] Unique constraint: one request per user per listing
+- [x] PubSub broadcast on new request creation
 
 ### 10.3 Notifications
-- [ ] Add Swoosh for email delivery
-- [ ] Add Oban for async job processing
-- [ ] Email admin when new request received
-- [ ] Email member when request approved/denied
-- [ ] In-app notification indicators (Phoenix PubSub)
+- [x] In-app notification: unresolved request count badge in nav bar
+- [x] PubSub for real-time request updates on Requests page
+- Deferred: Email notifications (Swoosh/Oban) for Phase 11 if needed
 
-### 10.4 Member Experience
-- [ ] Member browse view (read-only catalog with available items highlighted)
-- [ ] Member request history (my requests and their statuses)
-- [ ] Member profile page
+### 10.4 Authorization Fix
+- [x] Fix ShowModal guard to use `inventory_role` instead of `admin_user?`
+- [x] Hide mutation UI (edit, archive, delete, move, quantity, install, documents) for non-owners
 
-**Go/No-Go:** Members can browse inventory, request items, receive status updates. Admin can manage requests. All tested locally.
+### 10.5 Requests Page
+- [x] `/requests` route with RequestLive.Index
+- [x] Owner view: all requests for current inventory with resolve/reopen actions
+- [x] Viewer view: user's own requests for current inventory
+- [x] Filter tabs: Unresolved | All
+
+**Go/No-Go:** ✅ Listings and requests work. 252 tests passing. Owners can list items, viewers can request them, owners see badge count and manage requests.
 
 ## Phase 11: Public Deployment
 

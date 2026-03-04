@@ -1,0 +1,108 @@
+<.header>
+  <%= if @inventory_role == :owner do %>
+    Requests
+  <% else %>
+    My Requests
+  <% end %>
+  <:subtitle>
+    {length(filtered_requests(@requests, @filter))} request(s)
+  </:subtitle>
+</.header>
+
+<div class="tabs tabs-boxed mt-6 w-fit">
+  <button
+    phx-click="filter"
+    phx-value-filter="unresolved"
+    class={"tab #{if @filter == :unresolved, do: "tab-active"}"}
+  >
+    Unresolved
+  </button>
+  <button
+    phx-click="filter"
+    phx-value-filter="all"
+    class={"tab #{if @filter == :all, do: "tab-active"}"}
+  >
+    All
+  </button>
+</div>
+
+<div class="mt-6">
+  <%= if filtered_requests(@requests, @filter) == [] do %>
+    <p class="text-base-content/60 text-center py-12">No requests</p>
+  <% else %>
+    <div class="space-y-3">
+      <%= for request <- filtered_requests(@requests, @filter) do %>
+        <div class={"border rounded-lg p-4 #{if request.resolved, do: "opacity-60"}"}>
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <%= if request.listing.item_type.photo_path do %>
+                <img
+                  src={"/uploads/#{request.listing.item_type.photo_path}"}
+                  class="w-12 h-12 object-cover rounded shrink-0"
+                />
+              <% else %>
+                <div class="w-12 h-12 bg-base-200 rounded flex items-center justify-center shrink-0">
+                  <.icon name="hero-photo" class="w-6 h-6 opacity-30" />
+                </div>
+              <% end %>
+              <div class="min-w-0">
+                <p class="font-medium truncate">{request.listing.item_type.name}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class={[
+                    "badge badge-sm",
+                    request.listing.type == "borrow" && "badge-info",
+                    request.listing.type == "lease" && "badge-warning",
+                    request.listing.type == "sale" && "badge-success"
+                  ]}>
+                    {String.capitalize(request.listing.type)}
+                  </span>
+                  <%= if @inventory_role == :owner do %>
+                    <span class="text-sm text-base-content/70">
+                      from <span class="font-medium">{request.requester.name}</span>
+                    </span>
+                  <% end %>
+                </div>
+                <%= if request.message do %>
+                  <p class="text-sm text-base-content/70 mt-1">{request.message}</p>
+                <% end %>
+                <p class="text-xs text-base-content/50 mt-1">
+                  {Calendar.strftime(request.inserted_at, "%b %d, %Y at %I:%M %p")}
+                </p>
+              </div>
+            </div>
+
+            <%= if @inventory_role == :owner do %>
+              <div class="shrink-0">
+                <%= if request.resolved do %>
+                  <button
+                    phx-click="unresolve"
+                    phx-value-id={request.id}
+                    class="btn btn-sm btn-ghost"
+                  >
+                    Reopen
+                  </button>
+                <% else %>
+                  <button
+                    phx-click="resolve"
+                    phx-value-id={request.id}
+                    class="btn btn-sm btn-primary"
+                  >
+                    Mark Resolved
+                  </button>
+                <% end %>
+              </div>
+            <% else %>
+              <div class="shrink-0">
+                <%= if request.resolved do %>
+                  <span class="badge badge-sm badge-ghost">Resolved</span>
+                <% else %>
+                  <span class="badge badge-sm badge-primary">Pending</span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
