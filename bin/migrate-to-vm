@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# One-time migration of database and photos from Pi to VM.
+# Run this on the Pi after the VM is set up and the service is running.
+set -euo pipefail
+
+VM_USER="${VM_USER:-ubuntu}"
+VM_HOST="${VM_HOST:-sharehub.nextdaynet.com}"
+VM_APP_DIR="${VM_APP_DIR:-/home/ubuntu/inventory-locator-service}"
+DUMP_FILE="/tmp/inventory_$(date +%Y%m%d_%H%M%S).dump"
+
+echo "==> Dumping database from Pi..."
+pg_dump -Fc inventory_locator_dev -f "$DUMP_FILE"
+
+echo "==> Copying database dump to VM..."
+scp "$DUMP_FILE" "$VM_USER@$VM_HOST:/tmp/inventory.dump"
+
+echo "==> Restoring database on VM..."
+ssh "$VM_USER@$VM_HOST" "pg_restore --clean --if-exists -d inventory_locator_prod /tmp/inventory.dump && rm /tmp/inventory.dump"
+
+echo "==> Syncing photo uploads to VM..."
+rsync -avz --progress \
+  priv/static/uploads/ \
+  "$VM_USER@$VM_HOST:$VM_APP_DIR/priv/static/uploads/"
+
+echo "==> Syncing backups to VM (optional)..."
+rsync -avz --progress \
+  priv/backups/ \
+  "$VM_USER@$VM_HOST:$HOME/inventory-backups/" 2>/dev/null || echo "(no backups to sync)"
+
+rm -f "$DUMP_FILE"
+echo "==> Migration complete."

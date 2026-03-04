@@ -1,0 +1,29 @@
+# Production environment variables for sharehub.nextdaynet.com
+# Copy to .envrc in project root and fill in real values.
+# DO NOT commit .envrc to git.
+
+# Database (Ecto URL format)
+export DATABASE_URL=ecto://inventory:yourpassword@localhost/inventory_locator_prod
+
+# Phoenix (generate with: mix phx.gen.secret)
+export SECRET_KEY_BASE=your_64_char_secret_here
+export PHX_HOST=sharehub.nextdaynet.com
+
+# Optional: override default port (default: 4000)
+# export PORT=4000
+
+# AI search (optional)
+# export GEMINI_API_KEY=your_gemini_key
+
+# GitHub OAuth
+# Callback URL to add in GitHub app settings: https://sharehub.nextdaynet.com/auth/github/callback
+export GITHUB_CLIENT_ID=your_github_client_id
+export GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# LinkedIn OAuth
+# Callback URL to add in LinkedIn app settings: https://sharehub.nextdaynet.com/auth/linkedin/callback
+export LINKEDIN_CLIENT_ID=your_linkedin_client_id
+export LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+
+# Backup storage path (default: priv/backups inside the release)
+export BACKUP_PATH=/home/ubuntu/inventory-backups
