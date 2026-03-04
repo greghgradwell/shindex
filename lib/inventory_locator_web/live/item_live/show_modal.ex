@@ -597,45 +597,37 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   end
 
   def handle_event("create_request", %{"listing-id" => listing_id_str} = params, socket) do
-    case Integer.parse(listing_id_str) do
+    user_id = socket.assigns.current_user.id
+    message = blank_to_nil(Map.get(params, "message", ""))
+
+    with {listing_id, _} <- Integer.parse(listing_id_str),
+         attrs = %{listing_id: listing_id, requester_id: user_id, message: message},
+         {:ok, _request} <- Marketplace.create_request(attrs) do
+      user_requests = Marketplace.user_requests_for_item(user_id, socket.assigns.item.id)
+
+      {:noreply,
+       socket
+       |> assign(:user_requests, user_requests)
+       |> notify_flash(:info, "Request sent")}
+    else
       :error ->
         {:noreply, notify_flash(socket, :error, "Invalid listing ID")}
 
-      {listing_id, _} ->
-        message = blank_to_nil(Map.get(params, "message", ""))
-        user_id = socket.assigns.current_user.id
+      {:error, :already_requested} ->
+        {:noreply, notify_flash(socket, :error, "You've already requested this listing")}
 
-        attrs = %{
-          listing_id: listing_id,
-          requester_id: user_id,
-          message: message
-        }
+      {:error, :listing_inactive} ->
+        {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
 
-        case Marketplace.create_request(attrs) do
-          {:ok, _request} ->
-            user_requests = Marketplace.user_requests_for_item(user_id, socket.assigns.item.id)
+      {:error, :listing_not_found} ->
+        {:noreply, notify_flash(socket, :error, "This listing no longer exists")}
 
-            {:noreply,
-             socket
-             |> assign(:user_requests, user_requests)
-             |> notify_flash(:info, "Request sent")}
+      {:error, :unauthorized} ->
+        {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
 
-          {:error, :already_requested} ->
-            {:noreply, notify_flash(socket, :error, "You've already requested this listing")}
-
-          {:error, :listing_inactive} ->
-            {:noreply, notify_flash(socket, :error, "This listing is no longer active")}
-
-          {:error, :listing_not_found} ->
-            {:noreply, notify_flash(socket, :error, "This listing no longer exists")}
-
-          {:error, :unauthorized} ->
-            {:noreply, notify_flash(socket, :error, "You don't have access to this inventory")}
-
-          {:error, changeset} ->
-            Logger.warning("Failed to create request: #{inspect(changeset.errors)}")
-            {:noreply, notify_flash(socket, :error, "Failed to send request")}
-        end
+      {:error, changeset} ->
+        Logger.warning("Failed to create request: #{inspect(changeset.errors)}")
+        {:noreply, notify_flash(socket, :error, "Failed to send request")}
     end
   end
 
