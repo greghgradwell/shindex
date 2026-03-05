@@ -17,8 +17,9 @@ createdb inventory_locator_dev 2>/dev/null || echo "(db already exists)"
 
 echo "==> Installing asdf..."
 if [[ ! -d "$HOME/.asdf" ]]; then
-  git clone https://github.com/asdf-vm/asdf.git "$HOME/.asdf" --branch v0.14.1
-  echo '. "$HOME/.asdf/asdf.sh"' >> "$HOME/.bashrc"
+  git clone https://github.com/asdf-vm/asdf.git "$HOME/.asdf" --branch v0.14.0
+  echo '. "$HOME/.asdf/asdf.sh"' >> "$HOME/.zshrc"
+  echo 'eval "$(direnv hook zsh)"' >> "$HOME/.zshrc"
 fi
 
 source "$HOME/.asdf/asdf.sh"

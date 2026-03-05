@@ -11,8 +11,8 @@ defmodule InventoryLocator.Media do
   @max_photo_height 1080
   @jpeg_quality 85
 
-  @uploads_dir "priv/static/uploads"
-  @documents_dir "priv/static/documents"
+  @uploads_subpath "priv/static/uploads"
+  @documents_subpath "priv/static/documents"
 
   @fetch_timeout 10_000
   @max_photo_size 10_000_000
@@ -56,11 +56,11 @@ defmodule InventoryLocator.Media do
   @spec process_and_save_photo(binary(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def process_and_save_photo(binary_data, original_filename) do
     filename = generate_filename(original_filename, ".jpg")
-    path = Path.join([@uploads_dir, filename])
+    path = Path.join([uploads_dir(), filename])
 
     with {:ok, image} <- Image.from_binary(binary_data),
          {:ok, resized} <- resize_to_bounds(image),
-         :ok <- ensure_dir(@uploads_dir),
+         :ok <- ensure_dir(uploads_dir()),
          {:ok, _} <- Image.write(resized, path, quality: @jpeg_quality) do
       {:ok, filename}
     end
@@ -89,7 +89,7 @@ defmodule InventoryLocator.Media do
   @spec delete_document(Document.t()) :: {:ok, Document.t()} | {:error, Ecto.Changeset.t()}
   def delete_document(%Document{} = document) do
     safe_path = Path.basename(document.storage_path)
-    file_path = Path.join([@documents_dir, safe_path])
+    file_path = Path.join([documents_dir(), safe_path])
 
     case Repo.delete(document) do
       {:ok, deleted_document} ->
@@ -123,9 +123,9 @@ defmodule InventoryLocator.Media do
 
     with {:ok, content_type} <- validate_document_extension(ext),
          :ok <- validate_document_size(binary),
-         :ok <- ensure_dir(@documents_dir) do
+         :ok <- ensure_dir(documents_dir()) do
       storage_path = generate_filename(original_filename, ext)
-      full_path = Path.join([@documents_dir, storage_path])
+      full_path = Path.join([documents_dir(), storage_path])
 
       case File.write(full_path, binary) do
         :ok -> {:ok, storage_path, content_type, byte_size(binary)}
@@ -320,6 +320,12 @@ defmodule InventoryLocator.Media do
     random = 4 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
     "#{timestamp}_#{random}#{ext}"
   end
+
+  @spec uploads_dir() :: String.t()
+  defp uploads_dir, do: Application.app_dir(:inventory_locator, @uploads_subpath)
+
+  @spec documents_dir() :: String.t()
+  defp documents_dir, do: Application.app_dir(:inventory_locator, @documents_subpath)
 
   @spec ensure_dir(String.t()) :: :ok | {:error, File.posix()}
   defp ensure_dir(dir) do

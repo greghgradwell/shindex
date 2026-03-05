@@ -20,12 +20,17 @@ ssh "$VM_USER@$VM_HOST" "pg_restore --clean --if-exists -d inventory_locator_pro
 echo "==> Syncing photo uploads to VM..."
 rsync -avz --progress \
   priv/static/uploads/ \
-  "$VM_USER@$VM_HOST:$VM_APP_DIR/priv/static/uploads/"
+  "$VM_USER@$VM_HOST:~/inventory-uploads/"
+
+echo "==> Syncing documents to VM..."
+rsync -avz --progress \
+  priv/static/documents/ \
+  "$VM_USER@$VM_HOST:~/inventory-documents/" 2>/dev/null || echo "(no documents to sync)"
 
 echo "==> Syncing backups to VM (optional)..."
 rsync -avz --progress \
   priv/backups/ \
-  "$VM_USER@$VM_HOST:$HOME/inventory-backups/" 2>/dev/null || echo "(no backups to sync)"
+  "$VM_USER@$VM_HOST:~/inventory-backups/" 2>/dev/null || echo "(no backups to sync)"
 
 rm -f "$DUMP_FILE"
 echo "==> Migration complete."

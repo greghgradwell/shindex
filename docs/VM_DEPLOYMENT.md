@@ -575,13 +575,14 @@ The `proxy_read_timeout 300s` should keep connections alive for 5 minutes of ina
 
 ### Photos Not Loading After Migration
 
-Photos are served from `priv/static/uploads/` inside the release directory
-(`_build/prod/rel/inventory_locator/`). The migration script copies to the project's
-`priv/static/uploads/` — you may need to copy them into the release after building:
+`bin/deploy` symlinks `~/inventory-uploads/` and `~/inventory-documents/` into the
+release tree after each build. Verify the symlinks exist:
 ```bash
-cp -r priv/static/uploads/ _build/prod/rel/inventory_locator/lib/inventory_locator-*/priv/static/
-sudo systemctl restart inventory-locator
+ls -la _build/prod/rel/inventory_locator/lib/inventory_locator-*/priv/static/uploads
+# Should show: uploads -> /home/ubuntu/inventory-uploads
 ```
+
+If missing, re-run `bin/deploy` — it recreates the symlinks every time.
 
 ### SSL Certificate Issues
 
