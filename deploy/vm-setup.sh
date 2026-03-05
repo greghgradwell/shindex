@@ -55,7 +55,7 @@ echo "  cp deploy/.envrc.example .envrc && nano .envrc"
 
 echo "==> Installing systemd service..."
 sudo cp deploy/inventory-locator.service /etc/systemd/system/
-sudo systemd-escape --path "$APP_DIR" | xargs -I{} sudo sed -i "s|/home/ubuntu/inventory-locator-service|$APP_DIR|g" /etc/systemd/system/inventory-locator.service
+sudo sed -i "s|/home/ubuntu/inventory-locator-service|$APP_DIR|g" /etc/systemd/system/inventory-locator.service
 sudo systemctl daemon-reload
 sudo systemctl enable inventory-locator
 
