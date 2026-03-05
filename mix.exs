@@ -25,6 +25,12 @@ defmodule InventoryLocator.MixProject do
         ],
         ignore_warnings: ".dialyzer_ignore.exs",
         list_unused_filters: true
+      ],
+      releases: [
+        inventory_locator: [
+          include_executables_for: [:unix],
+          applications: [runtime_tools: :permanent]
+        ]
       ]
     ]
   end
