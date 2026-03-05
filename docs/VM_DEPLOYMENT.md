@@ -11,8 +11,8 @@ This guide uses Claude Code on the VM to handle configuration and troubleshootin
 - [ ] **Step 1**: System packages and libvips
 - [ ] **Step 2**: PostgreSQL installation and database creation
 - [ ] **Step 3**: Install asdf version manager
-- [ ] **Step 4**: Install Erlang (~10 min on VM, much faster than Pi)
-- [ ] **Step 5**: Install Elixir
+- [ ] **Step 4**: Install Erlang (~10 min on VM, much faster than Pi) — requires Step 6 clone first
+- [ ] **Step 5**: Install Elixir — requires Step 6 clone first
 - [ ] **Step 6**: Clone repository and install Claude Code
 - [ ] **Step 7**: Configure production environment
 - [ ] **Step 8**: Build production release
@@ -156,17 +156,12 @@ asdf plugin add elixir
 ## Step 4: Install Erlang
 
 > This takes ~10 minutes on the VM (much faster than on the Pi).
+> Clone the repository first (Step 6) so `.tool-versions` is available.
 
 **Command:**
 ```bash
-cd ~/inventory-locator-service  # or wherever you'll clone it
-asdf install erlang  # reads version from .tool-versions
-```
-
-If you haven't cloned the repo yet, specify the version explicitly:
-```bash
-asdf install erlang 28.3
-asdf global erlang 28.3
+cd ~/inventory-locator-service
+asdf install erlang
 ```
 
 **Verify:**
@@ -186,9 +181,8 @@ erl -version
 
 **Command:**
 ```bash
-asdf install elixir  # reads from .tool-versions, or:
-# asdf install elixir 1.19.4-otp-28
-# asdf global elixir 1.19.4-otp-28
+cd ~/inventory-locator-service
+asdf install elixir
 ```
 
 **Verify:**

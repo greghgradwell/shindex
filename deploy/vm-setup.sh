@@ -30,18 +30,15 @@ sudo apt-get install -y \
   libgl1-mesa-dev libglu1-mesa-dev libpng-dev libssh-dev unixodbc-dev \
   xsltproc fop libxml2-utils libncurses-dev
 
-echo "==> Installing Erlang/OTP 28.3..."
-asdf plugin add erlang 2>/dev/null || true
-asdf install erlang 28.3
-
-echo "==> Installing Elixir 1.19.4-otp-28..."
-asdf plugin add elixir 2>/dev/null || true
-asdf install elixir 1.19.4-otp-28
-
 echo "==> Cloning repository..."
 mkdir -p "$(dirname "$APP_DIR")"
 git clone git@github.com:greghgradwell/inventory-locator-service.git "$APP_DIR"
 cd "$APP_DIR"
+
+echo "==> Installing Erlang and Elixir (versions from .tool-versions)..."
+asdf plugin add erlang 2>/dev/null || true
+asdf plugin add elixir 2>/dev/null || true
+asdf install
 
 echo "==> Installing Hex and Rebar..."
 mix local.hex --force
