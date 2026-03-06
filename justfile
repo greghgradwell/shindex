@@ -6,27 +6,27 @@ default:
 
 # Start the systemd service
 start:
-    sudo systemctl start inventory-locator
+    sudo systemctl start shindex
 
 # Stop the systemd service
 stop:
-    sudo systemctl stop inventory-locator
+    sudo systemctl stop shindex
 
 # Restart the systemd service
 restart:
-    sudo systemctl restart inventory-locator
+    sudo systemctl restart shindex
 
 # Show service status
 status:
-    @systemctl status inventory-locator --no-pager || true
+    @systemctl status shindex --no-pager || true
 
 # View live logs
 logs:
-    sudo journalctl -u inventory-locator -f
+    sudo journalctl -u shindex -f
 
 # View last 50 log lines
 logs-tail:
-    sudo journalctl -u inventory-locator -n 50 --no-pager
+    sudo journalctl -u shindex -n 50 --no-pager
 
 # Run development server (stops service first)
 dev:
@@ -40,6 +40,10 @@ server:
 
 # Install/reinstall the systemd service
 install-service:
-    sudo cSeed database with Test inventory (WARNING: deletes existing data)
+    sudo cp deploy/shindex.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable shindex
+
+# Seed database with test inventory (WARNING: deletes existing data)
 seed:
     mix run priv/repo/seeds.exs

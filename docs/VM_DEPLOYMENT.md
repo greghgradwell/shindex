@@ -160,7 +160,7 @@ asdf plugin add elixir
 
 **Command:**
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex
 asdf install erlang
 ```
 
@@ -181,7 +181,7 @@ erl -version
 
 **Command:**
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex
 asdf install elixir
 ```
 
@@ -204,8 +204,8 @@ mix local.rebar --force
 
 **Clone the repository:**
 ```bash
-git clone git@github.com:greghgradwell/inventory-locator-service.git ~/inventory-locator-service
-cd ~/inventory-locator-service
+git clone git@github.com:greghgradwell/shindex.git ~/shindex
+cd ~/shindex
 ```
 
 If SSH key isn't configured on the VM:
@@ -215,7 +215,7 @@ ssh-keygen -t ed25519 -C "inventory-vm"
 cat ~/.ssh/id_ed25519.pub  # Add this to GitHub Settings → SSH Keys
 
 # Option B: Use HTTPS clone instead
-git clone https://github.com/greghgradwell/inventory-locator-service.git ~/inventory-locator-service
+git clone https://github.com/greghgradwell/shindex.git ~/shindex
 ```
 
 **Install Claude Code:**
@@ -232,7 +232,7 @@ npm install -g @anthropic-ai/claude-code
 
 **Start Claude Code in the project directory:**
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex
 claude
 ```
 
@@ -327,13 +327,13 @@ ls _build/prod/rel/inventory_locator/bin/
 
 **Copy and install the service file:**
 ```bash
-sudo cp deploy/inventory-locator.service /etc/systemd/system/
+sudo cp deploy/shindex.service /etc/systemd/system/
 ```
 
-The service file references `/home/ubuntu/inventory-locator-service` as the working directory.
+The service file references `/home/ubuntu/shindex` as the working directory.
 If you cloned to a different path, update accordingly:
 ```bash
-sudo nano /etc/systemd/system/inventory-locator.service
+sudo nano /etc/systemd/system/shindex.service
 ```
 
 **Run database migrations:**
@@ -345,20 +345,20 @@ PHX_SERVER=false _build/prod/rel/inventory_locator/bin/inventory_locator eval "I
 **Enable and start the service:**
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable inventory-locator
-sudo systemctl start inventory-locator
+sudo systemctl enable shindex
+sudo systemctl start shindex
 ```
 
 **Verify:**
 ```bash
-sudo systemctl status inventory-locator
+sudo systemctl status shindex
 ```
 
 **Expected:** `active (running)`
 
 **Check logs if something is wrong:**
 ```bash
-sudo journalctl -u inventory-locator -f
+sudo journalctl -u shindex -f
 ```
 
 ---
@@ -401,7 +401,7 @@ curl -I https://shindex.nextdaynet.com
 **If it fails:**
 - `Port 80 already in use` → Check what's using it: `sudo ss -tlnp | grep :80`
 - `Domain not found` → DNS hasn't propagated yet, wait and retry
-- `Connection refused on port 4000` → Inventory service not running: `sudo systemctl start inventory-locator`
+- `Connection refused on port 4000` → Inventory service not running: `sudo systemctl start shindex`
 
 ---
 
@@ -409,7 +409,7 @@ curl -I https://shindex.nextdaynet.com
 
 **Run this on the Pi** (not the VM):
 ```bash
-cd ~/Documents/Github/inventory-locator-service
+cd ~/Documents/Github/shindex
 bin/migrate-to-vm
 ```
 
@@ -459,7 +459,7 @@ The Pi used `http://localhost:4000` callback URLs. Production needs HTTPS URLs.
 
 ```bash
 # 1. Service running
-sudo systemctl status inventory-locator
+sudo systemctl status shindex
 
 # 2. HTTPS responding
 curl -I https://shindex.nextdaynet.com
@@ -486,7 +486,7 @@ ssh -L 4001:localhost:4001 ubuntu@shindex.nextdaynet.com
 
 **Start dev server (in another SSH session):**
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex
 mix phx.server --port 4001
 ```
 
@@ -495,7 +495,7 @@ Port 4001 is not proxied by Nginx so it never touches production traffic.
 
 **Deploy a production update:**
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex
 bin/deploy
 ```
 
@@ -509,10 +509,10 @@ This pulls latest code, rebuilds the release, runs migrations, and restarts the 
 
 ```bash
 # Live logs
-sudo journalctl -u inventory-locator -f
+sudo journalctl -u shindex -f
 
 # Last 100 lines
-sudo journalctl -u inventory-locator -n 100
+sudo journalctl -u shindex -n 100
 ```
 
 ### Rollback a Bad Deploy
@@ -543,7 +543,7 @@ pg_dump -Fc inventory_locator_prod > ~/inventory-backups/manual_$(date +%Y%m%d).
 **Restore:**
 ```bash
 pg_restore --clean -d inventory_locator_prod ~/inventory-backups/manual_YYYYMMDD.dump
-sudo systemctl restart inventory-locator
+sudo systemctl restart shindex
 ```
 
 ---
@@ -553,7 +553,7 @@ sudo systemctl restart inventory-locator
 ### Service Won't Start
 
 ```bash
-sudo journalctl -u inventory-locator -n 50
+sudo journalctl -u shindex -n 50
 ```
 
 **Common causes:**

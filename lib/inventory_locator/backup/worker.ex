@@ -6,7 +6,7 @@ defmodule InventoryLocator.Backup.Worker do
 
   require Logger
 
-  @base_prefix "inventory-locator/"
+  @base_prefix "shindex/"
   @daily_prefix "#{@base_prefix}daily/"
   @weekly_prefix "#{@base_prefix}weekly/"
   @photos_prefix "#{@base_prefix}photos/"

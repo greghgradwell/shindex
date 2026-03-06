@@ -33,6 +33,6 @@ echo "==> Running migrations..."
 PHX_SERVER=false _build/prod/rel/inventory_locator/bin/inventory_locator eval "InventoryLocator.Release.migrate()"
 
 echo "==> Restarting service..."
-sudo systemctl restart inventory-locator
+sudo systemctl restart shindex
 
 echo "==> Done."

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One-time VM setup for inventory-locator-service.
+# One-time VM setup for shindex.
 # Run as the ubuntu user on the GCP VM.
 set -euo pipefail
 
-APP_DIR="$HOME/inventory-locator-service"
+APP_DIR="$HOME/shindex"
 
 echo "==> Installing PostgreSQL..."
 sudo apt-get update
@@ -32,7 +32,7 @@ sudo apt-get install -y \
 
 echo "==> Cloning repository..."
 mkdir -p "$(dirname "$APP_DIR")"
-git clone git@github.com:greghgradwell/inventory-locator-service.git "$APP_DIR"
+git clone git@github.com:greghgradwell/shindex.git "$APP_DIR"
 cd "$APP_DIR"
 
 echo "==> Installing Erlang and Elixir (versions from .tool-versions)..."
@@ -52,10 +52,9 @@ echo ""
 echo "  cp deploy/.envrc.example .envrc && nano .envrc"
 
 echo "==> Installing systemd service..."
-sudo cp deploy/inventory-locator.service /etc/systemd/system/
-sudo sed -i "s|/home/ubuntu/inventory-locator-service|$APP_DIR|g" /etc/systemd/system/inventory-locator.service
+sudo cp deploy/shindex.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable inventory-locator
+sudo systemctl enable shindex
 
 echo "==> Installing Nginx config..."
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/shindex.nextdaynet.com
