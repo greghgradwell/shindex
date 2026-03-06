@@ -58,11 +58,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable inventory-locator
 
 echo "==> Installing Nginx config..."
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/sharehub.nextdaynet.com
-sudo ln -sf /etc/nginx/sites-available/sharehub.nextdaynet.com /etc/nginx/sites-enabled/sharehub.nextdaynet.com
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/shindex.nextdaynet.com
+sudo ln -sf /etc/nginx/sites-available/shindex.nextdaynet.com /etc/nginx/sites-enabled/shindex.nextdaynet.com
 
 echo "==> Requesting SSL certificate..."
-sudo certbot --nginx -d sharehub.nextdaynet.com
+sudo certbot --nginx -d shindex.nextdaynet.com
 
 sudo nginx -t && sudo systemctl reload nginx
 
