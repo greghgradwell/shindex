@@ -1,6 +1,6 @@
 # GCP VM Deployment Guide
 
-Deploy Inventory Locator to the GCP VM at `shindex.nextdaynet.com` as a production
+Deploy Shindex to the GCP VM at `shindex.nextdaynet.com` as a production
 service alongside the existing Jitsi installation.
 
 This guide uses Claude Code on the VM to handle configuration and troubleshooting.

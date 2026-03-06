@@ -1,4 +1,4 @@
-# Inventory Locator Service - Design
+# Shindex - Design
 
 ## Architecture Overview
 

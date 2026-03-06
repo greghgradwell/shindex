@@ -1,6 +1,6 @@
 # Raspberry Pi Deployment Guide
 
-Deploy Inventory Locator to a Raspberry Pi for always-on workshop access.
+Deploy Shindex to a Raspberry Pi for always-on workshop access.
 
 ## Setup Checklist
 
@@ -419,7 +419,7 @@ sudo systemctl status shindex
 2. Open browser and navigate to: `http://inventory.local:4000`
 3. If `.local` doesn't work, find the Pi's IP: `hostname -I` and use `http://192.168.x.x:4000`
 
-**Expected:** Inventory Locator homepage loads
+**Expected:** Shindex homepage loads
 
 **Test photo upload:**
 1. Navigate to add new item

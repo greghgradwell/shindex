@@ -1,4 +1,4 @@
-# Inventory Locator Service - Specification
+# Shindex - Specification
 
 ## Vision
 

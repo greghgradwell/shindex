@@ -20,7 +20,7 @@ defmodule InventoryLocatorWeb.LandingLive.Index do
     <div class="flex min-h-[60vh] items-center justify-center">
       <div class="card bg-base-200 w-full max-w-md shadow-xl">
         <div class="card-body items-center text-center">
-          <h1 class="card-title text-3xl">Inventory Locator</h1>
+          <h1 class="card-title text-3xl">Shindex</h1>
           <p class="text-base-content/70 mt-2">Track and find your workshop items.</p>
 
           <div class="card-actions mt-6 flex-col gap-3 w-full">

@@ -1,4 +1,4 @@
-# Inventory Locator Service - Implementation Plan
+# Shindex - Implementation Plan
 
 ## Overview
 

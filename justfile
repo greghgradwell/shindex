@@ -1,4 +1,4 @@
-# Inventory Locator Service commands
+# Shindex commands
 
 # Default recipe: show available commands
 default:

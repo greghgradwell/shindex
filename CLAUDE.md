@@ -1,4 +1,4 @@
-# Inventory Locator Service
+# Shindex
 
 ## Project Purpose
 

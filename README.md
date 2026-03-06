@@ -1,4 +1,4 @@
-# InventoryLocator
+# Shindex
 
 Personal inventory system for tracking workshop items with photos and AI-powered search.
 
