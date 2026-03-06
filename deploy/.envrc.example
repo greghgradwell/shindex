@@ -1,4 +1,4 @@
-# Production environment variables for sharehub.nextdaynet.com
+# Production environment variables for shindex.nextdaynet.com
 # Copy to .envrc in project root and fill in real values.
 # DO NOT commit .envrc to git.
 
@@ -7,7 +7,7 @@ export DATABASE_URL=ecto://inventory:yourpassword@localhost/inventory_locator_pr
 
 # Phoenix (generate with: mix phx.gen.secret)
 export SECRET_KEY_BASE=your_64_char_secret_here
-export PHX_HOST=sharehub.nextdaynet.com
+export PHX_HOST=shindex.nextdaynet.com
 
 # Optional: override default port (default: 4000)
 # export PORT=4000
@@ -16,12 +16,12 @@ export PHX_HOST=sharehub.nextdaynet.com
 # export GEMINI_API_KEY=your_gemini_key
 
 # GitHub OAuth
-# Callback URL to add in GitHub app settings: https://sharehub.nextdaynet.com/auth/github/callback
+# Callback URL to add in GitHub app settings: https://shindex.nextdaynet.com/auth/github/callback
 export GITHUB_CLIENT_ID=your_github_client_id
 export GITHUB_CLIENT_SECRET=your_github_client_secret
 
 # LinkedIn OAuth
-# Callback URL to add in LinkedIn app settings: https://sharehub.nextdaynet.com/auth/linkedin/callback
+# Callback URL to add in LinkedIn app settings: https://shindex.nextdaynet.com/auth/linkedin/callback
 export LINKEDIN_CLIENT_ID=your_linkedin_client_id
 export LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
 

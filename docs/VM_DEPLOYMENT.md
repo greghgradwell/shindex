@@ -1,13 +1,13 @@
 # GCP VM Deployment Guide
 
-Deploy Inventory Locator to the GCP VM at `sharehub.nextdaynet.com` as a production
+Deploy Inventory Locator to the GCP VM at `shindex.nextdaynet.com` as a production
 service alongside the existing Jitsi installation.
 
 This guide uses Claude Code on the VM to handle configuration and troubleshooting.
 
 ## Setup Checklist
 
-- [ ] **Prerequisites**: SSH into VM, DNS record for `sharehub.nextdaynet.com` points to VM IP
+- [ ] **Prerequisites**: SSH into VM, DNS record for `shindex.nextdaynet.com` points to VM IP
 - [ ] **Step 1**: System packages and libvips
 - [ ] **Step 2**: PostgreSQL installation and database creation
 - [ ] **Step 3**: Install asdf version manager
@@ -37,18 +37,18 @@ to get the correct versions automatically.
 The VM should already be provisioned and accessible. Verify before starting:
 
 ```bash
-ssh ubuntu@sharehub.nextdaynet.com
+ssh ubuntu@shindex.nextdaynet.com
 ```
 
 **Verify DNS:**
 ```bash
 curl -s https://api.ipify.org  # Get VM's public IP
-# Then confirm: dig sharehub.nextdaynet.com +short
+# Then confirm: dig shindex.nextdaynet.com +short
 ```
 
-**Expected:** VM's public IP matches the DNS record for `sharehub.nextdaynet.com`.
+**Expected:** VM's public IP matches the DNS record for `shindex.nextdaynet.com`.
 
-If DNS isn't set yet, add an A record for `sharehub.nextdaynet.com` pointing to the VM's
+If DNS isn't set yet, add an A record for `shindex.nextdaynet.com` pointing to the VM's
 external IP before continuing — certbot needs it for SSL certificate issuance.
 
 ---
@@ -264,7 +264,7 @@ Required values:
 ```bash
 export DATABASE_URL=ecto://ubuntu@localhost/inventory_locator_prod
 export SECRET_KEY_BASE=paste_your_generated_secret_here
-export PHX_HOST=sharehub.nextdaynet.com
+export PHX_HOST=shindex.nextdaynet.com
 
 export GITHUB_CLIENT_ID=your_github_client_id
 export GITHUB_CLIENT_SECRET=your_github_client_secret
@@ -289,7 +289,7 @@ direnv allow
 echo $PHX_HOST
 ```
 
-**Expected:** `sharehub.nextdaynet.com`
+**Expected:** `shindex.nextdaynet.com`
 
 ---
 
@@ -367,9 +367,9 @@ sudo journalctl -u inventory-locator -f
 
 **Copy the Nginx config:**
 ```bash
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/sharehub.nextdaynet.com
-sudo ln -s /etc/nginx/sites-available/sharehub.nextdaynet.com \
-           /etc/nginx/sites-enabled/sharehub.nextdaynet.com
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/shindex.nextdaynet.com
+sudo ln -s /etc/nginx/sites-available/shindex.nextdaynet.com \
+           /etc/nginx/sites-enabled/shindex.nextdaynet.com
 ```
 
 **Test the config syntax:**
@@ -381,7 +381,7 @@ sudo nginx -t
 
 **Get SSL certificate:**
 ```bash
-sudo certbot --nginx -d sharehub.nextdaynet.com
+sudo certbot --nginx -d shindex.nextdaynet.com
 ```
 
 Certbot will modify the Nginx config to add SSL. When prompted, choose to redirect HTTP to HTTPS.
@@ -393,7 +393,7 @@ sudo systemctl reload nginx
 
 **Verify:**
 ```bash
-curl -I https://sharehub.nextdaynet.com
+curl -I https://shindex.nextdaynet.com
 ```
 
 **Expected:** `HTTP/2 200` response
@@ -431,7 +431,7 @@ ls priv/static/uploads/ | wc -l
 **If ssh/scp fails:**
 ```bash
 # Set VM_USER and VM_HOST explicitly if needed
-VM_USER=ubuntu VM_HOST=sharehub.nextdaynet.com bin/migrate-to-vm
+VM_USER=ubuntu VM_HOST=shindex.nextdaynet.com bin/migrate-to-vm
 ```
 
 ---
@@ -443,15 +443,15 @@ The Pi used `http://localhost:4000` callback URLs. Production needs HTTPS URLs.
 **GitHub:**
 1. Go to [github.com/settings/developers](https://github.com/settings/developers)
 2. Click your OAuth App
-3. Add callback URL: `https://sharehub.nextdaynet.com/auth/github/callback`
+3. Add callback URL: `https://shindex.nextdaynet.com/auth/github/callback`
 4. You can keep the `localhost` URL for Pi development
 
 **LinkedIn:**
 1. Go to [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps)
 2. Select your app → Auth tab
-3. Add redirect URL: `https://sharehub.nextdaynet.com/auth/linkedin/callback`
+3. Add redirect URL: `https://shindex.nextdaynet.com/auth/linkedin/callback`
 
-**Verify:** Sign in via LinkedIn at `https://sharehub.nextdaynet.com` — should work without errors.
+**Verify:** Sign in via LinkedIn at `https://shindex.nextdaynet.com` — should work without errors.
 
 ---
 
@@ -462,10 +462,10 @@ The Pi used `http://localhost:4000` callback URLs. Production needs HTTPS URLs.
 sudo systemctl status inventory-locator
 
 # 2. HTTPS responding
-curl -I https://sharehub.nextdaynet.com
+curl -I https://shindex.nextdaynet.com
 
 # 3. WebSocket (LiveView) working — open in browser and interact with the UI
-open https://sharehub.nextdaynet.com
+open https://shindex.nextdaynet.com
 ```
 
 **Verify in browser:**
@@ -481,7 +481,7 @@ After the initial deployment, use the VM as your primary development machine.
 
 **SSH tunnel for browser access:**
 ```bash
-ssh -L 4001:localhost:4001 ubuntu@sharehub.nextdaynet.com
+ssh -L 4001:localhost:4001 ubuntu@shindex.nextdaynet.com
 ```
 
 **Start dev server (in another SSH session):**

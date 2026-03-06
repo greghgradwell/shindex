@@ -4,7 +4,7 @@
 set -euo pipefail
 
 VM_USER="${VM_USER:-ubuntu}"
-VM_HOST="${VM_HOST:-sharehub.nextdaynet.com}"
+VM_HOST="${VM_HOST:-shindex.nextdaynet.com}"
 VM_APP_DIR="${VM_APP_DIR:-/home/ubuntu/inventory-locator-service}"
 DUMP_FILE="/tmp/inventory_$(date +%Y%m%d_%H%M%S).dump"
 
