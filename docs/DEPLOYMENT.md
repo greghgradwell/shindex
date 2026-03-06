@@ -253,8 +253,8 @@ source ~/.zshrc
 **Clone repository:**
 ```bash
 cd ~
-git clone https://github.com/YOUR_USERNAME/inventory-locator-service.git
-cd inventory-locator-service
+git clone https://github.com/YOUR_USERNAME/shindex.git
+cd shindex
 ```
 
 **Install dependencies:**
@@ -368,26 +368,26 @@ kill %1
 
 **Copy the service file from the repo:**
 ```bash
-sudo cp deploy/inventory-locator.service /etc/systemd/system/
+sudo cp deploy/shindex.service /etc/systemd/system/
 ```
 
 **Enable and start the service:**
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable inventory-locator
-sudo systemctl start inventory-locator
+sudo systemctl enable shindex
+sudo systemctl start shindex
 ```
 
 **Verify:**
 ```bash
-sudo systemctl status inventory-locator
+sudo systemctl status shindex
 ```
 
 **Expected:** `active (running)`
 
 **Check logs if something is wrong:**
 ```bash
-sudo journalctl -u inventory-locator -f
+sudo journalctl -u shindex -f
 ```
 
 ---
@@ -406,7 +406,7 @@ ssh pi@inventory.local
 
 **Verify service is running:**
 ```bash
-sudo systemctl status inventory-locator
+sudo systemctl status shindex
 ```
 
 **Expected:** `active (running)` with uptime matching since boot
@@ -447,24 +447,24 @@ sudo systemctl status inventory-locator
 ### Updating the Application
 
 ```bash
-cd ~/inventory-locator-service
+cd ~/shindex-service
 git pull
 mix deps.get
 mix ecto.migrate
-sudo systemctl restart inventory-locator
+sudo systemctl restart shindex
 ```
 
 ### Viewing Logs
 
 ```bash
 # Live logs
-sudo journalctl -u inventory-locator -f
+sudo journalctl -u shindex -f
 
 # Last 100 lines
-sudo journalctl -u inventory-locator -n 100
+sudo journalctl -u shindex -n 100
 
 # Logs since last boot
-sudo journalctl -u inventory-locator -b
+sudo journalctl -u shindex -b
 ```
 
 ### Database Backups
@@ -491,7 +491,7 @@ df -h
 sudo -u postgres psql -c "SELECT pg_size_pretty(pg_database_size('inventory_prod'));"
 
 # Uploads folder size
-du -sh ~/inventory-locator-service/priv/static/uploads/
+du -sh ~/shindex-service/priv/static/uploads/
 ```
 
 ---
@@ -502,7 +502,7 @@ du -sh ~/inventory-locator-service/priv/static/uploads/
 
 **Check the logs:**
 ```bash
-sudo journalctl -u inventory-locator -n 50
+sudo journalctl -u shindex -n 50
 ```
 
 **Common issues:**
@@ -512,7 +512,7 @@ sudo journalctl -u inventory-locator -n 50
 
 ### Can't Connect from Phone
 
-1. **Check service is running:** `sudo systemctl status inventory-locator`
+1. **Check service is running:** `sudo systemctl status shindex`
 2. **Check firewall:** `sudo ufw status` (if enabled, allow port 4000)
 3. **Check Pi's IP:** `hostname -I`
 4. **Try IP directly:** `http://192.168.x.x:4000`

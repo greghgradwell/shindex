@@ -13,7 +13,7 @@ The migrations were consolidated on January 24, 2026 to remove the obsolete "Cel
 1. **Create a backup first** (if you have data worth preserving):
    ```bash
    # On the Pi
-   cd ~/inventory-locator-service
+   cd ~/shindex
    pg_dump -U $DB_USERNAME $DB_NAME | gzip > ~/backup_before_reset_$(date +%Y%m%d).sql.gz
    ```
 
@@ -31,23 +31,23 @@ The migrations were consolidated on January 24, 2026 to remove the obsolete "Cel
 ssh pi@your-pi-hostname
 
 # Navigate to the project directory
-cd ~/inventory-locator-service
+cd ~/shindex
 
 # Pull the latest code
 git pull origin main
 
 # Stop the service
-sudo systemctl stop inventory-locator
+sudo systemctl stop shindex
 
 # Reset the database (drops, creates, and migrates)
 source .envrc  # or however you load env vars
 mix ecto.reset
 
 # Restart the service
-sudo systemctl start inventory-locator
+sudo systemctl start shindex
 
 # Verify it's running
-sudo systemctl status inventory-locator
+sudo systemctl status shindex
 curl http://localhost:4000
 ```
 

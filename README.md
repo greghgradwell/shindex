@@ -40,8 +40,8 @@ Then reload your shell: `source ~/.zshrc` (or restart your terminal).
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/inventory-locator-service.git
-cd inventory-locator-service
+git clone https://github.com/YOUR_USERNAME/shindex.git
+cd shindex
 
 # Copy environment template
 cp .envrc.example .envrc
@@ -106,7 +106,7 @@ Covers:
 ├── bin/
 │   └── server                    # Start script for systemd
 ├── deploy/
-│   └── inventory-locator.service # Systemd unit file
+│   └── shindex.service           # Systemd unit file
 └── docs/
     ├── SPEC.md                   # Requirements
     ├── DESIGN.md                 # Architecture
