@@ -25,9 +25,10 @@ ufw is active with a default-deny inbound policy. Only the following ports are o
 | 443  | TCP      | HTTPS |
 
 This blocks the Erlang Port Mapper Daemon (epmd, port 4369) and the Erlang distribution
-port from the internet. These are needed for `bin/inventory_locator remote` to work locally
-but must never be publicly reachable — an attacker with network access to the distribution
-port and the release cookie could execute arbitrary code on the VM.
+port from the internet. These are needed for `bin/inventory_locator remote` to work on the
+VM itself (SSH in first, then run the command) but must never be publicly reachable — an
+attacker with network access to the distribution port and the release cookie could execute
+arbitrary code on the VM.
 
 To check firewall status:
 
