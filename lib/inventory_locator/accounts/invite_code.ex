@@ -9,8 +9,11 @@ defmodule InventoryLocator.Accounts.InviteCode do
   @code_length 8
   @default_expiry_days 30
 
+  @roles ~w(admin member)
+
   typed_schema "invite_codes" do
     field :code, :string
+    field :role, :string
     field :expires_at, :utc_datetime
     field :used_at, :utc_datetime
 
@@ -23,10 +26,14 @@ defmodule InventoryLocator.Accounts.InviteCode do
   @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
   def changeset(invite_code, attrs) do
     invite_code
-    |> cast(attrs, [:code, :expires_at, :used_at, :used_by_id, :created_by_id])
-    |> validate_required([:code, :expires_at])
+    |> cast(attrs, [:code, :role, :expires_at, :used_at, :used_by_id, :created_by_id])
+    |> validate_required([:code, :role, :expires_at])
+    |> validate_inclusion(:role, @roles)
     |> unique_constraint(:code)
   end
+
+  @spec roles() :: [String.t()]
+  def roles, do: @roles
 
   @spec generate_code() :: String.t()
   def generate_code do

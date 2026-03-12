@@ -130,8 +130,8 @@ defmodule InventoryLocatorWeb.AuthController do
   end
 
   # Only auto-link when the OAuth provider verifies email ownership.
-  # GitHub and LinkedIn both do; gate here so adding an unverified provider won't auto-link.
-  @verified_email_providers ~w(github linkedin)
+  # Gate here so adding an unverified provider won't auto-link.
+  @verified_email_providers ~w(linkedin)
 
   @spec email_verified_user(Ueberauth.Auth.t()) :: User.t() | nil
   defp email_verified_user(%{provider: provider, info: %{email: email}})
