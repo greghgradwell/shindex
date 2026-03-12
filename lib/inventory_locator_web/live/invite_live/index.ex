@@ -10,6 +10,8 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
 
   require Logger
 
+  @roles InviteCode.roles()
+
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
   def mount(_params, _session, socket) do
@@ -30,7 +32,7 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("generate", %{"role" => role}, socket) when role in ~w(admin member) do
+  def handle_event("generate", %{"role" => role}, socket) when role in @roles do
     require_admin(socket, fn socket ->
       case Accounts.create_invite_code(socket.assigns.current_user.id, role) do
         {:ok, _invite} ->

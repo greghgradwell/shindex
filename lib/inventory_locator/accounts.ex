@@ -78,7 +78,7 @@ defmodule InventoryLocator.Accounts do
 
   # Invite Codes
 
-  @spec create_invite_code(integer(), String.t()) :: {:ok, InviteCode.t()} | {:error, Ecto.Changeset.t()}
+  @spec create_invite_code(integer() | nil, String.t()) :: {:ok, InviteCode.t()} | {:error, Ecto.Changeset.t()}
   def create_invite_code(created_by_id, role) do
     attrs = %{
       code: InviteCode.generate_code(),
