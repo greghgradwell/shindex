@@ -57,5 +57,9 @@ priv/static/documents/
 # Local backup data (synced via Syncthing, not git)
 /priv/backups/
 
+# Internal development documents and infrastructure configs
+docs/internal/
+deploy/
+
 # IDE settings
 .vscode/

@@ -366,15 +366,15 @@ kill %1
 
 ## Step 10: Install Systemd Service
 
-**Copy the service file from the repo:**
+**Run the install script from the project directory:**
 ```bash
-sudo cp deploy/shindex.service /etc/systemd/system/
+bin/install-service
 ```
 
-**Enable and start the service:**
+This generates and installs a systemd service file configured for your username and directory.
+
+**Start the service:**
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable shindex
 sudo systemctl start shindex
 ```
 

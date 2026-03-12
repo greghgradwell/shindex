@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SERVICE_FILE=/etc/systemd/system/shindex.service
+
+echo "Installing Shindex systemd service..."
+echo "  User: $USER"
+echo "  Directory: $PWD"
+
+sudo tee "$SERVICE_FILE" > /dev/null <<SERVICE
+[Unit]
+Description=Shindex
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$PWD
+ExecStart=$PWD/bin/prod-server
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+sudo systemctl daemon-reload
+sudo systemctl enable shindex
+
+echo "Done. Start the service with: sudo systemctl start shindex"

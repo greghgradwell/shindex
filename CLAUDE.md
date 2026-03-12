@@ -24,7 +24,7 @@ A personal inventory system for tracking workshop and household items with preci
 - String-based location entry (type "A-3" → system validates and normalizes)
 - Phoenix PubSub for real-time photo sync between devices
 
-See `docs/SPEC.md`, `docs/DESIGN.md`, and `docs/PLAN.md` for complete specifications.
+See `docs/internal/SPEC.md`, `docs/internal/DESIGN.md`, and `docs/internal/PLAN.md` for complete specifications.
 
 ---
 

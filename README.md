@@ -40,7 +40,7 @@ Then reload your shell: `source ~/.zshrc` (or restart your terminal).
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/shindex.git
+git clone https://github.com/greghgradwell/shindex.git
 cd shindex
 
 # Copy environment template
@@ -104,14 +104,10 @@ Covers:
 │   ├── repo/migrations/          # Database migrations
 │   └── static/uploads/           # Photo storage
 ├── bin/
-│   └── server                    # Start script for systemd
-├── deploy/
-│   └── shindex.service           # Systemd unit file
+│   ├── install-service           # Installs systemd service for current user
+│   └── prod-server               # Start script for systemd
 └── docs/
-    ├── SPEC.md                   # Requirements
-    ├── DESIGN.md                 # Architecture
-    ├── PLAN.md                   # Implementation status
-    └── DEPLOYMENT.md             # Production setup
+    └── DEPLOYMENT.md             # Raspberry Pi setup
 ```
 
 ## Key Features
@@ -123,15 +119,6 @@ Covers:
 - **Multi-inventory**: Separate inventories for workshop, household, etc.
 - **Backup system**: Local backups with scheduling
 
-## Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [SPEC.md](docs/SPEC.md) | Requirements and vision |
-| [DESIGN.md](docs/DESIGN.md) | Architecture decisions |
-| [PLAN.md](docs/PLAN.md) | Implementation status |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Raspberry Pi setup |
-
 ## Running Tests
 
 ```bash
@@ -140,4 +127,4 @@ mix test
 
 ## License
 
-Private project - not licensed for distribution.
+AGPL-3.0 — see [LICENSE](LICENSE).
