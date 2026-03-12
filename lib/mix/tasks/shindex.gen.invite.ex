@@ -36,8 +36,8 @@ defmodule Mix.Tasks.Shindex.Gen.Invite do
   defp parse_role(args) do
     case OptionParser.parse(args, strict: [role: :string]) do
       {[role: role], _, _} when role in @roles -> role
-      {[role: other], _, _} -> Mix.raise("Invalid role: #{other}. Must be 'admin' or 'member'.")
-      _ -> Mix.raise("Missing required --role flag. Usage: mix shindex.gen.invite --role admin|member")
+      {[role: other], _, _} -> Mix.raise("Invalid role: #{other}. Must be one of: #{Enum.join(@roles, ", ")}")
+      _ -> Mix.raise("Missing required --role flag. Usage: mix shindex.gen.invite --role #{Enum.join(@roles, "|")}")
     end
   end
 end
