@@ -86,14 +86,16 @@ Inventory.create_item_with_location!(%{
   manufacturer: "Sparkfun"
 })
 
-Logger.info("Creating seed invite code SEED0001...")
+Logger.info("Creating seed admin invite code...")
 
 %InviteCode{}
 |> InviteCode.changeset(%{
-  code: "SEED0001",
+  code: InviteCode.generate_code(),
+  role: "admin",
   expires_at: DateTime.add(DateTime.utc_now(), 365, :day),
   created_by_id: admin_user.id
 })
 |> Repo.insert!()
+|> then(&Logger.info("Admin invite code: #{&1.code}"))
 
 Logger.info("Seeding complete!")

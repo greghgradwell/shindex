@@ -95,10 +95,6 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 # Ueberauth dev defaults (overridden by runtime.exs when env vars are set)
-config :ueberauth, Ueberauth.Strategy.Github.OAuth,
-  client_id: "not_configured",
-  client_secret: "not_configured"
-
 config :ueberauth, Ueberauth.Strategy.LinkedIn.OAuth,
   client_id: "not_configured",
   client_secret: "not_configured"

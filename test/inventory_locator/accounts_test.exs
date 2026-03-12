@@ -21,14 +21,14 @@ defmodule InventoryLocator.AccountsTest do
   describe "get_user_by_provider/2" do
     test "returns user when identity exists" do
       user = insert_user(%{name: "Test User"})
-      insert_identity(user, "github", "12345")
+      insert_identity(user, "test_provider", "12345")
 
-      found = Accounts.get_user_by_provider("github", "12345")
+      found = Accounts.get_user_by_provider("test_provider", "12345")
       assert found.id == user.id
     end
 
     test "returns nil when identity does not exist" do
-      assert Accounts.get_user_by_provider("github", "nonexistent") == nil
+      assert Accounts.get_user_by_provider("test_provider", "nonexistent") == nil
     end
   end
 
@@ -36,47 +36,45 @@ defmodule InventoryLocator.AccountsTest do
     test "links a new provider to an existing user" do
       user = insert_user(%{name: "Test User"})
 
-      assert {:ok, identity} = Accounts.add_identity(user, "github", "gh-123")
-      assert identity.provider == "github"
+      assert {:ok, identity} = Accounts.add_identity(user, "test_provider", "gh-123")
+      assert identity.provider == "test_provider"
       assert identity.provider_uid == "gh-123"
       assert identity.user_id == user.id
     end
 
     test "returns error for duplicate provider+uid" do
       user = insert_user(%{name: "Test User"})
-      insert_identity(user, "github", "gh-123")
+      insert_identity(user, "test_provider", "gh-123")
 
-      assert {:error, changeset} = Accounts.add_identity(user, "github", "gh-123")
+      assert {:error, changeset} = Accounts.add_identity(user, "test_provider", "gh-123")
       assert errors_on(changeset)[:provider]
     end
   end
 
   describe "register_user_from_oauth/2" do
-    test "first user becomes admin" do
-      invite = insert_invite(%{})
+    test "admin invite code grants admin role" do
+      invite = insert_invite(%{role: "admin"})
 
       oauth_info = %{
-        name: "First User",
-        email: "first@example.com",
+        name: "Admin User",
+        email: "admin@example.com",
         avatar_url: "https://example.com/avatar.png",
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "111"
       }
 
       assert {:ok, user} = Accounts.register_user_from_oauth(oauth_info, invite.code)
       assert user.role == "admin"
-      assert user.name == "First User"
     end
 
-    test "subsequent users become members" do
-      _admin = insert_user(%{name: "Admin", role: "admin"})
-      invite = insert_invite(%{})
+    test "member invite code grants member role" do
+      invite = insert_invite(%{role: "member"})
 
       oauth_info = %{
-        name: "Second User",
-        email: "second@example.com",
+        name: "Regular User",
+        email: "user@example.com",
         avatar_url: nil,
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "222"
       }
 
@@ -89,7 +87,7 @@ defmodule InventoryLocator.AccountsTest do
         name: "User",
         email: "user@example.com",
         avatar_url: nil,
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "333"
       }
 
@@ -103,7 +101,7 @@ defmodule InventoryLocator.AccountsTest do
         name: "User",
         email: "user@example.com",
         avatar_url: nil,
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "444"
       }
 
@@ -118,7 +116,7 @@ defmodule InventoryLocator.AccountsTest do
         name: "User",
         email: "user@example.com",
         avatar_url: nil,
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "555"
       }
 
@@ -132,7 +130,7 @@ defmodule InventoryLocator.AccountsTest do
         name: "User",
         email: "user@example.com",
         avatar_url: nil,
-        provider: "github",
+        provider: "test_provider",
         provider_uid: "666"
       }
 
@@ -148,7 +146,7 @@ defmodule InventoryLocator.AccountsTest do
     test "creates a valid invite code" do
       user = insert_user(%{name: "Admin", role: "admin"})
 
-      assert {:ok, invite} = Accounts.create_invite_code(user.id)
+      assert {:ok, invite} = Accounts.create_invite_code(user.id, "member")
       assert String.length(invite.code) == 8
       assert invite.created_by_id == user.id
       assert invite.used_at == nil
@@ -156,22 +154,40 @@ defmodule InventoryLocator.AccountsTest do
     end
   end
 
-  describe "list_invite_codes/0" do
+  describe "list_invite_codes/1" do
     test "returns all invite codes ordered by most recent" do
       user = insert_user(%{name: "Admin", role: "admin"})
-      {:ok, _first} = Accounts.create_invite_code(user.id)
-      {:ok, second} = Accounts.create_invite_code(user.id)
+      {:ok, _first} = Accounts.create_invite_code(user.id, "member")
+      {:ok, second} = Accounts.create_invite_code(user.id, "member")
 
-      codes = Accounts.list_invite_codes()
+      codes = Accounts.list_invite_codes(true)
       assert length(codes) == 2
       assert hd(codes).id == second.id
+    end
+
+    test "excludes expired codes when include_expired is false" do
+      user = insert_user(%{name: "Admin", role: "admin"})
+      {:ok, active} = Accounts.create_invite_code(user.id, "member")
+      _expired = insert_invite(%{expires_at: DateTime.add(DateTime.utc_now(), -3600, :second)})
+
+      codes = Accounts.list_invite_codes(false)
+      assert length(codes) == 1
+      assert hd(codes).id == active.id
+    end
+
+    test "keeps used codes even when filtering expired" do
+      user = insert_user(%{name: "Admin", role: "admin"})
+      _used = insert_invite(%{used_at: DateTime.utc_now(), used_by_id: user.id})
+
+      codes = Accounts.list_invite_codes(false)
+      assert length(codes) == 1
     end
   end
 
   describe "revoke_invite_code/1" do
     test "expires an unused invite code" do
       user = insert_user(%{name: "Admin", role: "admin"})
-      {:ok, invite} = Accounts.create_invite_code(user.id)
+      {:ok, invite} = Accounts.create_invite_code(user.id, "member")
 
       assert {:ok, revoked} = Accounts.revoke_invite_code(invite.id)
       assert DateTime.before?(revoked.expires_at, DateTime.utc_now())
@@ -239,7 +255,7 @@ defmodule InventoryLocator.AccountsTest do
   defp insert_invite(overrides) do
     attrs =
       Map.merge(
-        %{code: InviteCode.generate_code(), expires_at: InviteCode.default_expiry()},
+        %{code: InviteCode.generate_code(), role: "member", expires_at: InviteCode.default_expiry()},
         overrides
       )
 

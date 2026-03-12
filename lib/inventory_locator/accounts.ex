@@ -31,11 +31,6 @@ defmodule InventoryLocator.Accounts do
     )
   end
 
-  @spec count_users() :: non_neg_integer()
-  def count_users do
-    Repo.aggregate(User, :count)
-  end
-
   @spec add_identity(User.t(), String.t(), String.t()) :: {:ok, UserIdentity.t()} | {:error, Ecto.Changeset.t()}
   def add_identity(user, provider, provider_uid) do
     %UserIdentity{}
@@ -49,13 +44,11 @@ defmodule InventoryLocator.Accounts do
     Repo.transaction(fn ->
       case validate_and_claim_invite(invite_code_str) do
         {:ok, invite} ->
-          role = if count_users() == 0, do: "admin", else: "member"
-
           user_attrs = %{
             name: oauth_info.name,
             email: oauth_info.email,
             avatar_url: oauth_info.avatar_url,
-            role: role
+            role: invite.role
           }
 
           case create_user_with_identity(user_attrs, oauth_info.provider, oauth_info.provider_uid) do
@@ -85,10 +78,11 @@ defmodule InventoryLocator.Accounts do
 
   # Invite Codes
 
-  @spec create_invite_code(integer()) :: {:ok, InviteCode.t()} | {:error, Ecto.Changeset.t()}
-  def create_invite_code(created_by_id) do
+  @spec create_invite_code(integer() | nil, String.t()) :: {:ok, InviteCode.t()} | {:error, Ecto.Changeset.t()}
+  def create_invite_code(created_by_id, role) do
     attrs = %{
       code: InviteCode.generate_code(),
+      role: role,
       expires_at: InviteCode.default_expiry(),
       created_by_id: created_by_id
     }
@@ -98,16 +92,25 @@ defmodule InventoryLocator.Accounts do
     |> Repo.insert()
   end
 
-  @spec list_invite_codes() :: [InviteCode.t()]
-  def list_invite_codes do
-    Repo.all(
+  @spec list_invite_codes(boolean()) :: [InviteCode.t()]
+  def list_invite_codes(include_expired) do
+    query =
       from(ic in InviteCode,
         left_join: creator in assoc(ic, :created_by),
         left_join: used_by in assoc(ic, :used_by),
         order_by: [desc: ic.inserted_at, desc: ic.id],
         preload: [created_by: creator, used_by: used_by]
       )
-    )
+
+    query =
+      if include_expired do
+        query
+      else
+        now = DateTime.utc_now()
+        from(ic in query, where: ic.expires_at > ^now or not is_nil(ic.used_at))
+      end
+
+    Repo.all(query)
   end
 
   @spec revoke_invite_code(integer()) :: {:ok, InviteCode.t()} | {:error, :not_found | :already_used}
