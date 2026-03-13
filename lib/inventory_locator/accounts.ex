@@ -20,6 +20,16 @@ defmodule InventoryLocator.Accounts do
   @spec get_user_by_email(String.t()) :: User.t() | nil
   def get_user_by_email(email), do: Repo.get_by(User, email: email)
 
+  @spec find_or_create_local_user(String.t()) :: User.t()
+  def find_or_create_local_user(email) do
+    {:ok, user} =
+      %User{}
+      |> User.changeset(%{name: "Local Admin", email: email, role: "admin"})
+      |> Repo.insert(on_conflict: :nothing, conflict_target: :email, returning: true)
+
+    if user.id, do: user, else: get_user_by_email(email)
+  end
+
   @spec get_user_by_provider(String.t(), String.t()) :: User.t() | nil
   def get_user_by_provider(provider, provider_uid) do
     Repo.one(

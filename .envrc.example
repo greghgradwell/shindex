@@ -22,6 +22,9 @@ export GEMINI_API_KEY=your_secret_key
 export TAVILY_API_KEY=your_secret_key
 
 
+# Single-user mode (set to "false" to skip login — for personal/LAN use)
+# export AUTH_REQUIRED=false
+
 # OAuth Authentication (optional - sign-in disabled if not set)
 # LinkedIn: https://www.linkedin.com/developers/apps → Create App
 #   Redirect URL: http://localhost:4000/auth/linkedin/callback

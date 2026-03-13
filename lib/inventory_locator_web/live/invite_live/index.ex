@@ -113,7 +113,10 @@ defmodule InventoryLocatorWeb.InviteLive.Index do
               <tr>
                 <td class="font-mono">{code.code}</td>
                 <td>
-                  <span class={["badge", if(code.role == "admin", do: "badge-warning", else: "badge-info")]}>
+                  <span class={[
+                    "badge",
+                    if(code.role == "admin", do: "badge-warning", else: "badge-info")
+                  ]}>
                     {code.role}
                   </span>
                 </td>

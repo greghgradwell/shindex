@@ -24,6 +24,7 @@ defmodule InventoryLocator.Application do
     result = Supervisor.start_link(children, opts)
 
     configure_backup_scheduler()
+    ensure_local_user_if_needed()
 
     result
   end
@@ -61,6 +62,25 @@ defmodule InventoryLocator.Application do
 
       Logger.warning("Some features may not work correctly. Set these in your .envrc or environment.")
     end
+
+    :ok
+  end
+
+  @spec ensure_local_user_if_needed() :: :ok
+  defp ensure_local_user_if_needed do
+    _ =
+      Task.start(fn ->
+        Process.sleep(1000)
+
+        try do
+          InventoryLocator.Auth.ensure_local_user()
+        rescue
+          e ->
+            require Logger
+
+            Logger.error("Failed to ensure local user: #{Exception.message(e)}")
+        end
+      end)
 
     :ok
   end

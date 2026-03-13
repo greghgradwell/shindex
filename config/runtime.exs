@@ -22,6 +22,9 @@ end
 
 config :inventory_locator, InventoryLocatorWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# Single-user mode: set AUTH_REQUIRED=false to skip login (for personal/LAN use)
+config :inventory_locator, :auth_required, System.get_env("AUTH_REQUIRED") != "false"
+
 # Gemini API for AI-powered search
 config :inventory_locator, gemini_api_key: System.get_env("GEMINI_API_KEY")
 

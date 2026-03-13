@@ -1,6 +1,7 @@
 defmodule Mix.Tasks.Shindex.Gen.Invite do
   @shortdoc "Generates an invite code for new user registration"
 
+  @moduledoc false
   use Mix.Task
 
   alias InventoryLocator.Accounts
