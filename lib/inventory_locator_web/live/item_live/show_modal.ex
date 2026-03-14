@@ -58,8 +58,15 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
 
     batch_mode = Map.get(assigns, :batch_mode, false)
     start_editing = Map.get(assigns, :start_editing, false)
-    editing = batch_mode or start_editing
-    edit_changeset = if editing, do: ItemType.changeset(item, %{})
+    current_editing = Map.get(socket.assigns, :editing, false)
+    editing = batch_mode or start_editing or current_editing
+
+    edit_changeset =
+      cond do
+        not editing -> nil
+        current_editing -> socket.assigns[:edit_changeset]
+        true -> ItemType.changeset(item, %{})
+      end
 
     # Configure document uploads only on initial mount
     socket =
@@ -345,6 +352,11 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
      |> assign(:editing, false)
      |> assign(:edit_changeset, nil)
      |> assign(:pending_photo, nil)}
+  end
+
+  def handle_event("validate_item_details", %{"item_type" => item_params}, socket) do
+    changeset = ItemType.changeset(socket.assigns.item, item_params)
+    {:noreply, assign(socket, :edit_changeset, changeset)}
   end
 
   def handle_event("update_item_details", params, socket) do

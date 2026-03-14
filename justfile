@@ -1,3 +1,5 @@
+set shell := ["bash", "-c"]
+
 # Shindex commands
 
 # Default recipe: show available commands
@@ -43,6 +45,11 @@ install-service:
     sudo cp deploy/shindex.service /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable shindex
+
+# Build production release and restart the service
+build-release:
+    source .envrc && MIX_ENV=prod mix assets.deploy && MIX_ENV=prod mix release --overwrite
+    sudo systemctl restart shindex
 
 # Seed database with test inventory (WARNING: deletes existing data)
 seed:

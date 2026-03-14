@@ -120,35 +120,21 @@
                   :let={f}
                   for={@edit_changeset}
                   id={"item-details-form-#{@item.id}"}
+                  phx-change="validate_item_details"
                   phx-submit="update_item_details"
                   phx-target={@myself}
                   autocomplete="off"
                 >
-                  <.input field={f[:name]} type="text" label="Name" value={@item.name} required />
-                  <.input
-                    field={f[:manufacturer]}
-                    type="text"
-                    label="Manufacturer"
-                    value={@item.manufacturer}
-                  />
-                  <.input
-                    field={f[:model]}
-                    type="text"
-                    label="Model / Part #"
-                    value={@item.model}
-                  />
-                  <.input
-                    field={f[:description]}
-                    type="text"
-                    label="Description"
-                    value={@item.description}
-                  />
+                  <.input field={f[:name]} type="text" label="Name" phx-debounce="blur" required />
+                  <.input field={f[:manufacturer]} type="text" label="Manufacturer" phx-debounce="blur" />
+                  <.input field={f[:model]} type="text" label="Model / Part #" phx-debounce="blur" />
+                  <.input field={f[:description]} type="text" label="Description" phx-debounce="blur" />
                   <.input
                     field={f[:source_url]}
                     type="url"
                     label="Product URL"
-                    value={@item.source_url}
                     placeholder="https://manufacturer.com/product"
+                    phx-debounce="blur"
                   />
 
                   <div class="flex gap-2 mt-4">
