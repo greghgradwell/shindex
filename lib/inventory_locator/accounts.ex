@@ -30,6 +30,22 @@ defmodule InventoryLocator.Accounts do
     if user.id, do: user, else: get_user_by_email(email)
   end
 
+  @spec update_user_from_oauth(User.t(), Ueberauth.Auth.t()) ::
+          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def update_user_from_oauth(user, auth) do
+    attrs =
+      %{}
+      |> maybe_put(:name, auth.info.name)
+      |> maybe_put(:avatar_url, auth.info.image)
+
+    user |> User.changeset(attrs) |> Repo.update()
+  end
+
+  @spec maybe_put(map(), atom(), term()) :: map()
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
   @spec get_user_by_provider(String.t(), String.t()) :: User.t() | nil
   def get_user_by_provider(provider, provider_uid) do
     Repo.one(

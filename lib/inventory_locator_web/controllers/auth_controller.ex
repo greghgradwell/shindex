@@ -17,6 +17,8 @@ defmodule InventoryLocatorWeb.AuthController do
         handle_unknown_identity(conn, auth, provider, provider_uid)
 
       user ->
+        _ = Accounts.update_user_from_oauth(user, auth)
+
         conn
         |> configure_session(renew: true)
         |> put_session(:user_id, user.id)

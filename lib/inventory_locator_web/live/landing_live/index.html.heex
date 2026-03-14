@@ -1,0 +1,119 @@
+<div class="max-w-3xl mx-auto py-8 sm:py-16">
+  <%!-- Hero --%>
+  <div class="text-center mb-12">
+    <h1 class="text-4xl sm:text-5xl font-bold tracking-tight">Shindex</h1>
+    <p class="mt-4 text-lg text-base-content/70">
+      A personal inventory system for people with too many things
+      and not enough memory.
+    </p>
+  </div>
+
+  <%!-- What it does --%>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
+    <div class="rounded-box bg-base-200 p-6">
+      <h2 class="font-semibold text-lg mb-4">What Shindex does</h2>
+      <ul class="space-y-3 text-sm">
+        <li class="flex gap-2">
+          <.icon name="hero-check-circle" class="w-5 h-5 text-success shrink-0 mt-0.5" />
+          <span>
+            <strong>Track items with photos and locations.</strong>
+            Snap a photo, type a shelf code, done. Sub-30-second workflow.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-check-circle" class="w-5 h-5 text-success shrink-0 mt-0.5" />
+          <span>
+            <strong>Find things fast.</strong>
+            Text search, filters, and AI-powered semantic search
+            ("things that cut metal").
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-check-circle" class="w-5 h-5 text-success shrink-0 mt-0.5" />
+          <span>
+            <strong>Organize by location.</strong>
+            Shelf &rarr; Bin hierarchy. Know exactly where everything is.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-check-circle" class="w-5 h-5 text-success shrink-0 mt-0.5" />
+          <span>
+            <strong>Share inventories.</strong>
+            Give read-only access to friends or coworkers so they can
+            find and borrow your stuff.
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="rounded-box bg-base-200 p-6">
+      <h2 class="font-semibold text-lg mb-4">What Shindex doesn't do</h2>
+      <ul class="space-y-3 text-sm">
+        <li class="flex gap-2">
+          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/40 shrink-0 mt-0.5" />
+          <span>
+            <strong>No payments or financial data.</strong>
+            We don't process payments, store credit cards, or track
+            anything monetary.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/40 shrink-0 mt-0.5" />
+          <span>
+            <strong>No messaging.</strong> There's no chat or DMs. Coordinate with people however
+            you already do.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/40 shrink-0 mt-0.5" />
+          <span>
+            <strong>No personal data beyond your name.</strong>
+            We store your name and LinkedIn profile photo.
+            That's it. No phone numbers, no addresses.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/40 shrink-0 mt-0.5" />
+          <span>
+            <strong>No data selling.</strong> Your inventory is yours. We don't monetize, analyze,
+            or share your data with anyone.
+          </span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <%!-- Privacy note --%>
+  <div class="rounded-box border border-base-300 p-6 mb-12">
+    <h2 class="font-semibold text-lg mb-2">Privacy</h2>
+    <p class="text-sm text-base-content/70 leading-relaxed">
+      Your inventories are private by default. Other users cannot see your
+      items unless you explicitly share access. Shindex is
+      <a
+        href="https://github.com/greghgradwell/shindex"
+        target="_blank"
+        class="link link-primary"
+      >
+        open source
+      </a>
+      &mdash; you can read every line of code that handles your data.
+      This is an early beta hosted on a single server. The developer has
+      database access for maintenance and debugging, as with any hosted
+      service. Don't store sensitive personal information &mdash; this is
+      an inventory tool, not a vault.
+    </p>
+  </div>
+
+  <%!-- Sign in --%>
+  <div class="text-center">
+    <p class="text-sm text-base-content/60 mb-4">
+      Beta access is by invite only. Have a code? Sign in to get started.
+    </p>
+    <a href={~p"/auth/linkedin"} class="btn btn-neutral">
+      <svg class="size-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+      </svg>
+      Sign in with LinkedIn
+    </a>
+  </div>
+</div>

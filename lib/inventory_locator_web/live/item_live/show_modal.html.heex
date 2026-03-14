@@ -126,9 +126,24 @@
                   autocomplete="off"
                 >
                   <.input field={f[:name]} type="text" label="Name" phx-debounce="blur" required />
-                  <.input field={f[:manufacturer]} type="text" label="Manufacturer" phx-debounce="blur" />
-                  <.input field={f[:model]} type="text" label="Model / Part #" phx-debounce="blur" />
-                  <.input field={f[:description]} type="text" label="Description" phx-debounce="blur" />
+                  <.input
+                    field={f[:manufacturer]}
+                    type="text"
+                    label="Manufacturer"
+                    phx-debounce="blur"
+                  />
+                  <.input
+                    field={f[:model]}
+                    type="text"
+                    label="Model / Part #"
+                    phx-debounce="blur"
+                  />
+                  <.input
+                    field={f[:description]}
+                    type="text"
+                    label="Description"
+                    phx-debounce="blur"
+                  />
                   <.input
                     field={f[:source_url]}
                     type="url"
