@@ -353,6 +353,7 @@ defmodule InventoryLocator.Backup.Worker do
 
   @spec uploads_directory() :: String.t()
   defp uploads_directory do
-    Application.app_dir(:inventory_locator, "priv/static/uploads")
+    Application.get_env(:inventory_locator, :uploads_dir) ||
+      Application.app_dir(:inventory_locator, "priv/static/uploads")
   end
 end

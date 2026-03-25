@@ -22,13 +22,6 @@ MIX_ENV=prod mix assets.deploy
 echo "==> Building release..."
 MIX_ENV=prod mix release --overwrite
 
-echo "==> Linking persistent upload directories..."
-RELEASE_STATIC=$(ls -d _build/prod/rel/inventory_locator/lib/inventory_locator-*/priv/static 2>/dev/null | head -1)
-mkdir -p "$HOME/inventory-uploads" "$HOME/inventory-documents"
-rm -rf "$RELEASE_STATIC/uploads" "$RELEASE_STATIC/documents"
-ln -s "$HOME/inventory-uploads" "$RELEASE_STATIC/uploads"
-ln -s "$HOME/inventory-documents" "$RELEASE_STATIC/documents"
-
 echo "==> Running migrations..."
 PHX_SERVER=false _build/prod/rel/inventory_locator/bin/inventory_locator eval "InventoryLocator.Release.migrate()"
 

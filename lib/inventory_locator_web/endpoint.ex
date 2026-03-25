@@ -24,8 +24,11 @@ defmodule InventoryLocatorWeb.Endpoint do
     at: "/",
     from: :inventory_locator,
     gzip: not code_reloading?,
-    only: InventoryLocatorWeb.static_paths(),
+    only: InventoryLocatorWeb.static_paths() -- ~w(uploads documents),
     raise_on_missing_only: code_reloading?
+
+  # Serve user uploads from persistent directories outside the release
+  plug :serve_persistent_uploads
 
   # Add security headers for user uploads to prevent XSS via uploaded files
   plug :secure_upload_headers
@@ -55,6 +58,28 @@ defmodule InventoryLocatorWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug InventoryLocatorWeb.Router
+
+  @spec serve_persistent_uploads(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
+  defp serve_persistent_uploads(conn, _opts) do
+    case conn.request_path do
+      "/uploads/" <> _rest ->
+        dir = Application.get_env(:inventory_locator, :uploads_dir)
+        if dir, do: serve_from(conn, "/uploads", dir), else: conn
+
+      "/documents/" <> _rest ->
+        dir = Application.get_env(:inventory_locator, :documents_dir)
+        if dir, do: serve_from(conn, "/documents", dir), else: conn
+
+      _ ->
+        conn
+    end
+  end
+
+  @spec serve_from(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
+  defp serve_from(conn, at, from) do
+    opts = Plug.Static.init(at: at, from: from)
+    Plug.Static.call(conn, opts)
+  end
 
   @spec secure_upload_headers(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   defp secure_upload_headers(conn, _opts) do

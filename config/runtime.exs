@@ -28,6 +28,11 @@ config :inventory_locator, :auth_required, System.get_env("AUTH_REQUIRED") != "f
 # Gemini API for AI-powered search
 config :inventory_locator, gemini_api_key: System.get_env("GEMINI_API_KEY")
 
+# Persistent storage directories (outside the release, survive rebuilds)
+config :inventory_locator,
+  uploads_dir: System.get_env("UPLOADS_DIR") || Path.join(System.user_home!(), "inventory-uploads"),
+  documents_dir: System.get_env("DOCUMENTS_DIR") || Path.join(System.user_home!(), "inventory-documents")
+
 # LinkedIn OAuth (optional)
 if linkedin_client_id = System.get_env("LINKEDIN_CLIENT_ID") do
   config :ueberauth, Ueberauth.Strategy.LinkedIn.OAuth,

@@ -11,8 +11,8 @@ defmodule InventoryLocator.Media do
   @max_photo_height 1080
   @jpeg_quality 85
 
-  @uploads_subpath "priv/static/uploads"
-  @documents_subpath "priv/static/documents"
+  @legacy_uploads_subpath "priv/static/uploads"
+  @legacy_documents_subpath "priv/static/documents"
 
   @fetch_timeout 10_000
   @max_photo_size 10_000_000
@@ -322,10 +322,16 @@ defmodule InventoryLocator.Media do
   end
 
   @spec uploads_dir() :: String.t()
-  defp uploads_dir, do: Application.app_dir(:inventory_locator, @uploads_subpath)
+  defp uploads_dir do
+    Application.get_env(:inventory_locator, :uploads_dir) ||
+      Application.app_dir(:inventory_locator, @legacy_uploads_subpath)
+  end
 
   @spec documents_dir() :: String.t()
-  defp documents_dir, do: Application.app_dir(:inventory_locator, @documents_subpath)
+  defp documents_dir do
+    Application.get_env(:inventory_locator, :documents_dir) ||
+      Application.app_dir(:inventory_locator, @legacy_documents_subpath)
+  end
 
   @spec ensure_dir(String.t()) :: :ok | {:error, File.posix()}
   defp ensure_dir(dir) do
