@@ -7,6 +7,7 @@ defmodule InventoryLocator.Repo.Migrations.AddReusableToShareCodes do
     end
 
     # Remove the default after backfilling existing rows
-    execute "ALTER TABLE inventory_share_codes ALTER COLUMN reusable DROP DEFAULT", ""
+    execute "ALTER TABLE inventory_share_codes ALTER COLUMN reusable DROP DEFAULT",
+            "ALTER TABLE inventory_share_codes ALTER COLUMN reusable SET DEFAULT false"
   end
 end

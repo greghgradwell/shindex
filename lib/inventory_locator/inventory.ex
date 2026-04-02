@@ -1218,18 +1218,24 @@ defmodule InventoryLocator.Inventory do
 
   @spec create_public_link(integer(), integer()) :: {:ok, InventoryShareCode.t()} | {:error, Ecto.Changeset.t()}
   def create_public_link(inventory_id, created_by_id) do
-    attrs = %{
-      code: InventoryShareCode.generate_code(),
-      role: "viewer",
-      reusable: true,
-      expires_at: InventoryShareCode.public_expiry(),
-      inventory_id: inventory_id,
-      created_by_id: created_by_id
-    }
+    case get_public_link(inventory_id) do
+      %InventoryShareCode{} = existing ->
+        {:ok, existing}
 
-    %InventoryShareCode{}
-    |> InventoryShareCode.changeset(attrs)
-    |> Repo.insert()
+      nil ->
+        attrs = %{
+          code: InventoryShareCode.generate_code(),
+          role: "viewer",
+          reusable: true,
+          expires_at: InventoryShareCode.public_expiry(),
+          inventory_id: inventory_id,
+          created_by_id: created_by_id
+        }
+
+        %InventoryShareCode{}
+        |> InventoryShareCode.changeset(attrs)
+        |> Repo.insert()
+    end
   end
 
   @spec get_public_link(integer()) :: InventoryShareCode.t() | nil
