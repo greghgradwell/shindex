@@ -608,6 +608,10 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
+  def handle_event("create_request", _params, %{assigns: %{current_user: nil}} = socket) do
+    {:noreply, notify_flash(socket, :error, "Sign in to request items.")}
+  end
+
   def handle_event("create_request", %{"listing-id" => listing_id_str} = params, socket) do
     user_id = socket.assigns.current_user.id
     message = blank_to_nil(Map.get(params, "message", ""))

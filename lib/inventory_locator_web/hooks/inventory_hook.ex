@@ -26,6 +26,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
       |> assign(:inventories, inventories)
       |> assign(:admin_mode, admin_mode)
       |> assign(:inventory_role, inventory_role)
+      |> assign(:guest_mode, false)
       |> assign(:unresolved_request_count, unresolved_count)
       |> attach_hook(:inventory_refresh, :handle_info, &handle_inventory_refresh/2)
 
