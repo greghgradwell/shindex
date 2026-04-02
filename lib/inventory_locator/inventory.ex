@@ -1135,7 +1135,7 @@ defmodule InventoryLocator.Inventory do
   @spec redeem_share_code(String.t(), integer()) ::
           {:ok, InventoryMember.t()} | {:error, :invalid_code | :already_member | :own_inventory}
   def redeem_share_code(code_str, user_id) do
-    case Repo.one(from(sc in InventoryShareCode, where: sc.code == ^code_str, preload: :inventory)) do
+    case Repo.one(from(sc in InventoryShareCode, where: sc.code == ^code_str and sc.reusable == false, preload: :inventory)) do
       nil ->
         {:error, :invalid_code}
 
@@ -1185,7 +1185,7 @@ defmodule InventoryLocator.Inventory do
   def get_share_code_info(code_str) do
     case Repo.one(
            from(sc in InventoryShareCode,
-             where: sc.code == ^code_str,
+             where: sc.code == ^code_str and sc.reusable == false,
              preload: [:inventory, :created_by]
            )
          ) do
@@ -1252,7 +1252,9 @@ defmodule InventoryLocator.Inventory do
 
   @spec revoke_public_link(integer()) :: {:ok, InventoryShareCode.t()} | {:error, :not_found}
   def revoke_public_link(share_code_id) do
-    case Repo.get(InventoryShareCode, share_code_id) do
+    case Repo.one(
+           from(sc in InventoryShareCode, where: sc.id == ^share_code_id and sc.reusable == true)
+         ) do
       nil -> {:error, :not_found}
       share_code -> Repo.delete(share_code)
     end

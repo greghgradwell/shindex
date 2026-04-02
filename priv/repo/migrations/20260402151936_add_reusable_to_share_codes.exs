@@ -9,5 +9,10 @@ defmodule InventoryLocator.Repo.Migrations.AddReusableToShareCodes do
     # Remove the default after backfilling existing rows
     execute "ALTER TABLE inventory_share_codes ALTER COLUMN reusable DROP DEFAULT",
             "ALTER TABLE inventory_share_codes ALTER COLUMN reusable SET DEFAULT false"
+
+    create unique_index(:inventory_share_codes, [:inventory_id],
+      where: "reusable = true",
+      name: :inventory_share_codes_unique_reusable_per_inventory
+    )
   end
 end
