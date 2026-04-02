@@ -1257,18 +1257,12 @@ defmodule InventoryLocator.Inventory do
     case Repo.one(
            from(sc in InventoryShareCode,
              where: sc.code == ^code_str and sc.reusable == true,
+             where: sc.expires_at > ^DateTime.utc_now(),
              preload: :inventory
            )
          ) do
-      nil ->
-        :invalid
-
-      share_code ->
-        if InventoryShareCode.valid?(share_code) do
-          {:ok, share_code.inventory}
-        else
-          :invalid
-        end
+      nil -> :invalid
+      share_code -> {:ok, share_code.inventory}
     end
   end
 

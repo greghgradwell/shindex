@@ -238,17 +238,21 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
 
   def handle_event("revoke_public_link", _params, socket) do
     require_inventory_owner(socket, socket.assigns.share_inventory, fn socket ->
-      public_link = socket.assigns.public_link
+      case socket.assigns.public_link do
+        %{id: id} ->
+          case Inventory.revoke_public_link(id) do
+            {:ok, _} ->
+              {:noreply,
+               socket
+               |> assign(:public_link, nil)
+               |> put_flash(:info, "Public link revoked")}
 
-      case Inventory.revoke_public_link(public_link.id) do
-        {:ok, _} ->
-          {:noreply,
-           socket
-           |> assign(:public_link, nil)
-           |> put_flash(:info, "Public link revoked")}
+            {:error, :not_found} ->
+              {:noreply, put_flash(socket, :error, "Public link not found")}
+          end
 
-        {:error, :not_found} ->
-          {:noreply, put_flash(socket, :error, "Public link not found")}
+        nil ->
+          {:noreply, socket}
       end
     end)
   end
