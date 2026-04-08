@@ -16,7 +16,15 @@ defmodule InventoryLocatorWeb.Hooks.AuthHook do
          |> assign(:admin_user?, user.role == "admin")}
 
       result when result in [:unauthenticated, :stale_session] ->
-        {:halt, redirect(socket, to: "/landing")}
+        if session["guest_inventory_id"] do
+          {:cont,
+           socket
+           |> assign(:current_user, nil)
+           |> assign(:admin_user?, false)
+           |> assign(:guest_session, true)}
+        else
+          {:halt, redirect(socket, to: "/landing")}
+        end
     end
   end
 end
