@@ -104,6 +104,31 @@
     </p>
   </div>
 
+  <%!-- Guest access --%>
+  <div class="rounded-box border border-base-300 p-6 mb-12">
+    <h2 class="font-semibold text-lg mb-2">Have a view-only code?</h2>
+    <p class="text-sm text-base-content/70 mb-4">
+      Enter the code to browse an inventory without signing in.
+    </p>
+    <form phx-submit="submit_guest_code" class="flex gap-2">
+      <input
+        type="text"
+        name="code"
+        value={@guest_code}
+        phx-change="update_guest_code"
+        phx-debounce="100"
+        placeholder="Enter code"
+        class="input input-bordered flex-1"
+      />
+      <button type="submit" class="btn btn-neutral" disabled={@guest_code == ""}>
+        View Inventory
+      </button>
+    </form>
+    <%= if @guest_error do %>
+      <p class="text-error text-sm mt-2">{@guest_error}</p>
+    <% end %>
+  </div>
+
   <%!-- Sign in --%>
   <div class="text-center">
     <p class="text-sm text-base-content/60 mb-4">
