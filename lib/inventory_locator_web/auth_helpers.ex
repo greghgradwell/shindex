@@ -21,4 +21,13 @@ defmodule InventoryLocatorWeb.AuthHelpers do
       {:noreply, put_flash(socket, :error, "You don't have permission to modify this inventory.")}
     end
   end
+
+  @spec require_member(Socket.t(), (Socket.t() -> {:noreply, Socket.t()})) :: {:noreply, Socket.t()}
+  def require_member(socket, func) do
+    if socket.assigns[:inventory_role] in [:owner, :member] do
+      func.(socket)
+    else
+      {:noreply, put_flash(socket, :error, "Sign in to interact with this inventory.")}
+    end
+  end
 end
