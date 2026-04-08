@@ -17,7 +17,7 @@ defmodule InventoryLocatorWeb.Hooks.GuestInventoryHook do
           |> assign(:admin_mode, false)
           |> assign(:current_inventory, inventory)
           |> assign(:inventories, [inventory])
-          |> assign(:inventory_role, :viewer)
+          |> assign(:inventory_role, :guest)
           |> assign(:unresolved_request_count, 0)
           |> assign(:guest_mode, true)
 

@@ -283,7 +283,9 @@
       </p>
       <%= if @public_link do %>
         <div class="flex items-center gap-2">
-          <code class="text-xs break-all flex-1 bg-base-200 p-2 rounded">{public_link_url(@public_link.code)}</code>
+          <code class="text-xs break-all flex-1 bg-base-200 p-2 rounded">
+            {public_link_url(@public_link.code)}
+          </code>
           <button
             class="btn btn-ghost btn-sm"
             onclick={"navigator.clipboard.writeText('#{public_link_url(@public_link.code)}')"}
@@ -291,7 +293,11 @@
           >
             <.icon name="hero-clipboard-document" class="w-4 h-4" />
           </button>
-          <button class="btn btn-ghost btn-sm text-error" phx-click="revoke_public_link" title="Revoke">
+          <button
+            class="btn btn-ghost btn-sm text-error"
+            phx-click="revoke_public_link"
+            title="Revoke"
+          >
             <.icon name="hero-trash" class="w-4 h-4" />
           </button>
         </div>

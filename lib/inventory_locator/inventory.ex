@@ -90,7 +90,7 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec user_role_for_inventory(integer(), integer()) :: :owner | :viewer | :none
+  @spec user_role_for_inventory(integer(), integer()) :: :owner | :member | :none
   def user_role_for_inventory(user_id, inventory_id) do
     case Repo.one(from(i in Inv, where: i.id == ^inventory_id, select: i.user_id)) do
       nil -> :none
@@ -99,7 +99,7 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec check_membership_role(integer(), integer()) :: :viewer | :none
+  @spec check_membership_role(integer(), integer()) :: :member | :none
   defp check_membership_role(user_id, inventory_id) do
     case Repo.one(
            from(m in InventoryMember,
@@ -108,7 +108,7 @@ defmodule InventoryLocator.Inventory do
            )
          ) do
       nil -> :none
-      _role -> :viewer
+      _role -> :member
     end
   end
 
@@ -1135,7 +1135,9 @@ defmodule InventoryLocator.Inventory do
   @spec redeem_share_code(String.t(), integer()) ::
           {:ok, InventoryMember.t()} | {:error, :invalid_code | :already_member | :own_inventory}
   def redeem_share_code(code_str, user_id) do
-    case Repo.one(from(sc in InventoryShareCode, where: sc.code == ^code_str and sc.reusable == false, preload: :inventory)) do
+    case Repo.one(
+           from(sc in InventoryShareCode, where: sc.code == ^code_str and sc.reusable == false, preload: :inventory)
+         ) do
       nil ->
         {:error, :invalid_code}
 
@@ -1252,9 +1254,7 @@ defmodule InventoryLocator.Inventory do
 
   @spec revoke_public_link(integer()) :: {:ok, InventoryShareCode.t()} | {:error, :not_found}
   def revoke_public_link(share_code_id) do
-    case Repo.one(
-           from(sc in InventoryShareCode, where: sc.id == ^share_code_id and sc.reusable == true)
-         ) do
+    case Repo.one(from(sc in InventoryShareCode, where: sc.id == ^share_code_id and sc.reusable == true)) do
       nil -> {:error, :not_found}
       share_code -> Repo.delete(share_code)
     end

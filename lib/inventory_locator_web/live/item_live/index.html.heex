@@ -36,7 +36,7 @@
     <span class="text-sm">Show archived items</span>
   </label>
 
-  <%= if @inventory_role == :viewer do %>
+  <%= if @inventory_role in [:member, :guest] do %>
     <div class="flex items-center gap-2">
       <span class="text-sm text-base-content/60">Available:</span>
       <label class="flex items-center gap-1 cursor-pointer">

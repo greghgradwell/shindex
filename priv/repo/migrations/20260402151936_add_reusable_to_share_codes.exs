@@ -11,8 +11,8 @@ defmodule InventoryLocator.Repo.Migrations.AddReusableToShareCodes do
             "ALTER TABLE inventory_share_codes ALTER COLUMN reusable SET DEFAULT false"
 
     create unique_index(:inventory_share_codes, [:inventory_id],
-      where: "reusable = true",
-      name: :inventory_share_codes_unique_reusable_per_inventory
-    )
+             where: "reusable = true",
+             name: :inventory_share_codes_unique_reusable_per_inventory
+           )
   end
 end

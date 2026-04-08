@@ -67,7 +67,7 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
     Enum.find(inventories, hd(inventories), fn inv -> inv.id == inventory_id end)
   end
 
-  @spec inventory_role(integer(), Inv.t()) :: :owner | :viewer
+  @spec inventory_role(integer(), Inv.t()) :: :owner | :member
   defp inventory_role(user_id, %Inv{user_id: user_id}), do: :owner
-  defp inventory_role(_user_id, _inv), do: :viewer
+  defp inventory_role(_user_id, _inv), do: :member
 end
