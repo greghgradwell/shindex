@@ -593,7 +593,7 @@
                     <% else %>
                       <%!-- Viewer: show request button or "already requested" --%>
                       <%= if listing.active do %>
-                        <%= if @current_user == nil do %>
+                        <%= if @inventory_role == :guest do %>
                           <p class="text-sm text-base-content/60 mt-2">
                             <.link navigate="/landing" class="link link-primary">Sign in</.link>
                             to request this item.
