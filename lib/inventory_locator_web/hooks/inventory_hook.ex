@@ -1,16 +1,51 @@
 defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   @moduledoc false
   import Phoenix.Component, only: [assign: 3]
-  import Phoenix.LiveView, only: [attach_hook: 4]
+  import Phoenix.LiveView, only: [attach_hook: 4, redirect: 2]
 
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Marketplace
   alias Phoenix.LiveView.Socket
 
-  @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
+  @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   def on_mount(:default, _params, session, socket) do
-    user_id = socket.assigns.current_user.id
+    case socket.assigns[:current_user] do
+      nil ->
+        handle_guest_mount(session, socket)
+
+      user ->
+        handle_authenticated_mount(user, session, socket)
+    end
+  end
+
+  @spec handle_guest_mount(map(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
+  defp handle_guest_mount(%{"guest_inventory_id" => guest_inventory_id}, socket) do
+    case Inventory.get_inventory(guest_inventory_id) do
+      nil ->
+        {:halt, redirect(socket, to: "/landing")}
+
+      inventory ->
+        socket =
+          socket
+          |> assign(:current_inventory, inventory)
+          |> assign(:inventories, [inventory])
+          |> assign(:admin_mode, false)
+          |> assign(:inventory_role, :guest)
+          |> assign(:guest_mode, true)
+          |> assign(:unresolved_request_count, 0)
+
+        {:cont, socket}
+    end
+  end
+
+  defp handle_guest_mount(_session, socket) do
+    {:halt, redirect(socket, to: "/landing")}
+  end
+
+  @spec handle_authenticated_mount(map(), map(), Socket.t()) :: {:cont, Socket.t()}
+  defp handle_authenticated_mount(user, session, socket) do
+    user_id = user.id
     inventory_id = session["inventory_id"]
     admin_user? = Map.get(socket.assigns, :admin_user?, false)
     admin_mode = if admin_user?, do: session["admin_mode"] || false, else: false
