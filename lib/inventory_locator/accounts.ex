@@ -22,12 +22,18 @@ defmodule InventoryLocator.Accounts do
 
   @spec find_or_create_local_user(String.t()) :: User.t()
   def find_or_create_local_user(email) do
-    {:ok, user} =
-      %User{}
-      |> User.changeset(%{name: "Local Admin", email: email, role: "admin"})
-      |> Repo.insert(on_conflict: :nothing, conflict_target: :email, returning: true)
+    case get_user_by_email(email) do
+      %User{} = user ->
+        user
 
-    if user.id, do: user, else: get_user_by_email(email)
+      nil ->
+        {:ok, user} =
+          %User{}
+          |> User.changeset(%{name: "Local Admin", email: email, role: "admin"})
+          |> Repo.insert()
+
+        user
+    end
   end
 
   @spec update_user_from_oauth(User.t(), Ueberauth.Auth.t()) ::

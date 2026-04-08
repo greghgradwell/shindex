@@ -77,27 +77,32 @@
             <% else %>
               <%!-- No pending photo --%>
               <%= if @item.photo_path do %>
-                <%!-- Has existing photo: show it with change options underneath --%>
                 <div class="space-y-4">
                   <img
                     src={"/uploads/#{@item.photo_path}"}
                     alt={@item.name}
                     class="w-full h-80 object-cover rounded-lg shadow-lg"
                   />
-                  <%!-- PhotoCapture without current_photo_path so it only shows capture UI --%>
+                  <%= if @inventory_role == :owner do %>
+                    <.live_component
+                      module={InventoryLocatorWeb.Components.PhotoCapture}
+                      id="modal-photo-capture"
+                      size={:compact}
+                    />
+                  <% end %>
+                </div>
+              <% else %>
+                <%= if @inventory_role == :owner do %>
                   <.live_component
                     module={InventoryLocatorWeb.Components.PhotoCapture}
                     id="modal-photo-capture"
                     size={:compact}
                   />
-                </div>
-              <% else %>
-                <%!-- No photo: show PhotoCapture component --%>
-                <.live_component
-                  module={InventoryLocatorWeb.Components.PhotoCapture}
-                  id="modal-photo-capture"
-                  size={:compact}
-                />
+                <% else %>
+                  <div class="w-full h-80 bg-base-200 rounded-lg flex items-center justify-center">
+                    <span class="text-base-content/40 text-sm">No photo</span>
+                  </div>
+                <% end %>
               <% end %>
             <% end %>
           <% end %>
