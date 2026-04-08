@@ -17,6 +17,21 @@ defmodule InventoryLocatorWeb.ShareController do
     end
   end
 
+  @spec enter_guest(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def enter_guest(conn, %{"code" => code}) do
+    case Inventory.resolve_public_code(code) do
+      {:ok, inventory} ->
+        conn
+        |> put_session(:guest_inventory_id, inventory.id)
+        |> redirect(to: "/")
+
+      :invalid ->
+        conn
+        |> put_flash(:error, "Invalid or expired view link.")
+        |> redirect(to: "/landing")
+    end
+  end
+
   @spec redeem(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def redeem(conn, %{"code" => code}) do
     user_id = conn.assigns.current_user.id

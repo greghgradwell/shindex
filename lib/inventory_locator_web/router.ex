@@ -69,11 +69,7 @@ defmodule InventoryLocatorWeb.Router do
   scope "/view", InventoryLocatorWeb do
     pipe_through [:browser_public, :rate_limit_guest]
 
-    live_session :guest,
-      on_mount: [{InventoryLocatorWeb.Hooks.GuestInventoryHook, :default}],
-      layout: {InventoryLocatorWeb.Layouts, :guest} do
-      live "/:code", ItemLive.Index
-    end
+    get "/:code", ShareController, :enter_guest
   end
 
   scope "/auth", InventoryLocatorWeb do
