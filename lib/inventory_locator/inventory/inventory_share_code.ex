@@ -33,6 +33,7 @@ defmodule InventoryLocator.Inventory.InventoryShareCode do
     |> validate_required([:code, :role, :reusable, :expires_at, :inventory_id, :created_by_id])
     |> validate_inclusion(:role, @roles)
     |> unique_constraint(:code)
+    |> unique_constraint(:inventory_id, name: :inventory_share_codes_unique_reusable_per_inventory)
     |> foreign_key_constraint(:inventory_id)
     |> foreign_key_constraint(:created_by_id)
   end

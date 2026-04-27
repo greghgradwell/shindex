@@ -33,7 +33,6 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
 
   @spec check_rate(term(), pos_integer(), pos_integer()) :: :ok | {:error, :rate_limited}
   def check_rate(key, max_requests, window_seconds) do
-    ensure_table_exists()
     now = System.system_time(:second)
     check_rate_limit(key, now, max_requests, window_seconds)
   end
@@ -41,28 +40,24 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
   @spec get_remote_ip(Plug.Conn.t() | %{x_headers: list(), peer_ip: tuple()}) :: String.t()
   def get_remote_ip(%Plug.Conn{} = conn) do
     case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
-      [ip | _] -> ip
-      [] -> to_string(:inet_parse.ntoa(conn.remote_ip))
+      [forwarded | _] -> first_ip(forwarded)
+      [] -> to_string(:inet.ntoa(conn.remote_ip))
     end
   end
 
   def get_remote_ip(%{x_headers: x_headers, peer_ip: peer_ip}) do
     case List.keyfind(x_headers, "x-forwarded-for", 0) do
-      {"x-forwarded-for", ip} -> ip
-      nil -> to_string(:inet_parse.ntoa(peer_ip))
+      {"x-forwarded-for", forwarded} -> first_ip(forwarded)
+      nil -> to_string(:inet.ntoa(peer_ip))
     end
   end
 
-  @spec ensure_table_exists() :: :ok
-  defp ensure_table_exists do
-    case :ets.whereis(@table_name) do
-      :undefined ->
-        _ = :ets.new(@table_name, [:public, :named_table, :set])
-        :ok
-
-      _table ->
-        :ok
-    end
+  # x-forwarded-for can be a comma-separated list (proxy chain). Take only the
+  # client-provided first hop — using the whole string would let a caller append
+  # arbitrary values to get fresh rate-limit buckets.
+  @spec first_ip(String.t()) :: String.t()
+  defp first_ip(forwarded) do
+    forwarded |> String.split(",") |> List.first() |> String.trim()
   end
 
   @spec check_rate_limit(term(), integer(), integer(), integer()) ::
