@@ -9,9 +9,19 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Marketplace
   alias InventoryLocatorWeb.ItemLive.ShowModal
+  alias InventoryLocatorWeb.Plugs.RateLimiter
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @page_size 48
+
+  # Progressive rate limits for AI search: burst (per minute) + daily cap.
+  # Each tuple is {max_requests, window_seconds}.
+  @ai_search_limits [
+    {10, 60},
+    {50, 86_400}
+  ]
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
@@ -22,10 +32,28 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       socket
       |> assign_defaults()
       |> assign(:view_mode, view_mode)
+      |> assign(:client_ip, get_client_ip(socket))
 
     socket = if view_mode == :table, do: load_all_items(socket), else: socket
 
     {:ok, socket}
+  end
+
+  @spec get_client_ip(Socket.t()) :: String.t() | nil
+  defp get_client_ip(socket) do
+    if connected?(socket) do
+      peer_data = get_connect_info(socket, :peer_data)
+      x_headers = get_connect_info(socket, :x_headers) || []
+
+      case peer_data do
+        %{address: peer_ip} ->
+          RateLimiter.get_remote_ip(%{peer_ip: peer_ip, x_headers: x_headers})
+
+        other ->
+          Logger.warning("Unexpected peer_data shape in LiveView mount: #{inspect(other)}")
+          nil
+      end
+    end
   end
 
   @impl true
@@ -221,19 +249,53 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("confirm_ai_search", _params, socket) do
-    socket =
-      socket
-      |> assign(:show_ai_modal, false)
-      |> assign(:ai_loading, true)
+    case check_ai_search_rate_limit(socket) do
+      :ok ->
+        socket =
+          socket
+          |> assign(:show_ai_modal, false)
+          |> assign(:ai_loading, true)
 
-    all_items =
-      Inventory.list_all_items_unpaginated(socket.assigns.current_inventory.id,
-        show_archived: socket.assigns.show_archived
-      )
+        all_items =
+          Inventory.list_all_items_unpaginated(socket.assigns.current_inventory.id,
+            show_archived: socket.assigns.show_archived
+          )
 
-    send(self(), {:perform_ai_search, socket.assigns.query, all_items})
+        send(self(), {:perform_ai_search, socket.assigns.query, all_items})
 
-    {:noreply, socket}
+        {:noreply, socket}
+
+      {:error, :rate_limited} ->
+        {:noreply,
+         socket
+         |> assign(:show_ai_modal, false)
+         |> put_flash(:error, "AI search limit reached. Please try again later.")}
+
+      {:error, :no_ip} ->
+        {:noreply,
+         socket
+         |> assign(:show_ai_modal, false)
+         |> put_flash(:error, "AI search is temporarily unavailable.")}
+    end
+  end
+
+  @spec check_ai_search_rate_limit(Socket.t()) :: :ok | {:error, :rate_limited | :no_ip}
+  defp check_ai_search_rate_limit(socket) do
+    case socket.assigns[:client_ip] do
+      nil -> {:error, :no_ip}
+      ip -> check_ai_search_limits(ip, @ai_search_limits)
+    end
+  end
+
+  @spec check_ai_search_limits(String.t(), [{pos_integer(), pos_integer()}]) ::
+          :ok | {:error, :rate_limited}
+  defp check_ai_search_limits(_ip, []), do: :ok
+
+  defp check_ai_search_limits(ip, [{max, window} | rest]) do
+    case RateLimiter.check_rate({:ai_search, ip, window}, max, window) do
+      :ok -> check_ai_search_limits(ip, rest)
+      {:error, :rate_limited} = error -> error
+    end
   end
 
   @impl true

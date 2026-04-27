@@ -1,16 +1,50 @@
 defmodule InventoryLocatorWeb.Hooks.InventoryHook do
   @moduledoc false
   import Phoenix.Component, only: [assign: 3]
-  import Phoenix.LiveView, only: [attach_hook: 4]
+  import Phoenix.LiveView, only: [attach_hook: 4, redirect: 2]
 
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.Inv
   alias InventoryLocator.Marketplace
   alias Phoenix.LiveView.Socket
 
-  @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()}
+  @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   def on_mount(:default, _params, session, socket) do
-    user_id = socket.assigns.current_user.id
+    case socket.assigns[:current_user] do
+      nil ->
+        handle_guest_mount(session, socket)
+
+      user ->
+        handle_authenticated_mount(user, session, socket)
+    end
+  end
+
+  @spec handle_guest_mount(map(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
+  defp handle_guest_mount(%{"guest_inventory_id" => guest_inventory_id}, socket) do
+    case Inventory.get_inventory(guest_inventory_id) do
+      nil ->
+        {:halt, redirect(socket, to: "/landing")}
+
+      inventory ->
+        socket =
+          socket
+          |> assign(:current_inventory, inventory)
+          |> assign(:inventories, [inventory])
+          |> assign(:admin_mode, false)
+          |> assign(:inventory_role, :guest)
+          |> assign(:unresolved_request_count, 0)
+
+        {:cont, socket}
+    end
+  end
+
+  defp handle_guest_mount(_session, socket) do
+    {:halt, redirect(socket, to: "/landing")}
+  end
+
+  @spec handle_authenticated_mount(map(), map(), Socket.t()) :: {:cont, Socket.t()}
+  defp handle_authenticated_mount(user, session, socket) do
+    user_id = user.id
     inventory_id = session["inventory_id"]
     admin_user? = Map.get(socket.assigns, :admin_user?, false)
     admin_mode = if admin_user?, do: session["admin_mode"] || false, else: false
@@ -40,10 +74,10 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
     Enum.find(inventories, hd(inventories), fn inv -> inv.id == inventory_id end)
   end
 
-  @spec inventory_role(integer(), Inv.t() | nil) :: :owner | :viewer | :none
+  @spec inventory_role(integer(), Inv.t() | nil) :: :owner | :member | :none
   defp inventory_role(_user_id, nil), do: :none
   defp inventory_role(user_id, %Inv{user_id: user_id}), do: :owner
-  defp inventory_role(_user_id, _inv), do: :viewer
+  defp inventory_role(_user_id, _inv), do: :member
 
   @spec handle_inventory_refresh(term(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   defp handle_inventory_refresh({:inventory_switched, new_inventory_id}, socket) do
@@ -71,7 +105,8 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
 
   defp handle_inventory_refresh(_message, socket), do: {:cont, socket}
 
-  @spec unresolved_request_count(Inv.t() | nil, :owner | :viewer | :none) :: non_neg_integer()
+  @spec unresolved_request_count(Inv.t() | nil, :owner | :member | :guest | :none) ::
+          non_neg_integer()
   defp unresolved_request_count(nil, _role), do: 0
   defp unresolved_request_count(_inventory, :none), do: 0
 

@@ -14,6 +14,36 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
 
   @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, _opts) do
+    if conn.assigns[:guest_session] do
+      load_guest_inventory(conn)
+    else
+      load_authenticated_inventory(conn)
+    end
+  end
+
+  @spec load_guest_inventory(Plug.Conn.t()) :: Plug.Conn.t()
+  defp load_guest_inventory(conn) do
+    guest_inventory_id = get_session(conn, :guest_inventory_id)
+
+    case Inventory.get_inventory(guest_inventory_id) do
+      nil ->
+        conn
+        |> put_flash(:error, "Inventory not found.")
+        |> redirect(to: "/landing")
+        |> halt()
+
+      inventory ->
+        conn
+        |> assign(:current_inventory, inventory)
+        |> assign(:inventories, [inventory])
+        |> assign(:admin_mode, false)
+        |> assign(:inventory_role, :guest)
+        |> assign(:unresolved_request_count, 0)
+    end
+  end
+
+  @spec load_authenticated_inventory(Plug.Conn.t()) :: Plug.Conn.t()
+  defp load_authenticated_inventory(conn) do
     user_id = conn.assigns.current_user.id
     inventory_id = get_session(conn, :inventory_id)
     inventories = Inventory.list_accessible_inventories(user_id)
@@ -67,7 +97,7 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
     Enum.find(inventories, hd(inventories), fn inv -> inv.id == inventory_id end)
   end
 
-  @spec inventory_role(integer(), Inv.t()) :: :owner | :viewer
+  @spec inventory_role(integer(), Inv.t()) :: :owner | :member
   defp inventory_role(user_id, %Inv{user_id: user_id}), do: :owner
-  defp inventory_role(_user_id, _inv), do: :viewer
+  defp inventory_role(_user_id, _inv), do: :member
 end

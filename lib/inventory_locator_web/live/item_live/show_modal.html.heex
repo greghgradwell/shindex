@@ -77,27 +77,32 @@
             <% else %>
               <%!-- No pending photo --%>
               <%= if @item.photo_path do %>
-                <%!-- Has existing photo: show it with change options underneath --%>
                 <div class="space-y-4">
                   <img
                     src={"/uploads/#{@item.photo_path}"}
                     alt={@item.name}
                     class="w-full h-80 object-cover rounded-lg shadow-lg"
                   />
-                  <%!-- PhotoCapture without current_photo_path so it only shows capture UI --%>
+                  <%= if @inventory_role == :owner do %>
+                    <.live_component
+                      module={InventoryLocatorWeb.Components.PhotoCapture}
+                      id="modal-photo-capture"
+                      size={:compact}
+                    />
+                  <% end %>
+                </div>
+              <% else %>
+                <%= if @inventory_role == :owner do %>
                   <.live_component
                     module={InventoryLocatorWeb.Components.PhotoCapture}
                     id="modal-photo-capture"
                     size={:compact}
                   />
-                </div>
-              <% else %>
-                <%!-- No photo: show PhotoCapture component --%>
-                <.live_component
-                  module={InventoryLocatorWeb.Components.PhotoCapture}
-                  id="modal-photo-capture"
-                  size={:compact}
-                />
+                <% else %>
+                  <div class="w-full h-80 bg-base-200 rounded-lg flex items-center justify-center">
+                    <span class="text-base-content/40 text-sm">No photo</span>
+                  </div>
+                <% end %>
               <% end %>
             <% end %>
           <% end %>
@@ -588,26 +593,33 @@
                     <% else %>
                       <%!-- Viewer: show request button or "already requested" --%>
                       <%= if listing.active do %>
-                        <%= if user_requested_listing?(listing.id, @user_requests) do %>
-                          <p class="text-sm text-success mt-2">Request Sent</p>
+                        <%= if @inventory_role == :guest do %>
+                          <p class="text-sm text-base-content/60 mt-2">
+                            <.link navigate="/landing" class="link link-primary">Sign in</.link>
+                            to request this item.
+                          </p>
                         <% else %>
-                          <form
-                            id={"request-form-#{listing.id}"}
-                            phx-submit="create_request"
-                            phx-target={@myself}
-                            class="mt-2 flex gap-2 items-end"
-                          >
-                            <input type="hidden" name="listing-id" value={listing.id} />
-                            <input
-                              type="text"
-                              name="message"
-                              class="input input-bordered input-sm flex-1"
-                              placeholder="Message (optional)"
-                            />
-                            <button type="submit" class="btn btn-sm btn-primary">
-                              I'm Interested
-                            </button>
-                          </form>
+                          <%= if user_requested_listing?(listing.id, @user_requests) do %>
+                            <p class="text-sm text-success mt-2">Request Sent</p>
+                          <% else %>
+                            <form
+                              id={"request-form-#{listing.id}"}
+                              phx-submit="create_request"
+                              phx-target={@myself}
+                              class="mt-2 flex gap-2 items-end"
+                            >
+                              <input type="hidden" name="listing-id" value={listing.id} />
+                              <input
+                                type="text"
+                                name="message"
+                                class="input input-bordered input-sm flex-1"
+                                placeholder="Message (optional)"
+                              />
+                              <button type="submit" class="btn btn-sm btn-primary">
+                                I'm Interested
+                              </button>
+                            </form>
+                          <% end %>
                         <% end %>
                       <% end %>
                     <% end %>

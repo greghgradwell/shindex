@@ -30,10 +30,17 @@ defmodule InventoryLocatorWeb.Plugs.RequireAuthenticated do
         |> halt()
 
       :unauthenticated ->
-        conn
-        |> put_flash(:error, "Please sign in to continue.")
-        |> redirect(to: "/landing")
-        |> halt()
+        if get_session(conn, :guest_inventory_id) do
+          conn
+          |> assign(:current_user, nil)
+          |> assign(:admin_user?, false)
+          |> assign(:guest_session, true)
+        else
+          conn
+          |> put_flash(:error, "Please sign in to continue.")
+          |> redirect(to: "/landing")
+          |> halt()
+        end
     end
   end
 end

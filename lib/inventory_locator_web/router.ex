@@ -31,6 +31,10 @@ defmodule InventoryLocatorWeb.Router do
     plug RateLimiter, max_requests: 10, window_seconds: 60
   end
 
+  pipeline :rate_limit_guest do
+    plug RateLimiter, max_requests: 30, window_seconds: 60
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
   end
@@ -60,6 +64,12 @@ defmodule InventoryLocatorWeb.Router do
       layout: {InventoryLocatorWeb.Layouts, :public} do
       live "/landing", LandingLive.Index
     end
+  end
+
+  scope "/view", InventoryLocatorWeb do
+    pipe_through [:browser_public, :rate_limit_guest]
+
+    get "/:code", ShareController, :enter_guest
   end
 
   scope "/auth", InventoryLocatorWeb do

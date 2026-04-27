@@ -90,7 +90,7 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec user_role_for_inventory(integer(), integer()) :: :owner | :viewer | :none
+  @spec user_role_for_inventory(integer(), integer()) :: :owner | :member | :none
   def user_role_for_inventory(user_id, inventory_id) do
     case Repo.one(from(i in Inv, where: i.id == ^inventory_id, select: i.user_id)) do
       nil -> :none
@@ -99,7 +99,7 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec check_membership_role(integer(), integer()) :: :viewer | :none
+  @spec check_membership_role(integer(), integer()) :: :member | :none
   defp check_membership_role(user_id, inventory_id) do
     case Repo.one(
            from(m in InventoryMember,
@@ -108,7 +108,7 @@ defmodule InventoryLocator.Inventory do
            )
          ) do
       nil -> :none
-      _role -> :viewer
+      _role -> :member
     end
   end
 
@@ -1121,6 +1121,7 @@ defmodule InventoryLocator.Inventory do
     attrs = %{
       code: InventoryShareCode.generate_code(),
       role: "viewer",
+      reusable: false,
       expires_at: InventoryShareCode.default_expiry(),
       inventory_id: inventory_id,
       created_by_id: created_by_id
@@ -1134,7 +1135,9 @@ defmodule InventoryLocator.Inventory do
   @spec redeem_share_code(String.t(), integer()) ::
           {:ok, InventoryMember.t()} | {:error, :invalid_code | :already_member | :own_inventory}
   def redeem_share_code(code_str, user_id) do
-    case Repo.one(from(sc in InventoryShareCode, where: sc.code == ^code_str, preload: :inventory)) do
+    case Repo.one(
+           from(sc in InventoryShareCode, where: sc.code == ^code_str and sc.reusable == false, preload: :inventory)
+         ) do
       nil ->
         {:error, :invalid_code}
 
@@ -1184,7 +1187,7 @@ defmodule InventoryLocator.Inventory do
   def get_share_code_info(code_str) do
     case Repo.one(
            from(sc in InventoryShareCode,
-             where: sc.code == ^code_str,
+             where: sc.code == ^code_str and sc.reusable == false,
              preload: [:inventory, :created_by]
            )
          ) do
@@ -1206,11 +1209,89 @@ defmodule InventoryLocator.Inventory do
   def list_share_codes(inventory_id) do
     Repo.all(
       from(sc in InventoryShareCode,
-        where: sc.inventory_id == ^inventory_id,
+        where: sc.inventory_id == ^inventory_id and sc.reusable == false,
         order_by: [desc: sc.inserted_at],
         preload: [:created_by, :used_by]
       )
     )
+  end
+
+  # Public Links (reusable share codes for anonymous guest access)
+
+  @spec create_public_link(integer(), integer()) :: {:ok, InventoryShareCode.t()} | {:error, Ecto.Changeset.t()}
+  def create_public_link(inventory_id, created_by_id) do
+    # The unique index is partial on (inventory_id) WHERE reusable = true and does not
+    # filter by expiration. Look up any reusable link for this inventory regardless of
+    # expiry, then renew or insert — never insert blindly when an expired one exists.
+    existing =
+      Repo.one(
+        from(sc in InventoryShareCode,
+          where: sc.inventory_id == ^inventory_id and sc.reusable == true,
+          limit: 1
+        )
+      )
+
+    case existing do
+      nil ->
+        attrs = %{
+          code: InventoryShareCode.generate_code(),
+          role: "viewer",
+          reusable: true,
+          expires_at: InventoryShareCode.public_expiry(),
+          inventory_id: inventory_id,
+          created_by_id: created_by_id
+        }
+
+        %InventoryShareCode{}
+        |> InventoryShareCode.changeset(attrs)
+        |> Repo.insert()
+
+      %InventoryShareCode{} = link ->
+        if DateTime.after?(link.expires_at, DateTime.utc_now()) do
+          {:ok, link}
+        else
+          link
+          |> InventoryShareCode.changeset(%{
+            code: InventoryShareCode.generate_code(),
+            expires_at: InventoryShareCode.public_expiry()
+          })
+          |> Repo.update()
+        end
+    end
+  end
+
+  @spec get_public_link(integer()) :: InventoryShareCode.t() | nil
+  def get_public_link(inventory_id) do
+    Repo.one(
+      from(sc in InventoryShareCode,
+        where: sc.inventory_id == ^inventory_id and sc.reusable == true,
+        where: sc.expires_at > ^DateTime.utc_now(),
+        order_by: [desc: sc.inserted_at],
+        limit: 1
+      )
+    )
+  end
+
+  @spec revoke_public_link(integer()) :: {:ok, InventoryShareCode.t()} | {:error, :not_found}
+  def revoke_public_link(share_code_id) do
+    case Repo.one(from(sc in InventoryShareCode, where: sc.id == ^share_code_id and sc.reusable == true)) do
+      nil -> {:error, :not_found}
+      share_code -> Repo.delete(share_code)
+    end
+  end
+
+  @spec resolve_public_code(String.t()) :: {:ok, Inv.t()} | :invalid
+  def resolve_public_code(code_str) do
+    case Repo.one(
+           from(sc in InventoryShareCode,
+             where: sc.code == ^code_str and sc.reusable == true,
+             where: sc.expires_at > ^DateTime.utc_now(),
+             preload: :inventory
+           )
+         ) do
+      nil -> :invalid
+      share_code -> {:ok, share_code.inventory}
+    end
   end
 
   @spec list_members(integer()) :: [InventoryMember.t()]

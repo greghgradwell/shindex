@@ -96,7 +96,7 @@ defmodule InventoryLocatorWeb.RequestLive.Index do
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  @spec load_requests(integer(), integer(), :owner | :viewer | :none) :: [Marketplace.Request.t()]
+  @spec load_requests(integer(), integer(), :owner | :member | :guest | :none) :: [Marketplace.Request.t()]
   defp load_requests(_user_id, inventory_id, :owner) do
     Marketplace.list_requests_for_inventory(inventory_id)
   end

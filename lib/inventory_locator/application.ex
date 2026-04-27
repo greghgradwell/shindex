@@ -16,6 +16,7 @@ defmodule InventoryLocator.Application do
       {Phoenix.PubSub, name: InventoryLocator.PubSub},
       InventoryLocator.Assist.Decisions,
       InventoryLocator.Backup.MaintenanceMode,
+      InventoryLocatorWeb.Plugs.RateLimiter.Store,
       Scheduler,
       InventoryLocatorWeb.Endpoint
     ]

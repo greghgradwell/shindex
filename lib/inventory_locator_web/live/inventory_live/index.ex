@@ -29,7 +29,8 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
      |> assign(:share_inventory, nil)
      |> assign(:share_codes, [])
      |> assign(:members, [])
-     |> assign(:new_share_code, nil)}
+     |> assign(:new_share_code, nil)
+     |> assign(:public_link, nil)}
   end
 
   @impl true
@@ -176,6 +177,7 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
     require_inventory_owner(socket, inv, fn socket ->
       share_codes = Inventory.list_share_codes(inv.id)
       members = Inventory.list_members(inv.id)
+      public_link = Inventory.get_public_link(inv.id)
 
       {:noreply,
        socket
@@ -183,7 +185,8 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
        |> assign(:share_inventory, inv)
        |> assign(:share_codes, share_codes)
        |> assign(:members, members)
-       |> assign(:new_share_code, nil)}
+       |> assign(:new_share_code, nil)
+       |> assign(:public_link, public_link)}
     end)
   end
 
@@ -194,7 +197,8 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
      |> assign(:share_inventory, nil)
      |> assign(:share_codes, [])
      |> assign(:members, [])
-     |> assign(:new_share_code, nil)}
+     |> assign(:new_share_code, nil)
+     |> assign(:public_link, nil)}
   end
 
   def handle_event("generate_share_code", _params, socket) do
@@ -213,6 +217,42 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to generate share code")}
+      end
+    end)
+  end
+
+  def handle_event("generate_public_link", _params, socket) do
+    require_inventory_owner(socket, socket.assigns.share_inventory, fn socket ->
+      inv = socket.assigns.share_inventory
+      user_id = socket.assigns.current_user.id
+
+      case Inventory.create_public_link(inv.id, user_id) do
+        {:ok, public_link} ->
+          {:noreply, assign(socket, :public_link, public_link)}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to generate public link")}
+      end
+    end)
+  end
+
+  def handle_event("revoke_public_link", _params, socket) do
+    require_inventory_owner(socket, socket.assigns.share_inventory, fn socket ->
+      case socket.assigns.public_link do
+        %{id: id} ->
+          case Inventory.revoke_public_link(id) do
+            {:ok, _} ->
+              {:noreply,
+               socket
+               |> assign(:public_link, nil)
+               |> put_flash(:info, "Public link revoked")}
+
+            {:error, :not_found} ->
+              {:noreply, put_flash(socket, :error, "Public link not found")}
+          end
+
+        nil ->
+          {:noreply, socket}
       end
     end)
   end
@@ -300,5 +340,10 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
   @spec share_url(String.t()) :: String.t()
   def share_url(code) do
     InventoryLocatorWeb.Endpoint.url() <> "/share/" <> code
+  end
+
+  @spec public_link_url(String.t()) :: String.t()
+  def public_link_url(code) do
+    InventoryLocatorWeb.Endpoint.url() <> "/view/" <> code
   end
 end
