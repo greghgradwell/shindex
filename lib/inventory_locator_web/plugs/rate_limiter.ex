@@ -16,13 +16,10 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
     max_requests = Keyword.get(opts, :max_requests, @max_requests)
     window_seconds = Keyword.get(opts, :window_seconds, @window_seconds)
 
-    ensure_table_exists()
-
     ip = get_remote_ip(conn)
     key = {conn.request_path, ip}
-    now = System.system_time(:second)
 
-    case check_rate_limit(key, now, max_requests, window_seconds) do
+    case check_rate(key, max_requests, window_seconds) do
       :ok ->
         conn
 
@@ -33,6 +30,28 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
         |> put_resp_content_type("application/json")
         |> send_resp(429, Jason.encode!(%{error: "Rate limit exceeded. Try again later."}))
         |> halt()
+    end
+  end
+
+  @spec check_rate(term(), pos_integer(), pos_integer()) :: :ok | {:error, :rate_limited}
+  def check_rate(key, max_requests, window_seconds) do
+    ensure_table_exists()
+    now = System.system_time(:second)
+    check_rate_limit(key, now, max_requests, window_seconds)
+  end
+
+  @spec get_remote_ip(Plug.Conn.t() | %{x_headers: list(), peer_ip: tuple()}) :: String.t()
+  def get_remote_ip(%Plug.Conn{} = conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
+      [ip | _] -> ip
+      [] -> to_string(:inet_parse.ntoa(conn.remote_ip))
+    end
+  end
+
+  def get_remote_ip(%{x_headers: x_headers, peer_ip: peer_ip}) do
+    case List.keyfind(x_headers, "x-forwarded-for", 0) do
+      {"x-forwarded-for", ip} -> ip
+      nil -> to_string(:inet_parse.ntoa(peer_ip))
     end
   end
 
@@ -72,11 +91,4 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
     end
   end
 
-  @spec get_remote_ip(Plug.Conn.t()) :: String.t()
-  defp get_remote_ip(conn) do
-    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
-      [ip | _] -> ip
-      [] -> to_string(:inet_parse.ntoa(conn.remote_ip))
-    end
-  end
 end

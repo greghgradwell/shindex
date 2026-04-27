@@ -9,9 +9,12 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Marketplace
   alias InventoryLocatorWeb.ItemLive.ShowModal
+  alias InventoryLocatorWeb.Plugs.RateLimiter
   alias Phoenix.LiveView.Socket
 
   @page_size 48
+  @ai_search_max_per_window 10
+  @ai_search_window_seconds 60
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
@@ -22,10 +25,29 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       socket
       |> assign_defaults()
       |> assign(:view_mode, view_mode)
+      |> assign(:client_ip, get_client_ip(socket))
 
     socket = if view_mode == :table, do: load_all_items(socket), else: socket
 
     {:ok, socket}
+  end
+
+  @spec get_client_ip(Socket.t()) :: String.t() | nil
+  defp get_client_ip(socket) do
+    if connected?(socket) do
+      peer_data = get_connect_info(socket, :peer_data)
+      x_headers = get_connect_info(socket, :x_headers) || []
+
+      case {peer_data, x_headers} do
+        {%{address: peer_ip}, x_headers} ->
+          RateLimiter.get_remote_ip(%{peer_ip: peer_ip, x_headers: x_headers})
+
+        _other ->
+          nil
+      end
+    else
+      nil
+    end
   end
 
   @impl true
@@ -221,19 +243,45 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("confirm_ai_search", _params, socket) do
-    socket =
-      socket
-      |> assign(:show_ai_modal, false)
-      |> assign(:ai_loading, true)
+    case check_ai_search_rate_limit(socket) do
+      :ok ->
+        socket =
+          socket
+          |> assign(:show_ai_modal, false)
+          |> assign(:ai_loading, true)
 
-    all_items =
-      Inventory.list_all_items_unpaginated(socket.assigns.current_inventory.id,
-        show_archived: socket.assigns.show_archived
-      )
+        all_items =
+          Inventory.list_all_items_unpaginated(socket.assigns.current_inventory.id,
+            show_archived: socket.assigns.show_archived
+          )
 
-    send(self(), {:perform_ai_search, socket.assigns.query, all_items})
+        send(self(), {:perform_ai_search, socket.assigns.query, all_items})
 
-    {:noreply, socket}
+        {:noreply, socket}
+
+      {:error, :rate_limited} ->
+        {:noreply,
+         socket
+         |> assign(:show_ai_modal, false)
+         |> put_flash(:error, "Too many AI searches. Please wait a minute and try again.")}
+
+      {:error, :no_ip} ->
+        {:noreply,
+         socket
+         |> assign(:show_ai_modal, false)
+         |> put_flash(:error, "AI search is temporarily unavailable.")}
+    end
+  end
+
+  @spec check_ai_search_rate_limit(Socket.t()) :: :ok | {:error, :rate_limited | :no_ip}
+  defp check_ai_search_rate_limit(socket) do
+    case socket.assigns[:client_ip] do
+      nil ->
+        {:error, :no_ip}
+
+      ip ->
+        RateLimiter.check_rate({:ai_search, ip}, @ai_search_max_per_window, @ai_search_window_seconds)
+    end
   end
 
   @impl true
