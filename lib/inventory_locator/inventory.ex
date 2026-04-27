@@ -1220,10 +1220,18 @@ defmodule InventoryLocator.Inventory do
 
   @spec create_public_link(integer(), integer()) :: {:ok, InventoryShareCode.t()} | {:error, Ecto.Changeset.t()}
   def create_public_link(inventory_id, created_by_id) do
-    case get_public_link(inventory_id) do
-      %InventoryShareCode{} = existing ->
-        {:ok, existing}
+    # The unique index is partial on (inventory_id) WHERE reusable = true and does not
+    # filter by expiration. Look up any reusable link for this inventory regardless of
+    # expiry, then renew or insert — never insert blindly when an expired one exists.
+    existing =
+      Repo.one(
+        from(sc in InventoryShareCode,
+          where: sc.inventory_id == ^inventory_id and sc.reusable == true,
+          limit: 1
+        )
+      )
 
+    case existing do
       nil ->
         attrs = %{
           code: InventoryShareCode.generate_code(),
@@ -1237,6 +1245,18 @@ defmodule InventoryLocator.Inventory do
         %InventoryShareCode{}
         |> InventoryShareCode.changeset(attrs)
         |> Repo.insert()
+
+      %InventoryShareCode{} = link ->
+        if DateTime.after?(link.expires_at, DateTime.utc_now()) do
+          {:ok, link}
+        else
+          link
+          |> InventoryShareCode.changeset(%{
+            code: InventoryShareCode.generate_code(),
+            expires_at: InventoryShareCode.public_expiry()
+          })
+          |> Repo.update()
+        end
     end
   end
 

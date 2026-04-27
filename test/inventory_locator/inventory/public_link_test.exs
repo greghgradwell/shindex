@@ -24,6 +24,20 @@ defmodule InventoryLocator.Inventory.PublicLinkTest do
       assert {:ok, second} = Inventory.create_public_link(inventory.id, owner.id)
       assert first.id == second.id
     end
+
+    test "renews an expired link instead of crashing on the unique constraint",
+         %{inventory: inventory, owner: owner} do
+      {:ok, original} = Inventory.create_public_link(inventory.id, owner.id)
+
+      original
+      |> InventoryShareCode.changeset(%{expires_at: ~U[2020-01-01 00:00:00Z]})
+      |> Repo.update!()
+
+      assert {:ok, renewed} = Inventory.create_public_link(inventory.id, owner.id)
+      assert renewed.id == original.id
+      assert DateTime.after?(renewed.expires_at, DateTime.utc_now())
+      refute renewed.code == original.code
+    end
   end
 
   describe "get_public_link/1" do
