@@ -13,8 +13,13 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias Phoenix.LiveView.Socket
 
   @page_size 48
-  @ai_search_max_per_window 10
-  @ai_search_window_seconds 60
+
+  # Progressive rate limits for AI search: burst (per minute) + daily cap.
+  # Each tuple is {max_requests, window_seconds}.
+  @ai_search_limits [
+    {10, 60},
+    {50, 86_400}
+  ]
 
   @impl true
   @spec mount(map(), map(), Socket.t()) :: {:ok, Socket.t()}
@@ -45,8 +50,6 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
         _other ->
           nil
       end
-    else
-      nil
     end
   end
 
@@ -263,7 +266,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
         {:noreply,
          socket
          |> assign(:show_ai_modal, false)
-         |> put_flash(:error, "Too many AI searches. Please wait a minute and try again.")}
+         |> put_flash(:error, "AI search limit reached. Please try again later.")}
 
       {:error, :no_ip} ->
         {:noreply,
@@ -276,11 +279,19 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   @spec check_ai_search_rate_limit(Socket.t()) :: :ok | {:error, :rate_limited | :no_ip}
   defp check_ai_search_rate_limit(socket) do
     case socket.assigns[:client_ip] do
-      nil ->
-        {:error, :no_ip}
+      nil -> {:error, :no_ip}
+      ip -> check_ai_search_limits(ip, @ai_search_limits)
+    end
+  end
 
-      ip ->
-        RateLimiter.check_rate({:ai_search, ip}, @ai_search_max_per_window, @ai_search_window_seconds)
+  @spec check_ai_search_limits(String.t(), [{pos_integer(), pos_integer()}]) ::
+          :ok | {:error, :rate_limited}
+  defp check_ai_search_limits(_ip, []), do: :ok
+
+  defp check_ai_search_limits(ip, [{max, window} | rest]) do
+    case RateLimiter.check_rate({:ai_search, ip, window}, max, window) do
+      :ok -> check_ai_search_limits(ip, rest)
+      {:error, :rate_limited} = error -> error
     end
   end
 

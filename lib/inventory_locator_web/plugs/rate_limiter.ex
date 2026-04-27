@@ -90,5 +90,4 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
         end
     end
   end
-
 end
