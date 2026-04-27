@@ -26,6 +26,8 @@ defmodule InventoryLocatorWeb.LandingLive.Index do
     {:noreply, assign(socket, :guest_code, code)}
   end
 
+  @impl true
+  @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
   def handle_event("submit_guest_code", _params, socket) do
     code = String.trim(socket.assigns.guest_code)
 

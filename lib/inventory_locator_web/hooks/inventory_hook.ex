@@ -107,7 +107,8 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
 
   defp handle_inventory_refresh(_message, socket), do: {:cont, socket}
 
-  @spec unresolved_request_count(Inv.t() | nil, :owner | :member | :none) :: non_neg_integer()
+  @spec unresolved_request_count(Inv.t() | nil, :owner | :member | :guest | :none) ::
+          non_neg_integer()
   defp unresolved_request_count(nil, _role), do: 0
   defp unresolved_request_count(_inventory, :none), do: 0
 

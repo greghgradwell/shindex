@@ -12,6 +12,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias InventoryLocatorWeb.Plugs.RateLimiter
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @page_size 48
 
   # Progressive rate limits for AI search: burst (per minute) + daily cap.
@@ -43,11 +45,12 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
       peer_data = get_connect_info(socket, :peer_data)
       x_headers = get_connect_info(socket, :x_headers) || []
 
-      case {peer_data, x_headers} do
-        {%{address: peer_ip}, x_headers} ->
+      case peer_data do
+        %{address: peer_ip} ->
           RateLimiter.get_remote_ip(%{peer_ip: peer_ip, x_headers: x_headers})
 
-        _other ->
+        other ->
+          Logger.warning("Unexpected peer_data shape in LiveView mount: #{inspect(other)}")
           nil
       end
     end

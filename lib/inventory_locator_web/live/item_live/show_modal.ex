@@ -29,9 +29,8 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     {:ok, assign(socket, :pending_photo, nil)}
   end
 
-  def update(%{item_id: item_id, current_inventory: current_inventory} = assigns, socket) do
+  def update(%{item_id: item_id, current_inventory: current_inventory, inventory_role: inventory_role} = assigns, socket) do
     inventory_id = current_inventory.id
-    inventory_role = Map.get(assigns, :inventory_role, :member)
     item = Inventory.get_item_type_with_location!(item_id)
 
     if item.inventory_id == inventory_id do

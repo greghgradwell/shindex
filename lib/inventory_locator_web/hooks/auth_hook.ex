@@ -6,6 +6,8 @@ defmodule InventoryLocatorWeb.Hooks.AuthHook do
   alias InventoryLocator.Auth
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   def on_mount(:default, _params, session, socket) do
     case Auth.resolve_user(session) do
@@ -15,7 +17,11 @@ defmodule InventoryLocatorWeb.Hooks.AuthHook do
          |> assign(:current_user, user)
          |> assign(:admin_user?, user.role == "admin")}
 
-      result when result in [:unauthenticated, :stale_session] ->
+      :stale_session ->
+        Logger.warning("Stale session in AuthHook for user_id #{session["user_id"]}")
+        {:halt, redirect(socket, to: "/landing")}
+
+      :unauthenticated ->
         if session["guest_inventory_id"] do
           {:cont,
            socket
