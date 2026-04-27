@@ -5,16 +5,14 @@ defmodule InventoryLocatorWeb.Plugs.RateLimiter do
   require Logger
 
   @table_name :rate_limiter
-  @max_requests 60
-  @window_seconds 60
 
   @spec init(keyword()) :: keyword()
   def init(opts), do: opts
 
   @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, opts) do
-    max_requests = Keyword.get(opts, :max_requests, @max_requests)
-    window_seconds = Keyword.get(opts, :window_seconds, @window_seconds)
+    max_requests = Keyword.fetch!(opts, :max_requests)
+    window_seconds = Keyword.fetch!(opts, :window_seconds)
 
     ip = get_remote_ip(conn)
     key = {conn.request_path, ip}

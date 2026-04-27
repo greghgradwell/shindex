@@ -38,7 +38,6 @@ defmodule InventoryLocatorWeb.Plugs.LoadInventory do
         |> assign(:inventories, [inventory])
         |> assign(:admin_mode, false)
         |> assign(:inventory_role, :guest)
-        |> assign(:guest_mode, true)
         |> assign(:unresolved_request_count, 0)
     end
   end
