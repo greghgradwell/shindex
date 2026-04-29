@@ -74,10 +74,10 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
     Enum.find(inventories, hd(inventories), fn inv -> inv.id == inventory_id end)
   end
 
-  @spec inventory_role(integer(), Inv.t() | nil) :: :owner | :member | :none
+  @spec inventory_role(integer(), Inv.t() | nil) :: :owner | :friend | :none
   defp inventory_role(_user_id, nil), do: :none
   defp inventory_role(user_id, %Inv{user_id: user_id}), do: :owner
-  defp inventory_role(_user_id, _inv), do: :member
+  defp inventory_role(_user_id, _inv), do: :friend
 
   @spec handle_inventory_refresh(term(), Socket.t()) :: {:cont, Socket.t()} | {:halt, Socket.t()}
   defp handle_inventory_refresh({:inventory_switched, new_inventory_id}, socket) do
@@ -105,7 +105,7 @@ defmodule InventoryLocatorWeb.Hooks.InventoryHook do
 
   defp handle_inventory_refresh(_message, socket), do: {:cont, socket}
 
-  @spec unresolved_request_count(Inv.t() | nil, :owner | :member | :guest | :none) ::
+  @spec unresolved_request_count(Inv.t() | nil, :owner | :friend | :guest | :none) ::
           non_neg_integer()
   defp unresolved_request_count(nil, _role), do: 0
   defp unresolved_request_count(_inventory, :none), do: 0

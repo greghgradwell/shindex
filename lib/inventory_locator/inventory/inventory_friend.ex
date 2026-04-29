@@ -1,4 +1,4 @@
-defmodule InventoryLocator.Inventory.InventoryMember do
+defmodule InventoryLocator.Inventory.InventoryFriend do
   @moduledoc false
   use TypedEctoSchema
 
@@ -9,7 +9,7 @@ defmodule InventoryLocator.Inventory.InventoryMember do
 
   @roles ~w(viewer)
 
-  typed_schema "inventory_members" do
+  typed_schema "inventory_friends" do
     belongs_to :user, User
     belongs_to :inventory, Inv
     field :role, :string
@@ -18,8 +18,8 @@ defmodule InventoryLocator.Inventory.InventoryMember do
   end
 
   @spec changeset(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
-  def changeset(member, attrs) do
-    member
+  def changeset(friend, attrs) do
+    friend
     |> cast(attrs, [:user_id, :inventory_id, :role])
     |> validate_required([:user_id, :inventory_id, :role])
     |> validate_inclusion(:role, @roles)

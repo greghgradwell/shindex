@@ -44,7 +44,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
-  @spec update_with_item(map(), Socket.t(), ItemType.t(), integer(), :owner | :member | :guest | :none) ::
+  @spec update_with_item(map(), Socket.t(), ItemType.t(), integer(), :owner | :friend | :guest | :none) ::
           {:ok, Socket.t()}
   defp update_with_item(assigns, socket, item, inventory_id, inventory_role) do
     location_codes = Inventory.list_location_codes(inventory_id)
@@ -996,18 +996,18 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
     end
   end
 
-  @spec load_listings(integer(), :owner | :member | :guest | :none) :: [Listing.t()]
+  @spec load_listings(integer(), :owner | :friend | :guest | :none) :: [Listing.t()]
   defp load_listings(item_type_id, :owner), do: Marketplace.list_listings_for_item(item_type_id)
 
-  defp load_listings(item_type_id, role) when role in [:member, :guest],
+  defp load_listings(item_type_id, role) when role in [:friend, :guest],
     do: Marketplace.list_active_listings_for_item(item_type_id)
 
   defp load_listings(item_type_id, :none), do: Marketplace.list_active_listings_for_item(item_type_id)
 
-  @spec load_user_requests(map(), integer(), :owner | :member | :guest | :none) :: [Marketplace.Request.t()]
+  @spec load_user_requests(map(), integer(), :owner | :friend | :guest | :none) :: [Marketplace.Request.t()]
   defp load_user_requests(_assigns, _item_type_id, :owner), do: []
 
-  defp load_user_requests(assigns, item_type_id, role) when role in [:member, :guest] do
+  defp load_user_requests(assigns, item_type_id, role) when role in [:friend, :guest] do
     case Map.get(assigns, :current_user) do
       nil -> []
       user -> Marketplace.user_requests_for_item(user.id, item_type_id)

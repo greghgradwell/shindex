@@ -36,7 +36,7 @@
     <span class="text-sm">Show archived items</span>
   </label>
 
-  <%= if @inventory_role in [:owner, :member, :guest] do %>
+  <%= if @inventory_role in [:owner, :friend, :guest] do %>
     <div class="flex items-center gap-2">
       <span class="text-sm text-base-content/60">
         {if @inventory_role == :owner, do: "Listed as:", else: "Available:"}

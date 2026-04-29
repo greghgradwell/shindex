@@ -4,7 +4,7 @@ defmodule InventoryLocator.Inventory do
 
   alias InventoryLocator.Inventory.Bin
   alias InventoryLocator.Inventory.Inv
-  alias InventoryLocator.Inventory.InventoryMember
+  alias InventoryLocator.Inventory.InventoryFriend
   alias InventoryLocator.Inventory.InventoryShareCode
   alias InventoryLocator.Inventory.ItemInstallation
   alias InventoryLocator.Inventory.ItemType
@@ -22,7 +22,7 @@ defmodule InventoryLocator.Inventory do
   def list_accessible_inventories(user_id) do
     Repo.all(
       from(i in Inv,
-        left_join: m in InventoryMember,
+        left_join: m in InventoryFriend,
         on: m.inventory_id == i.id and m.user_id == ^user_id,
         where: i.user_id == ^user_id or not is_nil(m.id),
         order_by: i.name
@@ -60,7 +60,7 @@ defmodule InventoryLocator.Inventory do
   def list_accessible_inventories_with_counts(user_id) do
     Repo.all(
       from(i in Inv,
-        left_join: m in InventoryMember,
+        left_join: m in InventoryFriend,
         on: m.inventory_id == i.id and m.user_id == ^user_id,
         left_join: s in Shelf,
         on: s.inventory_id == i.id,
@@ -83,32 +83,32 @@ defmodule InventoryLocator.Inventory do
   def user_can_access?(user_id, inventory_id) do
     Repo.exists?(
       from(i in Inv,
-        left_join: m in InventoryMember,
+        left_join: m in InventoryFriend,
         on: m.inventory_id == i.id and m.user_id == ^user_id,
         where: i.id == ^inventory_id and (i.user_id == ^user_id or not is_nil(m.id))
       )
     )
   end
 
-  @spec user_role_for_inventory(integer(), integer()) :: :owner | :member | :none
+  @spec user_role_for_inventory(integer(), integer()) :: :owner | :friend | :none
   def user_role_for_inventory(user_id, inventory_id) do
     case Repo.one(from(i in Inv, where: i.id == ^inventory_id, select: i.user_id)) do
       nil -> :none
       ^user_id -> :owner
-      _other -> check_membership_role(user_id, inventory_id)
+      _other -> check_friendship_role(user_id, inventory_id)
     end
   end
 
-  @spec check_membership_role(integer(), integer()) :: :member | :none
-  defp check_membership_role(user_id, inventory_id) do
+  @spec check_friendship_role(integer(), integer()) :: :friend | :none
+  defp check_friendship_role(user_id, inventory_id) do
     case Repo.one(
-           from(m in InventoryMember,
+           from(m in InventoryFriend,
              where: m.user_id == ^user_id and m.inventory_id == ^inventory_id,
              select: m.role
            )
          ) do
       nil -> :none
-      _role -> :member
+      _role -> :friend
     end
   end
 
@@ -1133,7 +1133,7 @@ defmodule InventoryLocator.Inventory do
   end
 
   @spec redeem_share_code(String.t(), integer()) ::
-          {:ok, InventoryMember.t()} | {:error, :invalid_code | :already_member | :own_inventory}
+          {:ok, InventoryFriend.t()} | {:error, :invalid_code | :already_friend | :own_inventory}
   def redeem_share_code(code_str, user_id) do
     case Repo.one(
            from(sc in InventoryShareCode, where: sc.code == ^code_str and sc.reusable == false, preload: :inventory)
@@ -1150,22 +1150,22 @@ defmodule InventoryLocator.Inventory do
             {:error, :own_inventory}
 
           Repo.exists?(
-            from(m in InventoryMember,
+            from(m in InventoryFriend,
               where: m.user_id == ^user_id and m.inventory_id == ^share_code.inventory_id
             )
           ) ->
-            {:error, :already_member}
+            {:error, :already_friend}
 
           true ->
             Repo.transaction(fn ->
-              case %InventoryMember{}
-                   |> InventoryMember.changeset(%{
+              case %InventoryFriend{}
+                   |> InventoryFriend.changeset(%{
                      user_id: user_id,
                      inventory_id: share_code.inventory_id,
                      role: share_code.role
                    })
                    |> Repo.insert() do
-                {:ok, member} ->
+                {:ok, friend} ->
                   share_code
                   |> InventoryShareCode.changeset(%{
                     used_at: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1173,10 +1173,10 @@ defmodule InventoryLocator.Inventory do
                   })
                   |> Repo.update!()
 
-                  member
+                  friend
 
                 {:error, _changeset} ->
-                  Repo.rollback(:already_member)
+                  Repo.rollback(:already_friend)
               end
             end)
         end
@@ -1294,10 +1294,10 @@ defmodule InventoryLocator.Inventory do
     end
   end
 
-  @spec list_members(integer()) :: [InventoryMember.t()]
-  def list_members(inventory_id) do
+  @spec list_friends(integer()) :: [InventoryFriend.t()]
+  def list_friends(inventory_id) do
     Repo.all(
-      from(m in InventoryMember,
+      from(m in InventoryFriend,
         where: m.inventory_id == ^inventory_id,
         order_by: m.inserted_at,
         preload: :user
@@ -1305,15 +1305,15 @@ defmodule InventoryLocator.Inventory do
     )
   end
 
-  @spec remove_member(integer(), integer()) :: {:ok, InventoryMember.t()} | {:error, :not_found}
-  def remove_member(inventory_id, user_id) do
+  @spec remove_friend(integer(), integer()) :: {:ok, InventoryFriend.t()} | {:error, :not_found}
+  def remove_friend(inventory_id, user_id) do
     case Repo.one(
-           from(m in InventoryMember,
+           from(m in InventoryFriend,
              where: m.inventory_id == ^inventory_id and m.user_id == ^user_id
            )
          ) do
       nil -> {:error, :not_found}
-      member -> Repo.delete(member)
+      friend -> Repo.delete(friend)
     end
   end
 end
