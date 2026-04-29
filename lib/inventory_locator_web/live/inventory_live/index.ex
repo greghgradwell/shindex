@@ -28,7 +28,7 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
      |> assign(:show_share_modal, false)
      |> assign(:share_inventory, nil)
      |> assign(:share_codes, [])
-     |> assign(:members, [])
+     |> assign(:friends, [])
      |> assign(:new_share_code, nil)
      |> assign(:public_link, nil)}
   end
@@ -176,7 +176,7 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
 
     require_inventory_owner(socket, inv, fn socket ->
       share_codes = Inventory.list_share_codes(inv.id)
-      members = Inventory.list_members(inv.id)
+      friends = Inventory.list_friends(inv.id)
       public_link = Inventory.get_public_link(inv.id)
 
       {:noreply,
@@ -184,7 +184,7 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
        |> assign(:show_share_modal, true)
        |> assign(:share_inventory, inv)
        |> assign(:share_codes, share_codes)
-       |> assign(:members, members)
+       |> assign(:friends, friends)
        |> assign(:new_share_code, nil)
        |> assign(:public_link, public_link)}
     end)
@@ -196,7 +196,7 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
      |> assign(:show_share_modal, false)
      |> assign(:share_inventory, nil)
      |> assign(:share_codes, [])
-     |> assign(:members, [])
+     |> assign(:friends, [])
      |> assign(:new_share_code, nil)
      |> assign(:public_link, nil)}
   end
@@ -257,24 +257,24 @@ defmodule InventoryLocatorWeb.InventoryLive.Index do
     end)
   end
 
-  def handle_event("remove_member", %{"user-id" => member_user_id_str}, socket) do
+  def handle_event("remove_friend", %{"user-id" => friend_user_id_str}, socket) do
     require_inventory_owner(socket, socket.assigns.share_inventory, fn socket ->
       inv = socket.assigns.share_inventory
-      member_user_id = String.to_integer(member_user_id_str)
+      friend_user_id = String.to_integer(friend_user_id_str)
 
-      case Inventory.remove_member(inv.id, member_user_id) do
-        {:ok, _member} ->
+      case Inventory.remove_friend(inv.id, friend_user_id) do
+        {:ok, _friend} ->
           user_id = socket.assigns.current_user.id
-          members = Inventory.list_members(inv.id)
+          friends = Inventory.list_friends(inv.id)
 
           {:noreply,
            socket
-           |> assign(:members, members)
+           |> assign(:friends, friends)
            |> assign(:inventories_with_counts, Inventory.list_accessible_inventories_with_counts(user_id))
-           |> put_flash(:info, "Member removed")}
+           |> put_flash(:info, "Friend removed")}
 
         {:error, :not_found} ->
-          {:noreply, put_flash(socket, :error, "Member not found")}
+          {:noreply, put_flash(socket, :error, "Friend not found")}
       end
     end)
   end

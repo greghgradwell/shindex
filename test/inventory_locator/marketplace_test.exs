@@ -2,7 +2,7 @@ defmodule InventoryLocator.MarketplaceTest do
   use InventoryLocator.DataCase
 
   alias InventoryLocator.Inventory
-  alias InventoryLocator.Inventory.InventoryMember
+  alias InventoryLocator.Inventory.InventoryFriend
   alias InventoryLocator.Marketplace
 
   @spec create_item(integer()) :: InventoryLocator.Inventory.ItemType.t()
@@ -14,14 +14,14 @@ defmodule InventoryLocator.MarketplaceTest do
     })
   end
 
-  @spec add_member(integer(), integer()) :: InventoryMember.t()
-  defp add_member(inventory_id, user_id) do
-    {:ok, member} =
-      %InventoryMember{}
-      |> InventoryMember.changeset(%{inventory_id: inventory_id, user_id: user_id, role: "viewer"})
+  @spec add_friend(integer(), integer()) :: InventoryFriend.t()
+  defp add_friend(inventory_id, user_id) do
+    {:ok, friend} =
+      %InventoryFriend{}
+      |> InventoryFriend.changeset(%{inventory_id: inventory_id, user_id: user_id, role: "viewer"})
       |> InventoryLocator.Repo.insert()
 
-    member
+    friend
   end
 
   describe "create_listing/1" do
@@ -198,7 +198,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
 
       assert {:ok, request} =
@@ -218,7 +218,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "sale", active: true})
 
       assert {:ok, request} =
@@ -234,7 +234,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, listing} = Marketplace.deactivate_listing(listing)
 
@@ -249,7 +249,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
 
       assert {:ok, _request} =
@@ -263,7 +263,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, borrow} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, sale} = Marketplace.create_listing(%{item_type_id: item.id, type: "sale", active: true})
 
@@ -294,7 +294,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, request} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 
@@ -306,7 +306,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, request} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
       {:ok, resolved} = Marketplace.resolve_request(request)
@@ -321,7 +321,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, request} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 
@@ -334,7 +334,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory2 = create_test_inventory(%{})
       item = create_item(inventory1.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory1.id, requester.id)
+      add_friend(inventory1.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, request} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 
@@ -348,8 +348,8 @@ defmodule InventoryLocator.MarketplaceTest do
       item = create_item(inventory.id)
       requester1 = create_test_user(%{name: "Requester 1", role: "member"})
       requester2 = create_test_user(%{name: "Requester 2", role: "member"})
-      add_member(inventory.id, requester1.id)
-      add_member(inventory.id, requester2.id)
+      add_friend(inventory.id, requester1.id)
+      add_friend(inventory.id, requester2.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester1.id})
       {:ok, r2} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester2.id})
@@ -371,7 +371,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 
@@ -387,7 +387,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 
@@ -401,8 +401,8 @@ defmodule InventoryLocator.MarketplaceTest do
       item1 = create_item(inventory1.id)
       item2 = create_item(inventory2.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory1.id, requester.id)
-      add_member(inventory2.id, requester.id)
+      add_friend(inventory1.id, requester.id)
+      add_friend(inventory2.id, requester.id)
       {:ok, listing1} = Marketplace.create_listing(%{item_type_id: item1.id, type: "borrow", active: true})
       {:ok, listing2} = Marketplace.create_listing(%{item_type_id: item2.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_request(%{listing_id: listing1.id, requester_id: requester.id})
@@ -418,7 +418,7 @@ defmodule InventoryLocator.MarketplaceTest do
       inventory = create_test_inventory(%{})
       item = create_item(inventory.id)
       requester = create_test_user(%{name: "Requester", role: "member"})
-      add_member(inventory.id, requester.id)
+      add_friend(inventory.id, requester.id)
       {:ok, listing} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_request(%{listing_id: listing.id, requester_id: requester.id})
 

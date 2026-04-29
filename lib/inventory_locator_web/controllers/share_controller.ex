@@ -37,7 +37,7 @@ defmodule InventoryLocatorWeb.ShareController do
     user_id = conn.assigns.current_user.id
 
     case Inventory.redeem_share_code(code, user_id) do
-      {:ok, _member} ->
+      {:ok, _friend} ->
         conn
         |> put_flash(:info, "You now have access to the shared inventory.")
         |> redirect(to: "/inventories")
@@ -47,7 +47,7 @@ defmodule InventoryLocatorWeb.ShareController do
         |> put_flash(:error, "Invalid or expired share link.")
         |> redirect(to: "/")
 
-      {:error, :already_member} ->
+      {:error, :already_friend} ->
         conn
         |> put_flash(:info, "You already have access to this inventory.")
         |> redirect(to: "/inventories")

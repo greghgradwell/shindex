@@ -5,9 +5,9 @@ defmodule InventoryLocator.Inventory.UnifiedAccessTest do
 
   setup do
     owner = create_test_user(%{name: "Owner", role: "admin"})
-    member_user = create_test_user(%{name: "Member", role: "member"})
+    friend_user = create_test_user(%{name: "Friend", role: "member"})
     inventory = create_test_inventory(%{user_id: owner.id})
-    %{owner: owner, member_user: member_user, inventory: inventory}
+    %{owner: owner, friend_user: friend_user, inventory: inventory}
   end
 
   describe "user_role_for_inventory/2" do
@@ -15,12 +15,12 @@ defmodule InventoryLocator.Inventory.UnifiedAccessTest do
       assert Inventory.user_role_for_inventory(owner.id, inventory.id) == :owner
     end
 
-    test "returns :member for shared member", %{member_user: member_user, inventory: inventory, owner: owner} do
+    test "returns :friend for shared friend", %{friend_user: friend_user, inventory: inventory, owner: owner} do
       {:ok, _code} = Inventory.create_share_code(inventory.id, owner.id)
       codes = Inventory.list_share_codes(inventory.id)
       code = hd(codes)
-      {:ok, _member} = Inventory.redeem_share_code(code.code, member_user.id)
-      assert Inventory.user_role_for_inventory(member_user.id, inventory.id) == :member
+      {:ok, _friend} = Inventory.redeem_share_code(code.code, friend_user.id)
+      assert Inventory.user_role_for_inventory(friend_user.id, inventory.id) == :friend
     end
 
     test "returns :none for unrelated user", %{inventory: inventory} do

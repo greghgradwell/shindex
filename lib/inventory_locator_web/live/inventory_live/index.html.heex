@@ -367,24 +367,24 @@
       </div>
     <% end %>
 
-    <%!-- Members --%>
-    <%= if @members != [] do %>
+    <%!-- Friends --%>
+    <%= if @friends != [] do %>
       <div class="mb-6">
-        <h4 class="font-semibold mb-2">Members</h4>
+        <h4 class="font-semibold mb-2">Friends</h4>
         <div class="space-y-2">
-          <%= for member <- @members do %>
+          <%= for friend <- @friends do %>
             <div class="flex items-center justify-between bg-base-200 rounded-lg px-4 py-2">
               <div class="flex items-center gap-2">
-                <%= if member.user.avatar_url do %>
-                  <img src={member.user.avatar_url} class="w-6 h-6 rounded-full" />
+                <%= if friend.user.avatar_url do %>
+                  <img src={friend.user.avatar_url} class="w-6 h-6 rounded-full" />
                 <% end %>
-                <span>{member.user.name}</span>
-                <span class="badge badge-ghost badge-sm">{member.role}</span>
+                <span>{friend.user.name}</span>
+                <span class="badge badge-ghost badge-sm">{friend.role}</span>
               </div>
               <button
                 class="btn btn-ghost btn-xs text-error"
-                phx-click="remove_member"
-                phx-value-user-id={member.user_id}
+                phx-click="remove_friend"
+                phx-value-user-id={friend.user_id}
                 title="Remove"
               >
                 <.icon name="hero-x-mark" class="w-4 h-4" />
