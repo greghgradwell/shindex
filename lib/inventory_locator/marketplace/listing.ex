@@ -7,7 +7,7 @@ defmodule InventoryLocator.Marketplace.Listing do
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Marketplace.Request
 
-  @types ~w(borrow lease sale)
+  @types ~w(borrow sale)
 
   typed_schema "listings" do
     field :type, :string

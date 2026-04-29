@@ -36,9 +36,11 @@
     <span class="text-sm">Show archived items</span>
   </label>
 
-  <%= if @inventory_role in [:member, :guest] do %>
+  <%= if @inventory_role in [:owner, :member, :guest] do %>
     <div class="flex items-center gap-2">
-      <span class="text-sm text-base-content/60">Available:</span>
+      <span class="text-sm text-base-content/60">
+        {if @inventory_role == :owner, do: "Listed as:", else: "Available:"}
+      </span>
       <label class="flex items-center gap-1 cursor-pointer">
         <input
           type="checkbox"
@@ -48,16 +50,6 @@
           class="checkbox checkbox-xs checkbox-info"
         />
         <span class="text-xs">Borrow</span>
-      </label>
-      <label class="flex items-center gap-1 cursor-pointer">
-        <input
-          type="checkbox"
-          phx-click="toggle_availability_filter"
-          phx-value-type="lease"
-          checked={"lease" in @availability_filters}
-          class="checkbox checkbox-xs checkbox-warning"
-        />
-        <span class="text-xs">Lease</span>
       </label>
       <label class="flex items-center gap-1 cursor-pointer">
         <input

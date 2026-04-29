@@ -288,7 +288,6 @@ defmodule InventoryLocatorWeb.ItemLive.Components do
     ~H"""
     <div :if={@listing_types != []} class="flex flex-wrap gap-1 mt-1">
       <span :if={"borrow" in @listing_types} class="badge badge-xs badge-info">Borrow</span>
-      <span :if={"lease" in @listing_types} class="badge badge-xs badge-warning">Lease</span>
       <span :if={"sale" in @listing_types} class="badge badge-xs badge-success">Buy</span>
     </div>
     """

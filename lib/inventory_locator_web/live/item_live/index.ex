@@ -108,7 +108,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in ["borrow", "lease", "sale"] do
+  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in ["borrow", "sale"] do
     filters = toggle_filter_list(socket.assigns.availability_filters, type)
 
     socket =
@@ -120,7 +120,8 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_availability_filter", %{"type" => _unknown}, socket) do
+  def handle_event("toggle_availability_filter", %{"type" => unknown}, socket) do
+    Logger.warning("Unknown availability filter type: #{inspect(unknown)}")
     {:noreply, socket}
   end
 
