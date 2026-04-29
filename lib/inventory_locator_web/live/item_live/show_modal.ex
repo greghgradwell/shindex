@@ -6,6 +6,7 @@ defmodule InventoryLocatorWeb.ItemLive.ShowModal do
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Inventory.Location
   alias InventoryLocator.Marketplace
+  alias InventoryLocator.Marketplace.Listing
   alias InventoryLocator.Media
   alias Phoenix.LiveView.Socket
 

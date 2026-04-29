@@ -467,9 +467,9 @@
                   <div>
                     <label class="label"><span class="label-text">Type</span></label>
                     <select name="type" class="select select-bordered w-full" required>
-                      <option value="borrow">Borrow</option>
-                      <option value="lease">Lease</option>
-                      <option value="sale">Sale</option>
+                      <%= for type <- Listing.types() do %>
+                        <option value={type}>{String.capitalize(type)}</option>
+                      <% end %>
                     </select>
                   </div>
                   <div>
@@ -518,7 +518,6 @@
                         <span class={[
                           "badge badge-sm",
                           listing.type == "borrow" && "badge-info",
-                          listing.type == "lease" && "badge-warning",
                           listing.type == "sale" && "badge-success"
                         ]}>
                           {String.capitalize(listing.type)}

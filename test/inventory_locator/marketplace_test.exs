@@ -97,7 +97,6 @@ defmodule InventoryLocator.MarketplaceTest do
 
       assert {:ok, _} = Marketplace.create_listing(%{item_type_id: item.id, type: "borrow", active: true})
       assert {:ok, _} = Marketplace.create_listing(%{item_type_id: item.id, type: "sale", active: true})
-      assert {:ok, _} = Marketplace.create_listing(%{item_type_id: item.id, type: "lease", active: true})
     end
 
     test "validates price >= 0" do
@@ -171,12 +170,12 @@ defmodule InventoryLocator.MarketplaceTest do
 
       {:ok, _} = Marketplace.create_listing(%{item_type_id: item1.id, type: "borrow", active: true})
       {:ok, _} = Marketplace.create_listing(%{item_type_id: item1.id, type: "sale", active: true})
-      {:ok, _} = Marketplace.create_listing(%{item_type_id: item2.id, type: "lease", active: true})
+      {:ok, _} = Marketplace.create_listing(%{item_type_id: item2.id, type: "borrow", active: true})
 
       map = Marketplace.listing_types_for_items([item1.id, item2.id])
 
       assert Enum.sort(map[item1.id]) == ["borrow", "sale"]
-      assert map[item2.id] == ["lease"]
+      assert map[item2.id] == ["borrow"]
     end
 
     test "excludes inactive listings" do
