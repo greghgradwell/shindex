@@ -8,12 +8,14 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
   alias InventoryLocator.Inventory
   alias InventoryLocator.Inventory.ItemType
   alias InventoryLocator.Marketplace
+  alias InventoryLocator.Marketplace.Listing
   alias InventoryLocatorWeb.ItemLive.ShowModal
   alias InventoryLocatorWeb.Plugs.RateLimiter
   alias Phoenix.LiveView.Socket
 
   require Logger
 
+  @allowed_listing_types Listing.types()
   @page_size 48
 
   # Progressive rate limits for AI search: burst (per minute) + daily cap.
@@ -108,7 +110,7 @@ defmodule InventoryLocatorWeb.ItemLive.Index do
 
   @impl true
   @spec handle_event(String.t(), map(), Socket.t()) :: {:noreply, Socket.t()}
-  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in ["borrow", "sale"] do
+  def handle_event("toggle_availability_filter", %{"type" => type}, socket) when type in @allowed_listing_types do
     filters = toggle_filter_list(socket.assigns.availability_filters, type)
 
     socket =
